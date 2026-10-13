@@ -39,3 +39,4 @@ jobs:
         run: |
           pnpm --dir runtime run test:uuid
           npm run test:runtime:preview
+          node --test runtime/runtime-channel-renewal-startup.test.mjs

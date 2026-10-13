@@ -2,7 +2,7 @@
 
 Email is a separately built sideloaded App with an external Email Runtime. The App uses Deft's generic trusted renderer; the Runtime owns provider custody, mailbox state, MIME, drafts, files and reviewed sending. Deft supplies account authority, native records, reviewed actions and Task/source navigation.
 
-This checkout prepares App `1.8.0-preview.1` with Runtime `0.3.1-e5.9`. Its recovered baseline is App `1.7.1-e5.3`, Runtime `0.3.1-e5.8` and Host125. A clean app build reproduced the installed baseline package. Live acceptance, clean sideload rehearsal and public release verification remain separate release gates. See [compatibility](docs/compatibility.md).
+This checkout prepares App `1.8.0-preview.2` with Runtime `0.3.1-e5.11`. The previous candidate was App `1.8.0-preview.1` with Runtime `0.3.1-e5.9`; its immutable downloads remain historical evidence. The recovered baseline is App `1.7.1-e5.3`, Runtime `0.3.1-e5.8` and Host125. A clean app build reproduced that installed baseline package. Current UI/provider acceptance and a fresh public installation remain separate gates. See [compatibility](docs/compatibility.md).
 
 ## Build from this repository
 

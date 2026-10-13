@@ -21,7 +21,7 @@ Public dependency closure includes the sealed Kit tarballs and their Correspondi
 
 Kit30 standalone Corresponding Source is prepared as `deft-app-kit-0.1.0-alpha.30-corresponding-source.tar.gz`, SHA256 `6c3e93e3ce77d8602e5845bc75aa5829cae13d3189a29b838cf70f779b30e853`. Its pinned public-tool build reproduces all 227 distribution files byte for byte; the final release must link this asset beside the sealed Kit30 package. Host125's exact source offer includes Kit32 source. Prepared assets do not establish publication availability.
 
-## Frozen candidate, pending installed acceptance and release publication
+## Historical preview.1 candidate
 
 | Artifact | Identity | SHA256 |
 |---|---|---|
@@ -37,3 +37,18 @@ The [complete candidate source offer](https://demo.deft.ing/downloads/deft-previ
 Docker29 may identify an image by OCI index/manifest digest, distinct from its portable configuration digest. The original local candidate index is `sha256:d57891c5167dd688930ede3ea536b526a94942722bf8500c24d08f5545e3a899`; loading the platform archive may change wrapper identity. Verify archive/config/rootfs and use the actual loaded image ID. Existing live Host runtime reporting remains `DEFT_RELEASE_VERSION=0.3.0-preview.117`; image/release metadata is preview.16 and does not change schema authority. Historical SQL and lineage plans are unchanged.
 
 App/Runtime dependency pins remain Kit30/Kit32. Runtime E5.9 changes only the Host connection UUID validation boundary in four executable modules; valid UUIDv5 reattach sessions now pass, while draft/file UUIDv4 guards remain strict. Its exact artifact/image/source pins are recorded in the release asset manifest and Runtime delta/build receipt. Node22.23.2, frozen dependencies, vendor57 provenance and Kit32 remain unchanged. Prepared Git snapshots and candidate downloads are not a published accepted release or an E6 public sideload pass.
+
+## Current review candidate, not installed acceptance
+
+| Artifact | Identity | SHA256 |
+|---|---|---|
+| Email App | 1.8.0-preview.2 | `842788dd3ae3dc2db2dbcba1b2ac66c2927ccf111c2f95c0c50f372bfc555d82` |
+| App canonical manifest | package manifest_digest | `92b4d3332c09e42d16f8751513932855d5432cb566158c56b6129b6dc7e57829` |
+| Experience bundle | protocol7 / bundlev4 | `d2321eaecee5ce33582781dab3a41a9902b778617699e51b3490e63f5bb127df` |
+| Worker bundle | esbuild output | `e1999af34af3e05b158a90e4a10e0005b94f6d434302265321bef91750861163` |
+
+Two App builds reproduced these exact package bytes. App Kit30, Runtime Kit32 and all dependency lock/integrity pins remain unchanged. Runtime `0.3.1-e5.11` preserves the highest recognized account-lineage version when reattach, OAuth upgrade or consent continuation appends receipts. It strictly recovers only a proven legacy version downgrade; inconsistent histories still fail closed. E5.11 also starts action polling immediately, then backs off empty/error claims from500ms to5s without replaying claimed work. Its frozen Runtime source is [commit214f1c1](https://github.com/Maneek21/deft-email/tree/214f1c1d54fb91406c77947233a33bb8b93158bb/runtime). Its source delta is reviewed in Email PR1; package/image/archive identities must be recorded from the new build and source manifest rather than copied from E5.9.
+
+App preview.2 clears previous-account view/action references before a filter switch, removes deferred unread polling and explains the current compose-account distinction. No connection authority or manifest declarations were broadened. A new package still changes grant-bound identities: protocol7 upgrade requires fresh public review/activation and current registrations, followed by exact-account v2 reattachment. The inbox filter does not switch the Host account for compose.
+
+The compatible Host source05 pins above remain historical baseline evidence; the Host and Author Kit PR stack contains additional review changes. Verify the actually deployed Host source/image before installed acceptance. Neither this new App build nor an open PR proves current recipient delivery, rendered UI acceptance or fresh public sideload.

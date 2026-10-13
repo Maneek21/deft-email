@@ -40,7 +40,7 @@ To consume reviewed Send claims, also add runtime_channel_files:["/absolute/priv
 {"channel_url":"https://HOST/api/app-runtime/channel","credential":{"session_id":"RUNTIME_SESSION_UUID","session_token":"RUNTIME_ONLY_CHANNEL_TOKEN"},"registration":{"org_id":"ORG_UUID","runtime_registration_id":"ACTION_REGISTRATION_UUID","runtime_epoch":1}}
 ```
 
-These files are operator enrollment inputs, never author-selectable paths/modules. Polling starts automatically in the process: claim Ã¢â€ â€™ start Ã¢â€ â€™ authorize Ã¢â€ â€™ one fenced dispatch Ã¢â€ â€™ result. Polling uses a500ms idle delay, bounded lease/30s operation deadlines, and aborts on shutdown. Enroll/revoke/rotate channel credentials through the public host Runtime lifecycle; they are not owner bearer tokens. Run node verify-provenance.mjs and the focused npm test script against exact artifact source/dependencies before deployment.
+These files are operator enrollment inputs, never author-selectable paths/modules. Polling starts automatically in the process: claim Ã¢â€ â€™ start Ã¢â€ â€™ authorize Ã¢â€ â€™ one fenced dispatch Ã¢â€ â€™ result. In E5.11 the first action claim starts immediately. Empty claims or polling errors back off from500ms to5s; a claimed result resets the delay. The worker never replays a claimed action, retains bounded lease/30s operation deadlines, and aborts on shutdown. Enroll/revoke/rotate channel credentials through the public host Runtime lifecycle; they are not owner bearer tokens. Run node verify-provenance.mjs and the focused npm test script against exact artifact source/dependencies before deployment.
 
 ## Authority and conditional OAuth
 
