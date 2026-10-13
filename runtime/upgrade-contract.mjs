@@ -1,0 +1,15 @@
+import * as Kit from '@deft/app-kit';
+import {canonical,digest,exact,fail,isoTime} from './contract.mjs';
+import {capabilitiesFor} from './purpose-set.mjs';
+export const UPGRADE_VERSION='deft.app_connection_upgrade_runtime.v1';
+export function validateUpgradeRequest(raw){if(!Kit.AppConnectionUpgradeRuntimeRequestSchema?.safeParse(raw).success)fail('EMAIL_RUNTIME_INPUT_INVALID');capabilitiesFor(raw.action_consents);return structuredClone(raw);}
+export const upgradePins=request=>Object.fromEntries(['schema_version','session_id','scope','source','transport_digest','review_expires_at','action_consents'].map(k=>[k,request[k]]));
+export const upgradeReviewDigest=(request,eligibility)=>'sha256:'+digest({...upgradePins(request),schema_version:'deft.app_connection_upgrade_review_pin.v1',eligibility});
+export const upgradeReceiptDigest=(request,review,runtime_session_ref)=>'sha256:'+digest({schema_version:'deft.app_connection_upgrade_receipt.v1',session_id:request.session_id,scope:request.scope,source:request.source,transport_digest:request.transport_digest,review_digest:review.digest,account_ref:review.account.account_ref,custody_generation:review.custody_generation+1,runtime_session_ref});
+export const upgradeClosureDigest=(request,review)=>'sha256:'+digest({...upgradePins(request),schema_version:'deft.app_connection_upgrade_closure.v1',review_digest:review.digest,reason:'callback_expired',custody_generation:review.custody_generation+1});
+export function createUpgradeChecker({request,registration,assertCurrent,signal,now=Date.now,admittedCallback=false}){
+ if(typeof assertCurrent!=='function')fail('EMAIL_RUNTIME_AUTHORITY_PORT_REQUIRED');
+ let deadline=Math.min(Date.parse(request.expires_at),Date.parse(request.scope.consent_expires_at),request.operation==='status'||admittedCallback&&request.operation==='callback'?Infinity:Date.parse(request.review_expires_at),request.operation==='status'?Infinity:Math.min(...request.action_consents.map(a=>Date.parse(a.expires_at))),now()+30000);const expiry=new AbortController(),combined=AbortSignal.any([signal,expiry.signal].filter(Boolean));let timer;
+ const arm=()=>{clearTimeout(timer);timer=setTimeout(()=>expiry.abort(new Error('EMAIL_RUNTIME_AUTHORITY_EXPIRED')),Math.max(0,deadline-now()));timer.unref();};arm();
+ return {signal:combined,dispose:()=>clearTimeout(timer),async check(){combined.throwIfAborted();if(deadline<=now()||Object.keys(registration).some(k=>registration[k]!==request.scope[k]))fail('EMAIL_RUNTIME_AUTHORITY_DENIED');const expected={...request,expires_at:new Date(deadline).toISOString()},response=await assertCurrent(expected,combined);exact(response,[...Object.keys(expected),'allowed']);const {allowed,expires_at,...pins}=response,{expires_at:ignored,...wanted}=expected;if(allowed!==true||canonical(pins)!==canonical(wanted)||!isoTime(expires_at)||Date.parse(expires_at)<=now()||Date.parse(expires_at)>deadline)fail('EMAIL_RUNTIME_AUTHORITY_DENIED');deadline=Date.parse(expires_at);arm();combined.throwIfAborted();return deadline;}};
+}
