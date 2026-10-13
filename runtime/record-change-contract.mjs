@@ -1,4 +1,4 @@
-import {canonical,digest,exact,fail,isoTime,opaque,validateScope} from './contract.mjs';
+import {canonical,digest,exact,fail,isoTime,opaque,validateScope,hostUuid} from './contract.mjs';
 import {uuid} from './draft-store.mjs';
 import {AppDataRecordSchema,AppPreparedRecordChangeSchema,AppRecordChangeParametersSchema} from '@deft/app-kit';
 import {validateDraftContent} from './draft-store.mjs';
@@ -28,7 +28,7 @@ export function validateChangeRequest(raw){
  exact(raw,['schema_version','request_id','scope','connection','record_authorities','operation','expires_at','input']);
  if(raw.schema_version!=='deft.app_data_runtime.v2'||!uuid(raw.request_id)||!['record_prepare_change','record_apply_change'].includes(raw.operation)||!isoTime(raw.expires_at)||Buffer.byteLength(JSON.stringify(raw))>524288)fail('EMAIL_DATA_INPUT_INVALID');
  validateScope(raw.scope);exact(raw.connection,['session_id','session_revision','runtime_session_ref','account_ref']);
- if(!uuid(raw.connection.session_id)||!revision(raw.connection.session_revision)||!opaque(raw.connection.runtime_session_ref)||!opaque(raw.connection.account_ref))fail('EMAIL_DATA_INPUT_INVALID');
+ if(!hostUuid(raw.connection.session_id)||!revision(raw.connection.session_revision)||!opaque(raw.connection.runtime_session_ref)||!opaque(raw.connection.account_ref))fail('EMAIL_DATA_INPUT_INVALID');
  const input=raw.input;exact(input,['store_key','record_id','expected_revision','expected_content_digest','operation_key','source',...(Object.hasOwn(input,'invocation_mode')?['invocation_mode']:[]),...(Object.hasOwn(input,'parameters')?['parameters']:[]),...(raw.operation==='record_apply_change'?['prepared_id','prepared_digest']:[])]);
  validateInvocation(input);changeReference({store_key:input.store_key,record_id:input.record_id,expected_revision:input.expected_revision,expected_content_digest:input.expected_content_digest});changeReference(input.source);
  if(!key(input.operation_key)||input.store_key===input.source.store_key||raw.operation==='record_apply_change'&&(!uuid(input.prepared_id)||!hash(input.prepared_digest)))fail('EMAIL_DATA_INPUT_INVALID');

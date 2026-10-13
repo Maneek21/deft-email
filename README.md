@@ -2,7 +2,7 @@
 
 Email is a separately built sideloaded App with an external Email Runtime. The App uses Deft's generic trusted renderer; the Runtime owns provider custody, mailbox state, MIME, drafts, files and reviewed sending. Deft supplies account authority, native records, reviewed actions and Task/source navigation.
 
-This checkout prepares App `1.8.0-preview.1`. Its recovered baseline is App `1.7.1-e5.3`, Runtime `0.3.1-e5.8` and Host125. A clean app build reproduced the installed baseline package. Live acceptance, clean sideload rehearsal and public release verification remain separate release gates. See [compatibility](docs/compatibility.md).
+This checkout prepares App `1.8.0-preview.1` with Runtime `0.3.1-e5.9`. Its recovered baseline is App `1.7.1-e5.3`, Runtime `0.3.1-e5.8` and Host125. A clean app build reproduced the installed baseline package. Live acceptance, clean sideload rehearsal and public release verification remain separate release gates. See [compatibility](docs/compatibility.md).
 
 ## Build from this repository
 
@@ -16,6 +16,7 @@ npm run build
 npm run test:app
 npm run test:ui
 npm run test:runtime:preview
+pnpm --dir runtime run test:uuid
 ```
 
 The app build writes `app/app.deft.json`, `app/artifact.json`, `app/worker.bundle.js` and `app/build-result.json`. The Runtime is native ESM source and needs no compilation. `npm run test:runtime` runs its inherited fixture suite; some TLS/POSIX fixtures require Linux and OpenSSL. Test transport and fixture passes do not prove live provider delivery.

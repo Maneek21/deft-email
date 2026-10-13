@@ -1,6 +1,6 @@
 # Operator recipe only; root pins and verifies the official Node24 image digest
 # and public artifact hashes before any controlled deployment.
-ARG NODE_IMAGE=node:24-bookworm-slim
+ARG NODE_IMAGE
 FROM ${NODE_IMAGE}
 RUN npm install --global pnpm@10.33.0
 WORKDIR /opt/email-runtime

@@ -8,7 +8,8 @@ export function exact(value, keys) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length !== keys.length || keys.some(key => !Object.hasOwn(value, key))) fail('EMAIL_RUNTIME_INPUT_INVALID');
   return value;
 }
-const uuid = value => typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu.test(value);
+export const hostUuid = value => typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu.test(value);
+const uuid = hostUuid;
 const key = value => typeof value === 'string' && /^[a-z][a-z0-9_]{0,47}$/u.test(value) && !['constructor', 'prototype', '__proto__'].includes(value);
 const hash = value => typeof value === 'string' && /^sha256:[a-f0-9]{64}$/u.test(value);
 const epoch = value => Number.isInteger(value) && value >= 0 && value <= 2147483647;

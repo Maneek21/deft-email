@@ -1,4 +1,4 @@
-import {canonical,digest,exact,fail,isoTime,opaque,validateScope} from './contract.mjs';
+import {canonical,digest,exact,fail,isoTime,opaque,validateScope,hostUuid} from './contract.mjs';
 import {uuid} from './draft-store.mjs';
 import {APP_DATA_LIMITS,AppDataRuntimeRequestSchema,AppDataResultSchema,AppDataBinaryMetadataSchema,canonicalAppDataJson} from '@deft/app-kit';
 import {createHash} from 'node:crypto';
@@ -11,7 +11,7 @@ export function validateDataRequest(raw){
   exact(raw,['schema_version','request_id','scope','connection','authority','operation','expires_at','input']);
   if(raw.schema_version!=='deft.app_data_runtime.v1'||!uuid(raw.request_id)||!DATA_OPERATIONS.includes(raw.operation)||!isoTime(raw.expires_at)||!raw.input||typeof raw.input!=='object'||Array.isArray(raw.input))fail('EMAIL_DATA_INPUT_INVALID');
   validateScope(raw.scope);exact(raw.connection,['session_id','session_revision','runtime_session_ref','account_ref']);
-  if(!uuid(raw.connection.session_id)||!opaque(raw.connection.account_ref)||!opaque(raw.connection.runtime_session_ref)||!Number.isSafeInteger(raw.connection.session_revision)||raw.connection.session_revision<1)fail('EMAIL_DATA_INPUT_INVALID');
+  if(!hostUuid(raw.connection.session_id)||!opaque(raw.connection.account_ref)||!opaque(raw.connection.runtime_session_ref)||!Number.isSafeInteger(raw.connection.session_revision)||raw.connection.session_revision<1)fail('EMAIL_DATA_INPUT_INVALID');
   exact(raw.authority,['consent_id','consent_digest','data_policy_digest']);
   if((raw.authority.consent_id===null)!==(raw.authority.consent_digest===null)||raw.authority.consent_id!==null&&(!uuid(raw.authority.consent_id)||!/^sha256:[a-f0-9]{64}$/u.test(raw.authority.consent_digest??''))||!/^sha256:[a-f0-9]{64}$/u.test(raw.authority.data_policy_digest??''))fail('EMAIL_DATA_INPUT_INVALID');
   if(Buffer.byteLength(JSON.stringify(raw))>DATA_JSON_BYTES)fail('EMAIL_DATA_INPUT_INVALID');return structuredClone(raw);
