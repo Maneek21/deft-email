@@ -1,0 +1,17 @@
+import {canonical,digest,exact,fail,isoTime} from './contract.mjs';
+import {uuid} from './draft-store.mjs';
+import {validateSettingValue} from './settings-store.mjs';
+import {validateRuleValue} from './rule-matcher.mjs';
+const positive=x=>Number.isSafeInteger(x)&&x>0&&x<=2147483646;
+const meta=row=>{if(!positive(row.revision)||!isoTime(row.created_at)||!isoTime(row.updated_at)||row.updated_at<row.created_at)fail('EMAIL_NATIVE_SETTING_INVALID');return {revision:row.revision,content_revision:row.revision,created_at:row.created_at,updated_at:row.updated_at};};
+// This creates a destination projection identity for a native aggregate child.
+// The aggregate has no UUID; its original primary key/revision remain retained.
+export function nativeSignatureProjectionId(scope,address){const h=digest(['email.native-signature-projection.v1',scope,address.trim().toLocaleLowerCase('en-US')]);return `${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-8${h.slice(17,20)}-${h.slice(20,32)}`;}
+export function nativeSettingsProjections(scope,retained){const result=[];
+ for(const entry of retained.email_templates){const row=entry.row;if(!uuid(row.template_id)||!['active','archived'].includes(row.status))fail('EMAIL_NATIVE_SETTING_INVALID');const value=validateSettingValue('templates',entry.decoded.content_envelope);if(canonical(value)!==canonical(entry.decoded.content_envelope))fail('EMAIL_NATIVE_IMPORT_CONTENT_CHANGED');result.push({store_key:'templates',record_id:row.template_id,...meta(row),status:row.status==='archived'?'archived':'draft',value,native_origin:{table:'email_templates',key:entry.key,revision:row.revision,status:row.status}});}
+ if(retained.email_signatures.length>1)fail('EMAIL_NATIVE_SETTING_INVALID');for(const entry of retained.email_signatures){const preferences=entry.decoded.preferences_envelope;if(!preferences||Object.keys(preferences).join()!=='identities'||!Array.isArray(preferences.identities)||preferences.identities.length>32)fail('EMAIL_NATIVE_SETTING_INVALID');const ids=new Set();for(const value of preferences.identities){const record_id=nativeSignatureProjectionId(scope,value.address),validated=validateSettingValue('signatures',value);if(ids.has(record_id)||canonical(validated)!==canonical(value))fail('EMAIL_NATIVE_SETTING_INVALID');ids.add(record_id);result.push({store_key:'signatures',record_id,...meta(entry.row),status:'draft',value:validated,native_origin:{table:'email_signatures',key:entry.key,revision:entry.row.revision,identity_address:value.address}});}}
+ return result;
+}
+export function nativeRuleProjections(retained){const rows=retained.email_rules.map(entry=>{const row=entry.row;if(!uuid(row.rule_id)||!['active','paused','archived'].includes(row.state)||!Number.isSafeInteger(row.order_index)||row.order_index<0)fail('EMAIL_NATIVE_RULE_INVALID');exact(entry.decoded.content_envelope,['name','match','conditions','exceptions','actions','stop_processing','execution_location']);const value={...entry.decoded.content_envelope,enabled:row.state==='active'},validated=validateRuleValue(value);if(canonical(value)!==canonical(validated))fail('EMAIL_NATIVE_IMPORT_CONTENT_CHANGED');return {record_id:row.rule_id,...meta(row),status:row.state==='archived'?'archived':'draft',value:validated,native_origin:{table:'email_rules',key:entry.key,revision:row.revision,state:row.state,order_index:row.order_index}};});
+ rows.sort((a,b)=>a.native_origin.order_index-b.native_origin.order_index||(a.record_id<b.record_id?-1:1));if(rows.length>100)fail('EMAIL_NATIVE_RULE_INVALID');return rows;
+}

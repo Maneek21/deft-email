@@ -1,0 +1,12 @@
+import {createAuthorityClient,trustedUrl} from './http.mjs';
+import {validateJobLease} from './local-job-contract.mjs';
+import {canonical,fail} from './contract.mjs';
+import {randomUUID} from 'node:crypto';
+/** Same reviewed operator transport bearer; no human/channel token retained. */
+export function createLocalJobClient({channel_url,authority_token,fetch,allow_loopback_fixture=false}){
+ const base=trustedUrl(channel_url,allow_loopback_fixture),url=new URL(base);if(url.pathname!=='/api/app-local-jobs/runtime')fail('EMAIL_LOCAL_JOB_CONFIG_INVALID');
+ const call=name=>createAuthorityClient({authority_url:base+'/'+name,authority_token,fetch,allow_loopback_fixture});
+ const interactive=call('interactive-authority'),authorize=call('authorize'),visibility=call('visibility'),complete=call('complete'),claim=call('claim');
+ return Object.freeze({interactive,authorize,visibility,async claim(scope,signal){const response=await claim({schema_version:'deft.app_local_job_claim.v1',scope,request_id:randomUUID(),limit:1},signal);if(!response||Object.keys(response).length!==1||!Object.hasOwn(response,'lease'))fail('EMAIL_LOCAL_JOB_TRANSPORT_DENIED');if(response.lease===null)return null;const lease=validateJobLease(response.lease);if(canonical(lease.schedule.scope)!==canonical(scope))fail('EMAIL_LOCAL_JOB_TRANSPORT_DENIED');return lease;},async complete(lease,result,signal){const response=await complete({schema_version:'deft.app_local_job_complete.v1',lease,result},signal);if(!response||Object.keys(response).length!==1||canonical(response.result)!==canonical(result))fail('EMAIL_LOCAL_JOB_TRANSPORT_DENIED');return response.result;}});
+}
+export function createLocalJobRunner({runtime,client,onDiagnostic}){return Object.freeze({async runOnce(signal){for(const context of await runtime.contexts()){signal?.throwIfAborted();let lease;try{lease=await client.claim(context.scope,signal);if(!lease)continue;const result=await runtime.execute(lease,signal);await client.complete(lease,result,signal);return result;}catch(error){try{onDiagnostic?.({event:'email_local_job_uncertain',job_id:lease?.schedule.job.job_id??null,attempt_id:lease?.attempt_id??null,code:['EMAIL_LOCAL_JOB_EXPIRED','EMAIL_LOCAL_JOB_SOURCE_DENIED','EMAIL_LOCAL_JOB_CUSTODY_DENIED','EMAIL_LOCAL_JOB_SCOPE_DENIED'].includes(error?.code)?error.code:'OPAQUE_LOCAL_ERROR'});}catch{}if(lease)return {state:'indeterminate'};}}return null;}});}
