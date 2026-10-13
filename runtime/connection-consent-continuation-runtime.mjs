@@ -4,7 +4,7 @@ import {canonical,digest,fail,validateRegistration} from './contract.mjs';
 import {validateOAuthClient,oauthClientFingerprint,grantedOAuthCapabilities} from './vendor/providers/oauth-provider.mjs';
 import {createEncryptedEmailCustody} from './vendor/providers/custody-encrypted.mjs';
 import {sealPurposeSet,capabilitiesFor} from './purpose-set.mjs';
-import {lineageKey,continuityPins,validateLineage} from './account-lineage.mjs';
+import {lineageKey,continuityPins,validateLineage,lineageVersion} from './account-lineage.mjs';
 import {reserveTarget,advanceTarget} from './target-reservation.mjs';
 import {CONTINUATION_VERSION,validateContinuationRequest,continuationPins,continuationReviewDigest,continuationReceiptDigest,createContinuationChecker} from './consent-continuation-contract.mjs';
 const sessionKey=id=>'email.runtime.session.'+id;
@@ -53,7 +53,7 @@ export function createConsentContinuationRuntime({registration:raw,client,provid
       const nextSession={session_id:request.session_id,scope:request.scope,action_consents:request.action_consents,purpose_set:sealPurposeSet(source.binding,request.action_consents,current.custody_generation),client_fingerprint:fingerprint,runtime_session_ref:randomBytes(32).toString('base64url'),binding:source.binding,state:'connected',account:source.account,provider_state:null,callback_expires_at:0};
       const receipt_digest=continuationReceiptDigest(request,request.review,nextSession.runtime_session_ref);
       const initial=lineage??{schema_version:'email.runtime.account_lineage.v1',pins:continuityPins(source),transport_digest:request.transport_digest,epochs:[source.binding.authority_epoch],receipts:[],base:{session_id:source.session_id,binding:source.binding,custody_generation:current.custody_generation},current:{session_id:source.session_id,binding:source.binding,custody_generation:current.custody_generation}};
-      const nextLineage={...initial,schema_version:'email.runtime.account_lineage.v3',receipts:[...initial.receipts,{kind:'consent_continuation',session_id:request.session_id,source_session_id:source.session_id,review_digest:request.review.digest,receipt_digest,authority_epoch:source.binding.authority_epoch,custody_generation:current.custody_generation,pins:continuationPins(request),review:request.review,runtime_session_ref:nextSession.runtime_session_ref,prior_binding:source.binding,current_binding:source.binding,purpose_set:nextSession.purpose_set}],pending:null,current:{session_id:request.session_id,binding:source.binding,custody_generation:current.custody_generation,receipt_digest}};
+      const nextLineage={...initial,schema_version:lineageVersion(initial,'email.runtime.account_lineage.v3'),receipts:[...initial.receipts,{kind:'consent_continuation',session_id:request.session_id,source_session_id:source.session_id,review_digest:request.review.digest,receipt_digest,authority_epoch:source.binding.authority_epoch,custody_generation:current.custody_generation,pins:continuationPins(request),review:request.review,runtime_session_ref:nextSession.runtime_session_ref,prior_binding:source.binding,current_binding:source.binding,purpose_set:nextSession.purpose_set}],pending:null,current:{session_id:request.session_id,binding:source.binding,custody_generation:current.custody_generation,receipt_digest}};
       validateLineage(nextLineage,nextSession);
       await persist({...journal,state:'activation_started',review:request.review,new_session:nextSession,receipt_digest,prior_lineage_digest:digest(lineage??null),next_lineage:nextLineage});
      }

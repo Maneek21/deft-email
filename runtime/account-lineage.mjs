@@ -9,6 +9,21 @@ import {upgradeReviewDigest,upgradeReceiptDigest,upgradeClosureDigest} from './u
 import {sealPurposeSet,credentialAnchor,capabilitiesFor} from './purpose-set.mjs';
 export const lineageKey=binding=>'email.runtime.account_lineage.'+digest([binding.scope,binding.account_id,binding.provider,binding.connection_target]);
 export const continuityPins=session=>({principal:session.binding.scope,account_id:session.binding.account_id,provider:session.binding.provider,target_key:session.scope.target_key,resource_key:session.scope.resource_key,operator_user_id:session.scope.operator_user_id,profile_digest:session.scope.profile_digest,client_fingerprint:session.client_fingerprint});
+const lineageVersions=['email.runtime.account_lineage.v1','email.runtime.account_lineage.v2','email.runtime.account_lineage.v3','email.runtime.account_lineage.v4'];
+const receiptVersions={oauth_upgrade:1,retained_reattach_v2:1,consent_continuation:2,credential_repair:3};
+/** Old v2 writers could lower a v4 header while retaining its authenticated
+ * receipts. Infer only known history; validateLineage still verifies the full
+ * corresponding chain before returning. This never edits a persisted row. */
+export function lineageVersion(lineage,minimum=lineageVersions[0]){
+ let rank=lineageVersions.indexOf(lineage?.schema_version),required=0;const floor=lineageVersions.indexOf(minimum);
+ if(rank<0||floor<0||!Array.isArray(lineage.receipts)||lineage.receipts.length>1024)fail('EMAIL_DATA_SOURCE_CHANGED');
+ for(const receipt of lineage.receipts){if(!receipt||typeof receipt!=='object'||Array.isArray(receipt))fail('EMAIL_DATA_SOURCE_CHANGED');if(receipt.kind!==undefined){if(!Object.hasOwn(receiptVersions,receipt.kind))fail('EMAIL_DATA_SOURCE_CHANGED');required=Math.max(required,receiptVersions[receipt.kind]);}}
+ const closures=Object.hasOwn(lineage,'closed_repairs')?lineage.closed_repairs:[];if(!Array.isArray(closures)||closures.length>1024||closures.some(receipt=>receipt?.kind!=='credential_repair_closure'))fail('EMAIL_DATA_SOURCE_CHANGED');
+ if(closures.length)required=3;
+ // The faulty writers emitted v2/v3, never a v1 header with newer receipts.
+ if(rank===0&&required>0)fail('EMAIL_DATA_SOURCE_CHANGED');
+ return lineageVersions[Math.max(rank,required,floor)];
+}
 // A Begin consumes a setup generation even if its callback never arrives.
 // Expiry receipts bridge only those gaps; successful custody/epoch receipts
 // keep their original ordering and contents.
@@ -30,6 +45,7 @@ function expiredGenerations(lineage){
  },finish(){if(used!==rows.length)fail('EMAIL_DATA_SOURCE_CHANGED');},afterReceipt(){lastReceipt=null;},get lastReceipt(){return lastReceipt;}};
 }
 export function validateLineage(lineage,session){
+ const version=lineageVersion(lineage);if(version!==lineage.schema_version)lineage={...lineage,schema_version:version};
  if(['email.runtime.account_lineage.v2','email.runtime.account_lineage.v3','email.runtime.account_lineage.v4'].includes(lineage?.schema_version))return validateUpgradeLineage(lineage,session);
  if(!lineage||lineage.schema_version!=='email.runtime.account_lineage.v1'||lineage.pending||canonical(lineage.pins)!==canonical(continuityPins(session))||canonical(lineage.current.binding)!==canonical(session.binding)||lineage.current.session_id!==session.session_id||!Array.isArray(lineage.epochs)||!lineage.epochs.length||lineage.epochs.length>1025||!Array.isArray(lineage.receipts)||lineage.receipts.length!==lineage.epochs.length-1||lineage.epochs.some((epoch,index)=>epoch!==lineage.base.binding.authority_epoch+index)||lineage.epochs.at(-1)!==session.binding.authority_epoch)fail('EMAIL_DATA_SOURCE_CHANGED');
  if(!lineage.receipts.length&&canonical(lineage.base.binding)!==canonical(session.binding))fail('EMAIL_DATA_SOURCE_CHANGED');
