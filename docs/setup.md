@@ -194,6 +194,12 @@ Expose `POST /v1/connections` and `POST /v1/data` through reviewed HTTPS routing
 
 Start with `EMAIL_RUNTIME_CONFIG_FILE=/etc/deft-email/runtime.json node runtime/server.mjs`. Then connect each account through Email's ordinary UI, inspect account/From labels, and perform [the smoke journey](smoke.md). Record session/consent/renewal deadlines. Re-enroll through supported public flows when authority expires; do not silently edit credential files to simulate continuity.
 
+## Account selection and human access
+
+The inbox account pills filter the messages being read. They do not change the Host's current account for trusted compose, saved drafts and From identity. To compose from another connected account, use **Email settings → Accounts → Use account**, then reopen Email in that account context. A disabled Compose while another read filter is selected is not evidence that Send consent is missing. Check the current account before requesting more access.
+
+Opening Email creates a human Experience session. The normal UI acquires the current private-access exposure and, when necessary, presents its exact review before accepting it. This is separate from Runtime enrollment, account Read consent and human action consent. An API-only client must use `POST /api/app-experiences/sessions/SESSION_ID/access/acquire` with `{}` before a reviewed record action; if it returns `review_required`, use the supported `/access/review` and `/access/accept` workflow with its unmodified current token/digest and `accept_exposure: true`. Reuse existing equivalent consent when offered; never turn an access error into expanded permissions automatically. Draft writes alone do not prove that a session can prepare or submit Send.
+
 ## Rehearsal acceptance
 
 Record the exact clean checkout, Host image/source, App/package/experience digests, fresh workspace and current reviewed registration pins. Require: public upload/stage/review/activate; no native Email adapter configured; ordinary account connection; one-click Refresh finds new controlled mail; save/reopen a draft; attach/remove a file; review/confirm Send with independent receipt; open a Task's Email source backlink; restart the sole Runtime with the same private store/key and reopen the draft. Keep private credentials and mailbox evidence outside release artifacts.

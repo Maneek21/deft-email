@@ -3,7 +3,6 @@ import {ruleMeta,ruleForm,ruleEvent,newRuleValue,rulePreviewQuery,ruleParameters
 import {folderMeta,folderReference,folderPath,folderChoices,succeededUndoSources,knownOrganizeReceipt,exactLoadedSelection} from './folder-ui.mjs';
 import {emailSearchHelp,emailSearchUnsupportedReason} from './search-help.mjs';
 import {sentReceiptNotice} from './sent-status.mjs';
-import {unreadSummary,unreadLabel} from './mailbox-status.mjs';
 import {emailProviderSupport,emailRowsProvider,emailOrganizeAvailable} from './provider-admission.mjs';
 import {settingMeta,settingRecordForm,settingRecordEvent,verifiedSettingIdentities,providerSettingsNodes} from './settings-ui.mjs';
 import {createDeftExperienceSdk} from '@deft/app-kit/experience';
@@ -17,7 +16,7 @@ self.onmessage=event=>{
  let importedRows=[],importedCursor=null,importedChoice=null,importedAccount=null;
  let ruleRows=[],ruleOrder=null,ruleChoice=null,ruleEditor=null,rulePreview=[],ruleChecked=new Map(),rulePending=null,ruleAccount=null;
  let accountTargets=[],accountChoice=null,selectedAccountTarget=null,accountPages=new Map();
- let unreadNotice='',unreadTimer=null,searchHelpOpen=false,keyboardEnabled=true;
+ let searchHelpOpen=false,keyboardEnabled=true;
  let items=[],cursor=null,selected=null,mode='reader',folder='inbox',query='',busy=false,status='',draft=null,draftRows=[],generation=0;
  let pane='list',searchOpen=false,observed=null,complete=false,pendingCreate=null,appliedQuery='',conversation=null,draftCursor=null,historyRows=[],historyOpen=false,minimizedDraft=null;
  let preference=null,initialDraftId=null,sendNotice='',inspectionRun=null;let settingStore='templates',settingRows=[],settingCursor=null,setting=null,pendingSetting=null,settingIdentities=[];
@@ -37,6 +36,7 @@ self.onmessage=event=>{
  const rowId=(prefix,item)=>prefix+'_'+String(item.record_id).replaceAll('-','').toLowerCase();
  const conversationPage=()=>conversation?.items.slice(conversation.page*10,conversation.page*10+10)??[];
  const canClose=()=>!rulePending&&(!ruleEditor||!ruleEditor.dirty&&!['saving','blocked'].includes(ruleEditor.state))&&!pendingSetting&&(!setting||!setting.dirty&&!['saving','blocked'].includes(setting.state))&&(!draft||!draft.dirty&&!['saving','blocked'].includes(draft.state));
+ const canChangeAccount=()=>canClose()&&!pendingCreate&&!actionPending&&!pendingActionRun&&!pendingOrganizeBatch&&(!minimizedDraft||!minimizedDraft.dirty&&!['saving','blocked'].includes(minimizedDraft.state));
  const folders=Object.freeze({inbox:{label:'Inbox',query:'in:inbox'},sent:{label:'Sent',query:'in:sent'},archive:{label:'Archive',query:'in:archive'},starred:{label:'Starred',query:'is:starred'},spam:{label:'Spam',query:'in:spam'},trash:{label:'Trash',query:'in:trash'}});
  const navigation=()=>[
   button('folder_inbox','Inbox','ghost',{selected:mode==='reader'&&!appliedQuery&&folder==='inbox'}),
@@ -49,6 +49,8 @@ self.onmessage=event=>{
   ...['starred','spam','trash'].map(key=>button('folder_'+key,folders[key].label,'ghost',{selected:mode==='reader'&&!appliedQuery&&folder===key})),
  ];
  function render(){
+  const composeAccountMismatch=accountTargets.length>1&&(accountChoice==='all'||accountChoice!==selectedAccountTarget);
+  const composeAccountLabel=accountTargets.find(target=>target.key===selectedAccountTarget)?.label||'the current account';
   const toolbar=stack('toolbar',[button('compose',minimizedDraft?'Resume draft':'Compose','primary',{icon:'compose',disabled:busy||!!pendingCreate||!canClose()||(!minimizedDraft&&accountTargets.length>1&&(accountChoice==='all'||accountChoice!==selectedAccountTarget)),description:!minimizedDraft&&accountTargets.length>1?'Select the connected compose account in account settings.':undefined}),
    button('refresh','Refresh','ghost',{icon:'refresh',disabled:busy||!canClose()}),
    button('toggle_search','Search','ghost',{icon:'search',selected:searchOpen,disabled:busy||mode==='compose'||mode==='history'||mode==='settings'||mode==='setting'}),
@@ -81,7 +83,6 @@ self.onmessage=event=>{
   ],{layout:'list',surface:'document'});}
   else{
    const list=stack('message_list',[stack('mailbox_header',[text('folder_title',appliedQuery?'Search results':folders[folder].label,'heading'),stack('mailbox_header_actions',[toolbar.children[2],toolbar.children[1],button('toggle_selection',selectionMode?'Exit selection':'Select messages','ghost',{icon:'select',selected:selectionMode,disabled:busy}),toolbar.children[0]],{layout:'horizontal'})],{layout:'toolbar'}),...(search?[search,...(searchHelpOpen?[text('search_syntax',emailSearchHelp,'caption'),text('keyboard_help','Keyboard: C compose, / search, J/K move between messages, Enter open, R reply. Shortcuts pause while typing or using dialogs.','caption')]:[])]:[]),
-    ...(unreadNotice&&!['Unread count unavailable','Counting unread messages…'].includes(unreadNotice)&&folder==='inbox'&&!appliedQuery?[text('inbox_unread',unreadNotice,'caption')]:[]),
     ...(selectionMode?[stack('selection_toolbar',[text('selection_count',`${checked.size} selected`,'caption'),button('select_loaded','Select loaded (up to 100)','ghost',{disabled:busy||!items.length}),button('clear_selection','Clear','ghost',{disabled:busy||!checked.size}),button('selection_actions','Actions','ghost',{icon:'more',selected:organizeOpen,disabled:busy||!checked.size||actionPending||!emailOrganizeAvailable(items.filter(item=>checked.get(item.record_id)===item.content_digest))})],{layout:'toolbar'}),...(items.length>25?[text('selection_limit','Choose up to 100 loaded messages. One review runs exact groups of up to 25 in order.','caption')]:[])]:[]),
     ...((undoSources.length||batchUndo.length)?[button('undo_mailbox_action','Undo last completed change','ghost',{disabled:busy||actionPending})]:[]),
     ...((pendingActionRun||pendingOrganizeBatch)?[button('check_mailbox_action','Check action status','ghost',{disabled:busy})]:[]),
@@ -116,11 +117,10 @@ self.onmessage=event=>{
    ...(selected?[{key:'r',target_id:'reply',behavior:'activate',focus_after:'draft_form'}]:[])],
    ...(items.length?{navigation:{previous_key:'k',next_key:'j',list_id:'message_list'}}:{})}:undefined;
   sdk.render({schema_version:'deft.experience_view.v2',capabilities:['record_form_seed.v1','repeated_fields.v1','record_mirror.v1','keyboard_controls.v1','local_job.v1','record_document.v1','record_document_policy.v1','record_form.v1','record_form.v2','record_initial_change.v1','record_change_parameters.v1','record_form_presentation.v1'],...(keyboard?{keyboard}:{}),
-   root:stack('email_root',[...(mode==='reader'?[stack('account_catalog',[button('account_all','All accounts','ghost',{selected:accountChoice==='all'}),...accountTargets.map((target,index)=>button('account_pick_'+index,target.label,'ghost',{selected:accountChoice===target.key}))],{layout:'horizontal'})]:[]),...(mode==='reader'?[]:[toolbar]),...(status?[text('status',status,'caption')]:[]),content,...(minimizedDraft?[{...emailRecordForm(minimizedDraft,{disabled:true}),presentation:'minimized'},stack('minimized_draft',[button('restore_draft','Resume saved draft','secondary',{description:minimizedDraft.summary?.subject||'Draft',disabled:busy||!canClose()}),button('dismiss_minimized','Keep in Drafts','ghost',{disabled:busy})],{layout:'toolbar'})]:[])],{layout:'workspace'}),navigation:navigation()});
+   root:stack('email_root',[...(mode==='reader'?[stack('account_catalog',[button('account_all','All accounts','ghost',{selected:accountChoice==='all',disabled:busy||!canChangeAccount()}),...accountTargets.map((target,index)=>button('account_pick_'+index,target.label,'ghost',{selected:accountChoice===target.key,disabled:busy||!canChangeAccount()}))],{layout:'horizontal'}),...(composeAccountMismatch&&!minimizedDraft?[text('compose_account_notice',`These filters change the messages you read. Compose uses ${composeAccountLabel}. To compose from another account, open Email settings → Accounts and choose Use account.`,'caption')]:[])]:[]),...(mode==='reader'?[]:[toolbar]),...(status?[text('status',status,'caption')]:[]),content,...(minimizedDraft?[{...emailRecordForm(minimizedDraft,{disabled:true}),presentation:'minimized'},stack('minimized_draft',[button('restore_draft','Resume saved draft','secondary',{description:minimizedDraft.summary?.subject||'Draft',disabled:busy||!canClose()}),button('dismiss_minimized','Keep in Drafts','ghost',{disabled:busy})],{layout:'toolbar'})]:[])],{layout:'workspace'}),navigation:navigation()});
  }
  async function mailbox({append=false,refresh=false,nextFolder=folder,nextQuery=appliedQuery,resetSelection=false}={}){
   const request=++generation;
-  clearTimeout(unreadTimer);unreadNotice='';
   if(refresh){const refreshed=await sdk.refreshDataResource('drafts','inbox');if(request!==generation)return;
    if(refreshed.outcome!=='completed')throw Error('Mailbox refresh could not be confirmed');}
   if(!Object.hasOwn(folders,nextFolder))throw Error('Unknown mailbox folder');
@@ -146,14 +146,6 @@ self.onmessage=event=>{
   if(resetSelection){selected=null;pane='list';query=nextQuery;conversation=null;checked.clear();selectionMode=false;organizeOpen=false;}
   else if(selected){const fresh=items.find(item=>item.record_id===selected.record_id);selected=fresh??null;}
   conversation=null;mode='reader';draft=null;setting=null;settingIdentities=[];status=notices.join(' · ');
-  if(folder==='inbox'&&!appliedQuery)void updateUnread(request,targets);
- }
- async function updateUnread(request,targets,counts=new Map(),round=0){
-  if(request!==generation||mode!=='reader')return;
-  let next=0;await Promise.all(Array.from({length:Math.min(2,targets.length)},async()=>{for(;;){const target=targets[next++];if(!target)return;if(counts.get(target.key)?.ready)continue;try{counts.set(target.key,unreadSummary(await sdk.listRecords('mailbox_status',null,target.key)));}catch{counts.set(target.key,null);}}}));
-  if(request!==generation||mode!=='reader')return;
-  const values=targets.map(target=>counts.get(target.key));unreadNotice=unreadLabel(values);render();
-  if(values.some(value=>value&&!value.ready)&&round<400){unreadTimer=setTimeout(()=>void updateUnread(request,targets,counts,round+1),1000);unreadTimer?.unref?.();}
  }
  async function related({append=false}={}){
   const anchor=append?conversation.anchor:selected.record_id,request=++generation;
@@ -327,7 +319,7 @@ self.onmessage=event=>{
    else if(event.node_id==='new_setting'&&mode==='settings'){if(settingStore!=='signatures')await createSetting();else{const existing=await signatureAddresses(),identities=verifiedSettingIdentities(await sdk.request('app_data','signatures',{operation:'connection_metadata',input:{store_key:'signatures'}}));settingIdentities=identities.filter(identity=>!existing.has(identity.address.toLowerCase())).map(identity=>({...identity,id:newRecordId().replaceAll('-','')}));status=settingIdentities.length?'Choose the From address for this signature.':'No additional verified From addresses are available.';}}
    else if(/^signature_identity_[a-f0-9]{32}$/.test(event.node_id)&&mode==='settings'){const identity=settingIdentities.find(item=>'signature_identity_'+item.id===event.node_id);if(!identity)throw Error('Identity choice changed');await createSetting(identity.address);}
    else if(/^setting_(templates|signatures|preferences|smtp_preferences)_[a-f0-9]{32}$/.test(event.node_id)&&mode==='settings'){const item=settingRows.find(row=>rowId('setting_'+settingStore,row)===event.node_id);if(!item)throw Error('Saved content unavailable');const meta=settingMeta(settingStore,await sdk.readRecordMeta(settingStore,item.record_id));if(meta.record_id!==item.record_id||meta.status!=='draft')throw Error('Saved content changed');setting={...meta,summary:{...item.summary,...meta.summary}};mode='setting';}
-   else if(event.node_id==='account_all'||event.node_id.startsWith('account_pick_')){if(!canClose())return;accountChoice=event.node_id==='account_all'?'all':accountTargets[Number(event.node_id.slice(13))]?.key;if(!accountChoice)throw Error('Account selection unavailable');importedRows=[];importedCursor=null;importedChoice=null;importedAccount=null;accountPages.clear();await mailbox({resetSelection:true});}
+   else if(event.node_id==='account_all'||event.node_id.startsWith('account_pick_')){if(!canChangeAccount())return;const choice=event.node_id==='account_all'?'all':accountTargets[Number(event.node_id.slice(13))]?.key;if(!choice)throw Error('Account selection unavailable');if(choice===accountChoice)return;accountChoice=choice;items=[];selected=null;conversation=null;cursor=null;observed=null;complete=false;pane='list';checked.clear();selectionMode=false;organizeOpen=false;draft=null;minimizedDraft=null;draftRows=[];historyRows=[];initialDraftId=null;mode='reader';importedRows=[];importedCursor=null;importedChoice=null;importedAccount=null;accountPages.clear();render();await mailbox({resetSelection:true});}
    else if(event.node_id==='compose'){setting=null;if(minimizedDraft)await restoreDraft();else await compose();}
    else if(event.node_id==='undo_mailbox_action'&&batchUndo.length){const owned=batchUndo;batchUndo=[];await organizeBatch(owned.map(original=>({store_key:'drafts',resource_key:'inbox',action_key:'organize_messages',operation_key:'undo',sources:original.sources,undo:original.prepared_ref})));}
    else if(event.node_id==='undo_mailbox_action'&&originalOrganize&&undoSources.length){const owned=originalOrganize,refs=undoSources;undoSources=[];await organize('undo',{undo:owned.prepared_ref},refs);}

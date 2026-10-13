@@ -21,6 +21,8 @@ pnpm --dir runtime run test:uuid
 
 The app build writes `app/app.deft.json`, `app/artifact.json`, `app/worker.bundle.js` and `app/build-result.json`. The Runtime is native ESM source and needs no compilation. `npm run test:runtime` runs its inherited fixture suite; some TLS/POSIX fixtures require Linux and OpenSSL. Test transport and fixture passes do not prove live provider delivery.
 
+[Email focused checks](.github/workflows/ci.yml) runs the locked install, Kit/vendor provenance, App build/package/UI tests and focused Runtime UUID/foreground contracts on Linux. It needs no deployment secrets, operator configuration or mailbox credentials. A green job proves those local contracts; live acceptance and a fresh public installation remain separate checks.
+
 `npm run package:source` produces `dist/email-<version>-source.tar.gz`, `dist/runtime-artifact.tgz` and a per-file SHA256 manifest with both archive hashes. It includes App/Runtime source, tests, licenses, lockfiles and pinned Kit packages. It excludes installed dependencies, generated app outputs, local state and private operator files. The Runtime archive has one `runtime/` prefix for the operator Docker recipe's strip-components step, and retains its frozen lockfile. This optional packaging step uses Python3's standard library with fixed timestamps, ownership, modes and sorted file order; App/Runtime build and execution use Node. Release archives should be assembled after the candidate freezes.
 
 ## Install and connect
@@ -47,4 +49,4 @@ Authority is finite. Exact current session, consent and renewal ceilings govern 
 
 AGPL-3.0-only; original copyright and notices are preserved in [LICENSE](LICENSE) and [NOTICE](NOTICE). Runtime frozen-source provenance is in `runtime/PROVENANCE.json`; verify it before packaging. Third-party dependency licenses remain those in the installed packages. Synthetic fixture certificates and test identities are test material.
 
-The upstream Deft source is [Maneek21/Deft](https://github.com/Maneek21/Deft). The intended separate publication destination is `Maneek21/deft-email`, pending root verification before publication. The exact released source offer must be recorded with that release. Private demo evidence and operator data are maintained outside this repository.
+The upstream Deft source is [Maneek21/Deft](https://github.com/Maneek21/Deft). This separate repository is [Maneek21/deft-email](https://github.com/Maneek21/deft-email); the candidate is reviewed in [PR 1](https://github.com/Maneek21/deft-email/pull/1). Public candidate artifacts retain their exact historical source offer. Review changes require new build identities before deployment; an open PR is not a published release. Private demo evidence and operator data are maintained outside this repository.
