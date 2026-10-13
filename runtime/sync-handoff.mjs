@@ -1,4 +1,4 @@
-import {canonical,digest,fail,validateScope as fullScope,opaque} from './contract.mjs';
+import {canonical,digest,fail,validateScope as fullScope,opaque,hostUuid} from './contract.mjs';
 import {uuid} from './draft-store.mjs';
 
 export const SYNC_HANDOFF_LIMITS=Object.freeze({pages:128,page_bytes:900*1024});
@@ -7,7 +7,7 @@ const same=(a,b)=>canonical(a)===canonical(b);
 const denied=()=>fail('EMAIL_SYNC_HANDOFF_INVALID');
 const shape=(value,keys)=>value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).sort().join(',')===[...keys].sort().join(',');
 const validateScope=scope=>{if(!shape(scope,['account_id','org_id','owner_user_id'])||!opaque(scope.account_id)||!uuid(scope.org_id)||!uuid(scope.owner_user_id))denied();};
-const pins=(value,scope)=>{if(!shape(value,['scope','session_id','runtime_session_ref','custody_generation','client_fingerprint'])||!uuid(value.session_id)||!opaque(value.runtime_session_ref)||!Number.isSafeInteger(value.custody_generation)||value.custody_generation<1||!/^[a-f0-9]{64}$/u.test(value.client_fingerprint??''))denied();fullScope(value.scope);if(scope&&(value.scope.org_id!==scope.org_id||value.scope.owner_user_id!==scope.owner_user_id))denied();return structuredClone(value);};
+const pins=(value,scope)=>{if(!shape(value,['scope','session_id','runtime_session_ref','custody_generation','client_fingerprint'])||!hostUuid(value.session_id)||!opaque(value.runtime_session_ref)||!Number.isSafeInteger(value.custody_generation)||value.custody_generation<1||!/^[a-f0-9]{64}$/u.test(value.client_fingerprint??''))denied();fullScope(value.scope);if(scope&&(value.scope.org_id!==scope.org_id||value.scope.owner_user_id!==scope.owner_user_id))denied();return structuredClone(value);};
 /** A bounded immutable native-page ring. The mailbox index's sequence is the
  * commit witness: a prepared page alone never advances provider state. */
 export function createSyncHandoff({store}){

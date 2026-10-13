@@ -40,4 +40,4 @@ jobs:
           pnpm --dir runtime run test:uuid
           npm run test:runtime:preview
           node --test runtime/runtime-channel-renewal-startup.test.mjs
-          node --test runtime/http-failure-diagnostic.test.mjs
+          node --test runtime/http-failure-diagnostic.test.mjs runtime/sync-handoff-host-uuid.test.mjs
