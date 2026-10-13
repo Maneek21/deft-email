@@ -7,13 +7,13 @@ import {webcrypto} from 'node:crypto';
 const id='11111111-1111-4111-8111-111111111111',digest='sha256:'+'a'.repeat(64);
 const mail={record_id:id,content_digest:digest,label:'Preview message',data:{provider:'gmail',subject:'Preview message',sender:'Sender <sender@example.test>',date:'2026-10-13T10:00:00Z',preview:'A controlled preview message.'}};
 const row={record_id:id,revision:2,content_digest:digest,status:'draft',summary:{subject:'Saved preview draft',to:'recipient@example.test'}};
-async function start({refresh=async()=>({outcome:'completed'}),targets=[{key:'primary',label:'Primary account'}],selectedTarget=targets[0]?.key,messages=[mail],listMailbox,listSaved}={}){
+async function start({refresh=async()=>({outcome:'completed'}),targets=[{key:'primary',label:'Primary account'}],selectedTarget=targets[0]?.key,messages=[mail],listMailbox,listSaved,request}={}){
  const views=[],listedTargets=[],listedStores=[];let handler;
  const sdk={render:view=>{const ids=new Set();for(const node of nodes(view)){assert.ok(!ids.has(node.id),`Duplicate node ${node.id}`);ids.add(node.id);}views.push(view);},onEvent:event=>handler=event,
   listAccountTargets:async()=>({targets,selected_target_key:selectedTarget}),
   listDataResources:async(_store,_resource,_cursor,_query,target)=>{listedTargets.push(target);return listMailbox?listMailbox(target):{outcome:'completed',items:messages,next_cursor:null,freshness:{complete:true,observed_at:'2026-10-13T10:00:00Z'}};},refreshDataResource:refresh,
   listRecords:async store=>{listedStores.push(store);return listSaved?listSaved(store):{outcome:'completed',items:store==='drafts'?[row]:[],next_cursor:null};},readRecordMeta:async()=>row,
-  createRecord:async(_store,record_id)=>({outcome:'completed',record:{...row,record_id}})};
+  createRecord:async(_store,record_id)=>({outcome:'completed',record:{...row,record_id}}),request};
  const source=await readFile(new URL('./worker.mjs',import.meta.url),'utf8'),bindings={};
  for(const match of source.matchAll(/^import \{[^}]+\} from '(\.\/[^']+)';/gm))Object.assign(bindings,await import(match[1]));
  const self={};vm.runInNewContext(source.replace(/^import .*;\r?\n/gm,''),{self,...bindings,createDeftExperienceSdk:()=>sdk,crypto:webcrypto,TextEncoder,Date,Map,setTimeout,clearTimeout});
@@ -94,4 +94,25 @@ test('an unsaved compose cannot be cleared by an account filter event',async()=>
  const form=node(ui,'draft_form');await ui.input({node_id:'draft_form',record_id:form.record_id,record_revision:0,content_digest:'sha256:'+'0'.repeat(64),record_state:'unsaved',dirty:true,valid:true});
  await ui.click('account_pick_1');assert.ok(node(ui,'draft_form'));assert.equal(node(ui,'draft_form').record_id,form.record_id);
  assert.deepEqual(ui.listedTargets,['primary']);
+});
+for(const count of [1,26])test(`account switch removes undo for a completed ${count===1?'single action':'action batch'}`,async()=>{
+ const messages=Array.from({length:count},(_,index)=>({...mail,record_id:`11111111-1111-4111-8111-${String(index+1).padStart(12,'0')}`}));
+ const receipt={snapshot_id:id,snapshot_digest:digest},runs=new Map();let dialogCalls=0;
+ const ui=await start({targets:accountSwitch.targets,messages,request:async(kind,key,input)=>{
+  if(kind==='dialog'){dialogCalls++;const children=key==='review_resource_action_batch'?input.children:[input];
+   const entries=children.map((child,index)=>{const run_id=`22222222-2222-4222-8222-${String(index+1).padStart(12,'0')}`;runs.set(run_id,child);return {run_id};});
+   return children.length===1?{run:{id:entries[0].run_id},prepared_ref:receipt}:{batch:{id},items:entries,prepared_refs:children.map(()=>receipt)};
+  }
+  const child=runs.get(input.run_id);assert.ok(child);return {id:input.run_id,state:'succeeded',output:{operation_id:input.run_id,operation_key:child.operation_key,automatic_retry:false,item_count:child.sources.length,succeeded_count:child.sources.length,failed_count:0,items_json:JSON.stringify(child.sources.map(source=>({record_id:source.record_id,state:'succeeded'})))}};
+ }});
+ await ui.click('toggle_selection');await ui.click('select_loaded');await ui.click('organize_archive');await ui.click('check_mailbox_action');
+ assert.ok(node(ui,'undo_mailbox_action'));await ui.click('account_pick_1');
+ assert.equal(node(ui,'undo_mailbox_action'),undefined);await ui.click('undo_mailbox_action');assert.equal(dialogCalls,1);
+});
+test('another account reader never nominates the current compose account image preference',async()=>{
+ const preference={...row,store_key:'preferences',summary:{external_images:'always'}};
+ const ui=await start({targets:accountSwitch.targets,listSaved:async store=>({outcome:'completed',items:store==='preferences'?[preference]:[],next_cursor:null})});
+ await ui.click('mail_'+id.replaceAll('-',''));assert.equal(node(ui,'mail_body').image_policy.record_id,id);
+ await ui.click('account_pick_1');await ui.click('mail_'+id.replaceAll('-',''));assert.equal(node(ui,'mail_body').image_policy,undefined);
+ await ui.click('account_pick_0');await ui.click('mail_'+id.replaceAll('-',''));assert.equal(node(ui,'mail_body').image_policy.record_id,id);
 });
