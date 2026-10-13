@@ -50,7 +50,7 @@ export function createAuthorityClient({authority_url, authority_token, fetch: fe
   };
 }
 const sha = value => createHash('sha256').update(value).digest();
-export function createHttpHandler({runtime, data_runtime, local_job_runtime, run_inspection_runtime, integration_tool_runtime, runtime_auth_token, onDenial=entry=>console.error(JSON.stringify(entry))}) {
+export function createHttpHandler({runtime, data_runtime, local_job_runtime, run_inspection_runtime, integration_tool_runtime, runtime_auth_token, onDenial=entry=>console.error(JSON.stringify(entry)), onFailure=entry=>console.error(JSON.stringify(entry))}) {
   const expected = sha(token(runtime_auth_token));
   return async (request, response) => {
     const send = (value, status = 200) => { response.writeHead(status, {'content-type': 'application/json', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff'}); response.end(JSON.stringify(value)); };
@@ -91,7 +91,11 @@ export function createHttpHandler({runtime, data_runtime, local_job_runtime, run
       const diagnosticCodes=new Set(['EMAIL_NATIVE_HISTORY_DENIED','EMAIL_NATIVE_PROVIDER_RECONNECT_REQUIRED','EMAIL_RECIPIENT_INPUT_INVALID','EMAIL_RECIPIENT_AUTHORITY_DENIED','EMAIL_DATA_AUTHORITY_DENIED','EMAIL_DATA_CONNECTION_DENIED','EMAIL_DATA_SOURCE_CHANGED','EMAIL_INTEGRATION_TOOL_AUTHORITY_DENIED','EMAIL_INTEGRATION_TOOL_EXPIRED']);
       if(diagnostic&&diagnosticCodes.has(error?.code)){try{onDenial({event:'email_runtime_denied',...diagnostic,code:error.code});}catch{}}
       const code = safe.has(error?.code) ? error.code : 'EMAIL_RUNTIME_UNAVAILABLE';
-      if (!response.destroyed && !response.writableEnded) send({error: code}, code === 'EMAIL_RUNTIME_INPUT_INVALID' ? 400 : code === 'EMAIL_RUNTIME_UNAVAILABLE' ? 503 : 403);
+      const status=code==='EMAIL_RUNTIME_INPUT_INVALID'?400:code==='EMAIL_RUNTIME_UNAVAILABLE'?503:403;
+      // Internal failure codes are a closed list, never an arbitrary provider string.
+      const failureCodes=new Set(['EMAIL_RUNTIME_TRANSPORT_DENIED','EMAIL_RUNTIME_TRANSPORT_LIMIT','EMAIL_DATA_OPERATION_UNAVAILABLE','EMAIL_DATA_RESULT_INVALID','EMAIL_OAUTH_AUTHORITY_DENIED','EMAIL_CONNECTION_AUTHORITY_DENIED','EMAIL_OAUTH_ACCOUNT_BINDING_DENIED','EMAIL_OAUTH_CUSTODY_BINDING_DENIED','EMAIL_OAUTH_CUSTODY_INVALID','EMAIL_OAUTH_CUSTODY_UNAVAILABLE','EMAIL_OAUTH_FILE_STORE_LOCK_BUSY','EMAIL_OAUTH_FILE_STORE_STALE_LOCK','EMAIL_OAUTH_FILE_STORE_FENCE_LOST','EMAIL_OAUTH_FILE_STORE_UNAVAILABLE','EMAIL_OAUTH_REAUTH_REQUIRED','EMAIL_OAUTH_PROVIDER_UNAVAILABLE','EMAIL_OAUTH_PROVIDER_REQUEST_FAILED','EMAIL_OAUTH_PROVIDER_RESPONSE_INVALID','EMAIL_OAUTH_PROVIDER_RESPONSE_LIMIT','EMAIL_PROVIDER_NETWORK_UNAVAILABLE','EMAIL_PROVIDER_PERMISSION_DENIED','EMAIL_PROVIDER_RATE_LIMITED','EMAIL_PROVIDER_REAUTH_REQUIRED','EMAIL_PROVIDER_REQUEST_FAILED','EMAIL_PROVIDER_RESPONSE_INVALID','EMAIL_PROVIDER_RESPONSE_LIMIT','EMAIL_PROVIDER_SCAN_DEADLINE','EMAIL_RUNTIME_STORE_CLOSED','EMAIL_RUNTIME_STORE_KEY_UNAVAILABLE','EMAIL_RUNTIME_STORE_LIMIT','EMAIL_RUNTIME_STORE_ROW_INVALID','EMAIL_RUNTIME_WRITER_FENCE_LOST']);
+      if(diagnostic&&status===503){const failureCode=failureCodes.has(error?.code)?error.code:error?.name==='TimeoutError'?'EMAIL_RUNTIME_TIMEOUT':error?.name==='AbortError'?'EMAIL_RUNTIME_ABORTED':'EMAIL_RUNTIME_UNAVAILABLE';try{onFailure({event:'email_runtime_http_failure',...diagnostic,status,code:failureCode});}catch{}}
+      if (!response.destroyed && !response.writableEnded) send({error: code}, status);
     } finally {request.off('aborted', aborted); request.off('close', requestClosed); response.off('close', responseClosed);}
   };
 }
