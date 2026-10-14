@@ -1,6 +1,6 @@
 # Foreground preview setup
 
-Use the exact compatible candidate in [compatibility](compatibility.md). This is the intended public installation sequence, not a completed installation claim. The last schema 117 activation rejected the supplemental-effect field; stop before activation until a corrected Host and its exact schema/image pins have been verified. Files under `runtime/` retain historical implementation notes; their e3.x/Kit16 version descriptions are not the current installation recipe.
+Use the exact compatible candidate in [compatibility](compatibility.md). This is the intended public installation sequence, not a completed installation claim. A compatible Host must include schema 118 supplemental-effect validation and the public generic contracts. The earlier schema 117 refusal is historical; verify the selected Host's actual image/source/schema and supported fresh or retained upgrade before staging. Fresh end-user sideload/OAuth acceptance of the new candidate is still pending. Files under `runtime/` retain historical implementation notes; their e3.x/Kit16 version descriptions are not the current installation recipe.
 
 ## Start an isolated compatible Deft
 

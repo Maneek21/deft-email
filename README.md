@@ -2,7 +2,7 @@
 
 Email is a separately built sideloaded App with an external Email Runtime. The App uses Deft's generic trusted renderer; the Runtime owns provider custody, mailbox state, MIME, drafts, files and reviewed sending. Deft supplies account authority, native records, reviewed actions and Task/source navigation.
 
-This checkout prepares the author-independence candidate: App `1.9.0-preview.1`, Runtime `0.4.0-preview.1`, both using Kit `0.1.0-alpha.33`. It declares generic record form v3, sealed supplemental effects and capture nomination v2. Mailbox grammar, MIME, provider custody, Sent-copy semantics and quoted-history normalization are Email-owned modules. Historical preview.2/E5.11 and sealed Kit30/32 artifacts remain evidence for their exact old versions; they do not prove acceptance of this new candidate. See [compatibility](docs/compatibility.md).
+This checkout is a reviewed source candidate, with final live acceptance pending: App `1.9.0-preview.5`, Runtime `0.4.0-preview.3`, both using Kit `0.1.0-alpha.33`. It declares generic record form v3, sealed supplemental effects and capture nomination v2. Mailbox grammar, MIME, provider custody, Sent-copy semantics and quoted-history normalization are Email-owned modules. Historical preview.2/E5.11 and sealed Kit30/32 artifacts remain evidence for their exact old versions; they do not prove acceptance of this new candidate. See [compatibility](docs/compatibility.md).
 
 ## Build from this repository
 
@@ -27,7 +27,7 @@ The app build writes `app/app.deft.json`, `app/artifact.json`, `app/worker.bundl
 
 ## Install and connect
 
-Installation acceptance is pending: the last attempted activation hit a database contract mismatch, described in [compatibility](docs/compatibility.md). First obtain a Host whose public and database contracts both support this package; use its exact verified source/image/schema pins. A stable release number alone does not establish these preview contracts. Follow [setup](docs/setup.md) to register the Runtime, configure OAuth and current authority, and import the generated App through Deft's public sideload workflow. Register the actual package digest and reviewed targets, rather than reusing another installation's IDs.
+Schema 118 corrected the earlier supplemental-effect database mismatch and accepted the preceding App preview.3 through the public upgrade path. That installed proof does not establish acceptance of this checkout. Current rebuilt-artifact, live functional, fresh independent installation and Email-only upgrade gates remain pending; see [compatibility](docs/compatibility.md). First obtain a Host whose public and database contracts both support this package; use its exact verified source/image/schema pins. A stable release number alone does not establish these preview contracts. Follow [setup](docs/setup.md) to register the Runtime, configure OAuth and current authority, and import the generated App through Deft's public sideload workflow. Register the actual package digest and reviewed targets, rather than reusing another installation's IDs.
 
 Run the Runtime as one POSIX service with a private local persistent store:
 
