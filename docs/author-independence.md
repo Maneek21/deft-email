@@ -9,3 +9,5 @@ Operator setup remains separate: use a compatible prebuilt Host and published de
 Human consent, Experience exposure and short Runtime leases are separate. Technical renewal stays inside its issued ceiling; expiry/revocation requires the supported current review/reissuance path. Never replay an uncertain Send or revive an expired session ID. Unknown outcomes and retained journals remain evidence.
 
 Independence acceptance additionally requires a fresh database/custody, ordinary OAuth, read/Refresh, exact save/reopen/files/review/one Send with independent receipt, restart recovery and source-to-Task/backlink. The frozen older demo is historical evidence. This candidate's source/build tests alone do not satisfy those live gates.
+
+Declared text fields always require string values, including collapsed optional controls. `optional` controls visibility, not value presence. Draft fields use `required:false` so a fresh blank draft can open and save; Email Runtime Send preparation still validates recipient syntax and the required destination before any provider effect.

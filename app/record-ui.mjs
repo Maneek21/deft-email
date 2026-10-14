@@ -3,7 +3,7 @@ import {RECORD_CHANGE_CONTROLS} from './settings-ui.mjs';
  * bytes through public ports; this module never receives document/file bytes. */
 export const EMAIL_RECORD_FORM_PROFILE=Object.freeze({schema_version:'deft.record_form_profile.v3',max_record_bytes:480*1024,
  fields:[{kind:'verified_identity',field:'from_identity',identity_field:'address',label:'From',editable:false},
-  {kind:'text',field:'to',label:'To',max_characters:16384,required:true,format:'mailbox_list',presentation:'pills'},
+  {kind:'text',field:'to',label:'To',max_characters:16384,required:false,format:'mailbox_list',presentation:'pills'},
   {kind:'text',field:'cc',label:'Cc',max_characters:16384,required:false,optional:true,format:'mailbox_list',presentation:'pills'},
   {kind:'text',field:'bcc',label:'Bcc',max_characters:16384,required:false,optional:true,format:'mailbox_list',presentation:'pills'},
   {kind:'text',field:'subject',label:'Subject',max_characters:998,required:false}],
