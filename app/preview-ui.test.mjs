@@ -129,3 +129,31 @@ test('another account reader never nominates the current compose account image p
  await ui.click('account_pick_1');await ui.click('mail_'+id.replaceAll('-',''));assert.equal(node(ui,'mail_body').image_policy,undefined);
  await ui.click('account_pick_0');await ui.click('mail_'+id.replaceAll('-',''));assert.equal(node(ui,'mail_body').image_policy.record_id,id);
 });
+
+
+test('daily navigation keeps settings out of the mailbox and opening its hub does not read private stores',async()=>{
+ const ui=await start();assert.deepEqual(Array.from(ui.views.at(-1).navigation,item=>item.label),['Inbox','Sent','Drafts','Starred','Archive','Spam','Trash','Settings']);
+ const before=[...ui.listedStores];await ui.click('email_settings');assert.ok(node(ui,'email_settings_title'));assert.ok(node(ui,'saved_content'));assert.ok(node(ui,'manual_rules'));assert.ok(node(ui,'folder_catalog'));assert.ok(node(ui,'imported_history'));
+ assert.deepEqual(ui.listedStores,before);assert.equal(node(ui,'provider_setup_help'),undefined);
+ await ui.click('provider_help');assert.ok(node(ui,'provider_setup_help'));await ui.click('provider_help');assert.equal(node(ui,'provider_setup_help'),undefined);
+ await ui.click('saved_content');assert.ok(node(ui,'settings_templates'));assert.equal(node(ui,'provider_setup_help'),undefined);await ui.click('settings_back');assert.ok(node(ui,'email_settings_title'));await ui.click('settings_mailbox');assert.ok(node(ui,'message_list'));
+});
+
+test('reader discloses secondary actions without hiding Reply or the original message',async()=>{
+ const ui=await start();await ui.click('mail_'+id.replaceAll('-',''));assert.ok(node(ui,'reply'));assert.equal(node(ui,'forward'),undefined);assert.equal(node(ui,'print_message'),undefined);assert.equal(node(ui,'mail_body').print_control_id,undefined);assert.equal(node(ui,'mail_body').printable,false);
+ await ui.click('reader_actions_menu');assert.ok(node(ui,'reply_all'));assert.ok(node(ui,'forward'));assert.ok(node(ui,'print_message'));assert.equal(node(ui,'mail_body').print_control_id,'print_message');assert.ok(node(ui,'mail_body'));assert.equal(node(ui,'organize_archive'),undefined);
+ await ui.click('reader_organize');assert.ok(node(ui,'organize_archive'));await ui.click('reader_actions_menu');assert.equal(node(ui,'reader_tools'),undefined);assert.equal(node(ui,'organize_archive'),undefined);assert.ok(node(ui,'mail_body'));
+});
+
+test('compose and draft list have one contextual header without disabled mailbox search',async()=>{
+ const ui=await start();await ui.click('compose');assert.ok(node(ui,'compose_title'));assert.ok(node(ui,'minimize_draft'));assert.ok(node(ui,'close_draft'));assert.equal(node(ui,'toggle_search'),undefined);assert.equal(node(ui,'refresh'),undefined);assert.equal(node(ui,'compose'),undefined);
+ const form=node(ui,'draft_form');await ui.input({node_id:'draft_form',record_id:form.record_id,record_revision:0,content_digest:'sha256:'+'0'.repeat(64),record_state:'unsaved',dirty:true,valid:true});
+ await ui.click('email_settings');assert.ok(node(ui,'draft_form'));assert.equal(node(ui,'email_settings_title'),undefined);
+});
+
+
+test('a slow foreground refresh shows one progress notice while keeping the original reader and clears it after completion',async()=>{
+ let finish;const ui=await start({refresh:()=>new Promise(resolve=>finish=resolve)});await ui.click('mail_'+id.replaceAll('-',''));const pending=ui.click('refresh');
+ assert.equal(node(ui,'mail_progress').text,'Refreshing…');assert.equal(node(ui,'refresh').disabled,true);assert.equal(node(ui,'mail_subject').text,mail.data.subject);
+ finish({outcome:'completed'});await pending;assert.equal(node(ui,'mail_progress'),undefined);assert.equal(node(ui,'refresh').disabled,false);assert.equal(node(ui,'mail_subject').text,mail.data.subject);
+});
