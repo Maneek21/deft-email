@@ -3,6 +3,7 @@ import test from 'node:test';
 import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
 import {webcrypto} from 'node:crypto';
+import {DeftExperienceRecordFormV3NodeSchema} from '@deft/app-kit';
 
 const id='11111111-1111-4111-8111-111111111111',digest='sha256:'+'a'.repeat(64);
 const mail={record_id:id,content_digest:digest,label:'Preview message',data:{provider:'gmail',subject:'Preview message',sender:'Sender <sender@example.test>',date:'2026-10-13T10:00:00Z',preview:'A controlled preview message.'}};
@@ -50,6 +51,16 @@ test('compose uses the trusted recipient profile and has one owner for draft sav
  assert.equal(form.profile.schema_version,'deft.record_form_profile.v3');assert.equal(form.profile.fields.find(field=>field.kind==='verified_identity').label,'From');
  const recipients=Array.from(form.profile.fields).filter(field=>field.kind==='text'&&field.format==='mailbox_list');assert.deepEqual(recipients.map(field=>field.label),['To','Cc','Bcc']);
  assert.ok(recipients.every(field=>field.presentation==='pills'));assert.deepEqual(recipients.map(field=>!!field.optional),[false,true,true]);assert.equal(node(ui,'saved_version'),undefined);
+});
+
+test('actual Compose view selects its packed Kit v3 form capability before Host admission',async()=>{
+ const ui=await start();await ui.click('compose');const view=ui.views.at(-1),form=node(ui,'draft_form');
+ assert.ok(view.capabilities.includes('record_form.v3'),'Host budgets use selected view capabilities, not manifest capabilities');
+ assert.ok(!view.capabilities.includes('record_form.v1'),'all active draft forms use v3; settings keep v2');
+ assert.ok(view.capabilities.length<=12);assert.equal(new Set(view.capabilities).size,view.capabilities.length);
+ const parsed=DeftExperienceRecordFormV3NodeSchema.safeParse(form);assert.equal(parsed.success,true,parsed.success?'':JSON.stringify(parsed.error.issues));
+ assert.equal(form.seed.schema_version,'deft.record_form_seed.v1');assert.equal(form.seed.value.to,'');
+ assert.equal(form.expected_revision,0);assert.equal(form.disabled,false);
 });
 test('account filters stay compact and empty results keep actionable controls',async()=>{
  const ui=await start({messages:[],targets:[{key:'primary',label:'Primary'},{key:'secondary',label:'Secondary'}]});
