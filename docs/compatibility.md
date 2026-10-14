@@ -1,6 +1,6 @@
 # Compatibility and source identity
 
-The reviewed source candidate is App `1.9.0-preview.5` / Runtime `0.4.0-preview.3` with immutable packed Kit `0.1.0-alpha.33`. Its final artifact and live acceptance are pending. Use exact build receipts rather than inferring compatibility from version labels.
+The reviewed source candidate is App `1.9.0-preview.6` / Runtime `0.4.0-preview.4` with immutable packed Kit `0.1.0-alpha.33`. Its final artifact and live acceptance are pending. Use exact build receipts rather than inferring compatibility from version labels.
 
 Schema 117 historically rejected `record_stores[].supplemental_effects` with `APP_V7_RECORD_STORE_INVALID` and rolled back activation. Schema 118 adds strict signed-declaration validation; actual PostgreSQL fresh/retained activation regressions and the preceding preview.3 public activation passed without bypassing the guard.
 
@@ -9,7 +9,7 @@ Schema 117 historically rejected `record_stores[].supplemental_effects` with `AP
 | Host database contract | schema 118 | Fresh and supported retained-lineage regression proof; preceding preview.3 installed acceptance |
 | Historical matched Host source | `25492e34489c0b61144d1ff0e70cbf480a70e27c` | [Complete source offer](https://demo.deft.ing/downloads/deft-host-25492e34-source-offer.html), including retained overlays |
 | Current Host review | [Deft PR357](https://github.com/Maneek21/Deft/pull/357) | Require final exact-head required checks, build/source offer and installed proof |
-| Current Email source | [Email PR1](https://github.com/Maneek21/deft-email/pull/1), preview.5 / Runtime preview.3 | Reviewed candidate; build and installed receipts must identify their exact source |
+| Current Email source | [Email PR1](https://github.com/Maneek21/deft-email/pull/1), preview.6 / Runtime preview.4 | Reviewed candidate; build and installed receipts must identify their exact source |
 | App and Runtime Kit | `0.1.0-alpha.33` | SHA256 `c022a3e215766d9730367002f210013ec14b46e01ee6fdf71ed25ca754cb9037`; sealed bytes unchanged |
 
 Do not use earlier delivery, Task or fresh-install receipts as acceptance of the new candidate. New package digests require current public review/activation and exact-account reattachment; existing encrypted custody is retained only through supported lifecycle operations.
@@ -71,6 +71,6 @@ The compatible Host source05 pins above remain historical baseline evidence; the
 
 ## Current author-independent candidate
 
-App `1.9.0-preview.5` and Runtime `0.4.0-preview.3` both use the sealed Kit `0.1.0-alpha.33` archive, SHA256 `c022a3e215766d9730367002f210013ec14b46e01ee6fdf71ed25ca754cb9037`. They require the generic Host V3 record form, prepared supplemental effect, V2 inspection and V2 source nomination contracts. They are not compatible with a Host advertising only the historical Email contracts above. Exact App, Runtime and Host source/artifact pins must accompany installed acceptance; historical delivery and fresh-install receipts do not establish acceptance for this new candidate.
+App `1.9.0-preview.6` and Runtime `0.4.0-preview.4` both use the sealed Kit `0.1.0-alpha.33` archive, SHA256 `c022a3e215766d9730367002f210013ec14b46e01ee6fdf71ed25ca754cb9037`. They require the generic Host V3 record form, prepared supplemental effect, V2 inspection and V2 source nomination contracts. They are not compatible with a Host advertising only the historical Email contracts above. Exact App, Runtime and Host source/artifact pins must accompany installed acceptance; historical delivery and fresh-install receipts do not establish acceptance for this new candidate.
 
 The [author workflow](author-independence.md) builds from this separate repository without a Host checkout. Operator setup configures published Host assets, provider credentials and reviewed public registrations; it does not patch Host source or SQL.

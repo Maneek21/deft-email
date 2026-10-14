@@ -38,6 +38,7 @@ jobs:
       - name: Check focused Runtime contracts
         run: |
           pnpm --dir runtime run test:uuid
+          pnpm --dir runtime run test:upgrade
           npm run test:runtime:preview
           node --test runtime/runtime-channel-renewal-startup.test.mjs
           node --test runtime/http-failure-diagnostic.test.mjs runtime/sync-handoff-host-uuid.test.mjs

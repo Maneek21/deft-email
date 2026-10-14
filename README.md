@@ -1,10 +1,8 @@
-> Optional Note6 candidate: App 1.9.0-preview.6 / Runtime 0.4.0-preview.4, based on corrected Preview5 source 36fa8f66. The base-status text below is inherited; live Note6 upgrade acceptance remains pending. See docs/independence-upgrade.md.
-
 # Email developer preview for Deft
 
 Email is a separately built sideloaded App with an external Email Runtime. The App uses Deft's generic trusted renderer; the Runtime owns provider custody, mailbox state, MIME, drafts, files and reviewed sending. Deft supplies account authority, native records, reviewed actions and Task/source navigation.
 
-This checkout is a reviewed source candidate, with final live acceptance pending: App `1.9.0-preview.5`, Runtime `0.4.0-preview.3`, both using Kit `0.1.0-alpha.33`. It declares generic record form v3, sealed supplemental effects and capture nomination v2. Mailbox grammar, MIME, provider custody, Sent-copy semantics and quoted-history normalization are Email-owned modules. Historical preview.2/E5.11 and sealed Kit30/32 artifacts remain evidence for their exact old versions; they do not prove acceptance of this new candidate. See [compatibility](docs/compatibility.md).
+This checkout is a reviewed source candidate, with final live acceptance pending: App `1.9.0-preview.6`, Runtime `0.4.0-preview.4`, both using Kit `0.1.0-alpha.33`. It declares generic record form v3, sealed supplemental effects and capture nomination v2. Mailbox grammar, MIME, provider custody, Sent-copy semantics and quoted-history normalization are Email-owned modules. Historical preview.2/E5.11 and sealed Kit30/32 artifacts remain evidence for their exact old versions; they do not prove acceptance of this new candidate. See [compatibility](docs/compatibility.md).
 
 ## Build from this repository
 
