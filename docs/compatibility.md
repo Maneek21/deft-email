@@ -1,6 +1,10 @@
 # Compatibility and source identity
 
-This is the recovered baseline, prior to the accepted preview patch. These are distinct version pins; no coordinated Kit upgrade is required just to align their version labels.
+The current source candidate is App `1.9.0-preview.1` / Runtime `0.4.0-preview.1` with packed Kit `0.1.0-alpha.33`; see [current contracts](#current-author-independent-candidate). It is not an accepted installed release. The last attempted activation on Host head `1a9c8ad4` / schema 117 failed with `APP_V7_RECORD_STORE_INVALID`: the database guard rejected the new `record_stores[].supplemental_effects` field and rolled back the transaction. A compatible Host must support that field in both public validation and database authority checks. Its corrected source/image/schema identity and fresh/retained activation evidence are still pending; do not bypass the guard or substitute a guessed Host version.
+
+## Historical recovered baseline
+
+These distinct baseline pins remain reconstruction evidence. Do not use them as the current installation matrix or upgrade Kit labels merely to align their numbers.
 
 | Component | Baseline | SHA256 |
 |---|---|---|

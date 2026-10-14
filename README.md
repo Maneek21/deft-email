@@ -27,7 +27,7 @@ The app build writes `app/app.deft.json`, `app/artifact.json`, `app/worker.bundl
 
 ## Install and connect
 
-First obtain the exact compatible Deft candidate in [compatibility](docs/compatibility.md). A stable release number alone does not establish these preview contracts. Follow [setup](docs/setup.md) to register the Runtime, configure OAuth and current authority, and import the generated App through Deft's public sideload workflow. Register the actual package digest and reviewed targets, rather than reusing another installation's IDs.
+Installation acceptance is pending: the last attempted activation hit a database contract mismatch, described in [compatibility](docs/compatibility.md). First obtain a Host whose public and database contracts both support this package; use its exact verified source/image/schema pins. A stable release number alone does not establish these preview contracts. Follow [setup](docs/setup.md) to register the Runtime, configure OAuth and current authority, and import the generated App through Deft's public sideload workflow. Register the actual package digest and reviewed targets, rather than reusing another installation's IDs.
 
 Run the Runtime as one POSIX service with a private local persistent store:
 

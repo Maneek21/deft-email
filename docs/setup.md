@@ -1,14 +1,14 @@
 # Foreground preview setup
 
-Use the exact compatible candidate in [compatibility](compatibility.md). This guide governs the current preview. Files under `runtime/` retain historical implementation notes; their e3.x/Kit16 version descriptions are not the current installation recipe.
+Use the exact compatible candidate in [compatibility](compatibility.md). This is the intended public installation sequence, not a completed installation claim. The last schema 117 activation rejected the supplemental-effect field; stop before activation until a corrected Host and its exact schema/image pins have been verified. Files under `runtime/` retain historical implementation notes; their e3.x/Kit16 version descriptions are not the current installation recipe.
 
 ## Start an isolated compatible Deft
 
-Use the exact corresponding Host source or release image named in the final compatibility record. These commands are for a fresh POSIX Docker installation, in that Host checkout. Keep its project name, database, uploads volume and secrets separate from every existing workspace:
+Use published deployment assets for the exact prebuilt Host named in the final compatibility record. The author builds Email outside Deft; a Host source checkout is needed only if the operator chooses to rebuild the Host. These commands are for a fresh POSIX Docker installation in the deployment-assets directory. Keep its project name, database, uploads volume and secrets separate from every existing workspace:
 
 The current Host allows initial organization signup only while its database has no organization. Inviting another user into an existing organization does not create a fresh workspace. Uploading `io.deft.email` into an organization that already installed it follows the upgrade path, so it cannot prove a fresh installation. Use a separate fresh database and Runtime custody for the new-developer rehearsal.
 
-A separate physical server or new DNS name is not required. An operator may serially route an existing approved HTTPS origin to the isolated Host, using the same allowlisted OAuth callback/client, while the original Host and its Runtime have no active work. Keep the original database, configuration and custody intact, route only one Host at a time, and restore the original routing afterwards. Record that this is a fresh database and installation on shared infrastructure; do not claim a second workspace in the original database or concurrent account writers.
+A separate physical server or new DNS name is not required. An operator may serially route an existing approved HTTPS origin to the isolated Host, using the same allowlisted OAuth callback/client, while the original Host and its Runtime have no active work. Keep the original database, configuration and custody intact, route only one Host at a time, and restore the original routing afterwards. Keep the isolated Compose network private; if attaching a proxy network, use unique Host/database service names and explicit upstreams so service aliases cannot collide with the original deployment. Record that this is a fresh database and installation on shared infrastructure; do not claim a second workspace in the original database or concurrent account writers.
 
 ```sh
 cp .env.example .env
@@ -18,10 +18,9 @@ chmod 700 private
 
 Fill `.env` with fresh `POSTGRES_PASSWORD`, `JWT_SECRET`, `JWT_REFRESH_SECRET` and `ENCRYPTION_KEY`, and set `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` to the browser-reachable rehearsal URLs. Use the Host's `docs/self-hosting.md` and `docs/self-hosting-vps-domain-https.md` for HTTPS routing. Runtime callbacks and authority URLs require HTTPS; a plain localhost health check is not a connection proof.
 
-Append these exact preview gates to `.env` before building the Host browser bundle:
+Set `DEFT_RELEASE_VERSION` to the schema value specified by the verified compatible Host artifact; do not copy image/release metadata or the historical schema 117 value. Set these preview gates in the operator environment. A prebuilt browser bundle must already contain the matching `NEXT_PUBLIC_*` gates and public origin; runtime variables cannot enable a gate omitted from that build:
 
 ```dotenv
-DEFT_RELEASE_VERSION=0.3.0-preview.117
 DEFT_APPS_ENABLED=true
 NEXT_PUBLIC_FEATURE_APPS=true
 NEXT_PUBLIC_FEATURE_APP_RESOURCE_SYNC=true
@@ -56,15 +55,14 @@ services:
     image: pgvector/pgvector@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
   deft:
     volumes:
-      - ./private/connections.json:/run/deft-email/connections.json:ro
+      - ./private:/run/deft-email:ro
 ```
 
-The initializer's structural fingerprint is tied to PostgreSQL160015 and vector0.8.6. The overlay pins the image used for the clean schema rehearsal; do not substitute a moving `pgvector:pg16` tag. Host image/release metadata is preview16, while the source schema head is preview117; the explicit runtime release value above preserves117 reporting. Record these identities separately and require `/health/ready` to report schema117. None of these settings authorize initializing or downgrading an existing database.
+The PostgreSQL pin above belongs to the historical clean schema rehearsal (PostgreSQL 160015 / vector 0.8.6). Use it only if the selected Host's published fresh-schema contract requires that same tuple; otherwise use that artifact's tested immutable database pin. Historical image metadata preview16 and schema117 were distinct identities. Record the selected image and schema separately and require `/health/ready` to report its expected schema. None of these settings authorize initializing or downgrading an existing database. A directory bind lets the operator atomically replace the registry file without exposing a truncated file to the Host.
 
-Then use the supported fresh-database init, which asserts freshness, runs `db:push-full`, and applies the production-safe seed. It does not seed demo users or native Email accounts:
+Use the selected published recipe to load or pull its exact prebuilt image for `deft`, `init`, `doctor` and `smoke` before these commands; do not silently fall back to a local build. If rebuilding from corresponding source is intentional, run its documented build first. Then use the supported fresh-database init, which asserts freshness, runs `db:push-full`, and applies the production-safe seed. It does not seed demo users or native Email accounts:
 
 ```sh
-docker compose -p email-preview-isolated -f docker-compose.yml -f compose.email-preview.yml build deft init doctor smoke
 docker compose -p email-preview-isolated -f docker-compose.yml -f compose.email-preview.yml up -d postgres
 docker compose -p email-preview-isolated -f docker-compose.yml -f compose.email-preview.yml run --rm init
 docker compose -p email-preview-isolated -f docker-compose.yml -f compose.email-preview.yml up -d deft
@@ -79,7 +77,7 @@ Sign up normally at the rehearsal Host; its first human signup becomes owner. Do
 1. Build `app/app.deft.json` and retain its package/experience digests from `app/build-result.json`.
 2. Open **Settings → Apps**, upload `app/app.deft.json`, inspect it, then stage it for explicit authority review. The App ID is `io.deft.email`; source code is not uploaded as executable Host code. This package is protocol 7: the UI stages through `POST /api/apps/blob/composition/stage`, reads `GET /api/apps/blob/composition/INSTALLATION_ID/context?app_version_id=VERSION_ID`, then uses `/review` and `/activate` under that same composition path. Use the exact current review request/digest supplied by Host. Staging grants no account access or action consent.
 3. Do not substitute `/api/apps/stage`, `/api/app-runtime-review`, or the older `deft app install-local` tutorial for this protocol 7 path. The Kit CLI rebuilds a `deft.app.json` authoring project; this repository instead uses its custom `app/build.mjs` to produce the upload package.
-4. After activation, obtain the new installation/version/package/grant pins from the Apps UI or its authenticated public context. `GET /api/apps/INSTALLATION_ID/grants` exposes the active grant ID, current epochs, version/package digests and snapshot digests; select the snapshot matching `installation.active_grant_snapshot_id`. The protocol 7 Runtime setup context also returns the current grant digest/operator pins. Configure the external HTTP registry as below, then perform administrative admission and owner resource review. Bind only the IDs issued for this installation.
+4. After activation, obtain the new installation/version/package/grant pins from the Apps UI or its authenticated public context. Read `GET /api/apps/INSTALLATION_ID` for `{app: ...}` and its `active_grant_snapshot_id`, current version and lifecycle pins. `GET /api/apps/INSTALLATION_ID/grants` returns `{grants: {installation, versions, snapshots, ...}}`; read `grants.installation` and select `grants.snapshots` by its active snapshot ID. Do not read `installation` at the response top level. The protocol 7 Runtime setup context also returns the current grant digest/operator pins. Configure the external HTTP registry as below, then perform administrative admission and owner resource review. Bind only the IDs issued for this installation.
 5. Enroll separate Read/data authority, human action consent and Send/Organize channel sessions through their public workflows. Runtime health or an admin declaration cannot grant a human action. Use explicit finite expiries and the issued immutable renewal ceiling.
 
 The final clean sideload rehearsal must exercise this sequence on an isolated compatible installation. A database row copied from the demo or a native Email route is not this workflow. Exact UI labels may change with the compatible Host build.
@@ -204,4 +202,4 @@ Opening Email creates a human Experience session. The normal UI acquires the cur
 
 Record the exact clean checkout, Host image/source, App/package/experience digests, fresh workspace and current reviewed registration pins. Require: public upload/stage/review/activate; no native Email adapter configured; ordinary account connection; one-click Refresh finds new controlled mail; save/reopen a draft; attach/remove a file; review/confirm Send with independent receipt; open a Task's Email source backlink; restart the sole Runtime with the same private store/key and reopen the draft. Keep private credentials and mailbox evidence outside release artifacts.
 
-Use separate controlled provider accounts for this rehearsal, or a supported serial handover of the approved accounts with one writer. Empty imported history on a fresh Runtime is expected; do not manufacture native history rows. Deferred observation, Knowledge capture, notifications, provider draft sync and local jobs do not need enrollment for this foreground proof.
+Use separate controlled provider accounts for this rehearsal, or a supported serial handover of the approved accounts with one writer. Empty imported history on a fresh Runtime is expected; do not manufacture native history rows. Knowledge capture, notifications, provider draft sync and local jobs do not need enrollment for the foreground read/draft/Send proof. Source-to-Task needs a separately reviewed finite scalar observation and v3 sync publication lane: foreground reads do not produce the signed projections used for source review. Follow the [author guide](https://github.com/Maneek21/Deft/pull/355) before the Task/backlink gate; disable/revoke that temporary lane after settled work. Do not promise continuous recovery from a short operator lease.
