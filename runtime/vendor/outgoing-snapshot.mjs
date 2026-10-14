@@ -1,7 +1,7 @@
 import {createHash} from 'node:crypto';
 import MailComposer from 'nodemailer/lib/mail-composer';
 import {singleAddress} from './account-config.mjs';
-import {parseSafeComposeHtml,parseNativeSafeComposeHtml,nativeComposeInlineFileIds,nativeComposeImageCid} from '@deft/app-kit/experience';
+import {parseSafeComposeHtml,parseNativeSafeComposeHtml,nativeComposeInlineFileIds,nativeComposeImageCid} from '../domain/safe-compose-html.mjs';
 import {validNativeOutgoingImage} from './providers/remote-image-proxy.mjs';
 
 const fail=code=>{const error=Error(code);error.code=code;throw error;};

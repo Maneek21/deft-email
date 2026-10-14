@@ -74,7 +74,7 @@ export function createSendRunner({runtime_client,registration,client,provider='g
       result=await bridge.nativeEmailSend({operation_id:claim.run_id,mime_bytes:packet.mime_bytes,mime_digest:packet.mime_digest,from_address:packet.from_address,thread_id:packet.thread_id},context);}catch{
         if(providerStarted||preparationStarted){await prepared.withSnapshot(scope,input.snapshot_id,async()=>{},async(current,persist)=>{if(current.effect?.run_id===claim.run_id&&current.state!=='accepted')await persist({...current,state:'unknown'});});if(providerStarted)await drafts.recordSendOutcome(scope,input.draft_id,claim.run_id,'unknown');}return noDisclosure;
       }
-      const publicResult={status:'returned',provider_succeeded:true,output:{operation_id:claim.run_id,transport_outcome:'provider_accepted',sent_copy_outcome:'pending'}};
+      const publicResult={status:'returned',provider_succeeded:true,output:{operation_id:claim.run_id,primary_outcome:'accepted',effect_outcome:'provider_managed',inspection_available:false}};
       // Custody of a completed effect survives subsequent revocation. Persist
       // validated acceptance first, then recheck before disclosing to the host.
       await prepared.withSnapshot(scope,input.snapshot_id,async()=>{},async(current,persist)=>{if(current.effect?.run_id!==claim.run_id||current.effect.input_digest!==input_digest)fail('EMAIL_SEND_CONFLICT');await persist({...current,state:'accepted',effect:{...current.effect,provider_receipt:{provider,provider_message_id:result.provider_message_id},result:publicResult}});});

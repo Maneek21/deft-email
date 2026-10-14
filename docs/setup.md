@@ -48,7 +48,7 @@ chmod 600 .env
 node -e "require('node:fs').writeFileSync('private/connections.json',JSON.stringify({schema_version:'deft.app_connection_http_registrations.v1',entries:[]}),{mode:0o600})"
 ```
 
-Create `compose.email-preview.yml` in the Host checkout:
+Create `compose.email-preview.yml` beside the compatible Host's published deployment assets (`docker-compose.yml`), using its pinned prebuilt image. This is operator configuration; the Email author does not need a Host checkout or a source modification. Building Host from its corresponding source is an optional self-hosting choice.
 
 ```yaml
 services:

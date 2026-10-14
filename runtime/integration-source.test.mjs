@@ -33,6 +33,12 @@ test('canonical folder nominations exclude provider label IDs and override broad
  assert.equal(JSON.parse(presentation.metadata.capture_nomination).eligible,false);
  assert.equal(integrationKnowledgeEvidence({resource:{record_id:'message',data:{in_inbox:true}},presentation,policy:{include_bulk:false,excluded_folders:[],excluded_senders:[]}}).reason,'excluded_folder');
 });
+
+test('V2 capture publishes the privately normalized body rather than asking Host to infer it',()=>{
+ const body='We agreed this exact procedure will be retained as durable release knowledge.';
+ const presentation=integrationKnowledgePresentation({record_id:'record',logical_message_id:'mail_a',provider_revision:'revision',provider_source:{provider:'gmail'},data:{sender:'Person',date:'2026-10-11T00:00:00Z'},revision:1,folders:['inbox']},{plain_text:body+'\n> quoted history\nOn Monday wrote:\nold history',metadata:{conversation_id:'thread'}});
+ const nomination=JSON.parse(presentation.metadata.capture_nomination);assert.equal(nomination.schema_version,'deft.app_capture_nomination.v2');assert.equal(nomination.body,body);assert.deepEqual(nomination.folders,['inbox']);assert.ok(nomination.body_digest.startsWith('sha256:'));
+});
 test('bounded body-only eligibility excludes secrets/bulk and preserves thread nomination without subject merges',()=>{
  const resource={record_id:'message_a',content_digest:'sha256:'+'a'.repeat(64),data:item.data,tombstone:false},policy={include_bulk:false,excluded_folders:[],excluded_senders:[]};
  const body='We agreed that release validation will use this documented process and preserve each original request.';

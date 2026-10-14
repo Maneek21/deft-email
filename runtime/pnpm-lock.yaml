@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@deft/app-kit':
-        specifier: file:deft-app-kit-0.1.0-alpha.32.tgz
-        version: file:deft-app-kit-0.1.0-alpha.32.tgz
+        specifier: file:deft-app-kit-0.1.0-alpha.33.tgz
+        version: file:deft-app-kit-0.1.0-alpha.33.tgz
       domutils:
         specifier: 3.2.2
         version: 3.2.2
@@ -32,9 +32,9 @@ importers:
 
 packages:
 
-  '@deft/app-kit@file:deft-app-kit-0.1.0-alpha.32.tgz':
-    resolution: {integrity: sha512-9GF3yvUVwFj9VNXpfvvvOc7REz4WRVtQ9k8VSeykCEThZbGO+X39vM+MNtf0M1tudjGB2GbalVKeS4d4i/vRsw==, tarball: file:deft-app-kit-0.1.0-alpha.32.tgz}
-    version: 0.1.0-alpha.32
+  '@deft/app-kit@file:deft-app-kit-0.1.0-alpha.33.tgz':
+    resolution: {integrity: sha512-xZpF2o7dAU8/bxRx/aRpPCxEHYdSmoBh55UarDSGVVQEFXXx1bOv9Gt/D0GlfgG+IkgWlh31+GKb8L22ygxPdw==, tarball: file:deft-app-kit-0.1.0-alpha.33.tgz}
+    version: 0.1.0-alpha.33
     hasBin: true
 
   node-ical@0.27.2:
@@ -244,7 +244,7 @@ snapshots:
   temporal-utils@1.0.3: {}
 
 
-  '@deft/app-kit@file:deft-app-kit-0.1.0-alpha.32.tgz':
+  '@deft/app-kit@file:deft-app-kit-0.1.0-alpha.33.tgz':
     dependencies:
       zod: 4.6.5
 

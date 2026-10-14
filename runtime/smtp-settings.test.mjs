@@ -31,9 +31,9 @@ test('owner Sent-copy preference crosses public data prepare, survives restart a
  const draft_id=randomUUID(),value={mode:'compose',to:'recipient@example.test',cc:'',bcc:'',subject:'UNSENT preference fixture',body:'Exact synthetic bytes',body_html:'',reply_record_id:'',attachments:[]};
  const draft=(await run('record_create',{store_key:'drafts',record_id:draft_id,value})).record;
  const prep=await run('prepare_action',{store_key:'drafts',record_id:draft_id,expected_revision:draft.revision,expected_content_digest:draft.content_digest,action_key:'send_message'});
- assert.equal(prep.prepared.copy_effect.mode,'append_exact');assert.deepEqual(prep.prepared.copy_effect.destination,{mailbox:'Sent',uidvalidity:'7'});
+ assert.equal(prep.prepared.supplemental_effect.details.mode,'append_exact');assert.deepEqual({mailbox:prep.prepared.supplemental_effect.details.mailbox,uidvalidity:prep.prepared.supplemental_effect.details.uidvalidity},{mailbox:'Sent',uidvalidity:'7'});
  const reverted=(await run('record_save',{store_key,record_id,expected_revision:saved.revision,expected_content_digest:saved.content_digest,value:{sent_copy_mode:'server_managed'}})).record;
- assert.equal(prep.prepared.copy_effect.mode,'append_exact');
+ assert.equal(prep.prepared.supplemental_effect.details.mode,'append_exact');
  const scope={org_id:f.scope.org_id,owner_user_id:f.scope.owner_user_id,account_id:connected.account.account_ref},settings=createSettingsStore({store:f.store});
  assert.equal(await savedSmtpSentCopyMode({settings,scope,check:async()=>{},fallback:'append_exact'}),'server_managed');
  assert.equal(await savedSmtpSentCopyMode({settings,scope:{...scope,account_id:randomUUID()},check:async()=>{}}),'server_managed');

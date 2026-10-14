@@ -47,7 +47,9 @@ test('reader keeps account and date context without placing optional jobs before
 });
 test('compose uses the trusted recipient profile and has one owner for draft save status',async()=>{
  const ui=await start();await ui.click('compose');const form=node(ui,'draft_form');
- assert.equal(form.profile.identity.label,'From');assert.deepEqual(Array.from(form.profile.addresses,field=>field.label),['To','Cc','Bcc']);assert.equal(node(ui,'saved_version'),undefined);
+ assert.equal(form.profile.schema_version,'deft.record_form_profile.v3');assert.equal(form.profile.fields.find(field=>field.kind==='verified_identity').label,'From');
+ const recipients=Array.from(form.profile.fields).filter(field=>field.kind==='text'&&field.format==='mailbox_list');assert.deepEqual(recipients.map(field=>field.label),['To','Cc','Bcc']);
+ assert.ok(recipients.every(field=>field.presentation==='pills'));assert.deepEqual(recipients.map(field=>!!field.optional),[false,true,true]);assert.equal(node(ui,'saved_version'),undefined);
 });
 test('account filters stay compact and empty results keep actionable controls',async()=>{
  const ui=await start({messages:[],targets:[{key:'primary',label:'Primary'},{key:'secondary',label:'Secondary'}]});

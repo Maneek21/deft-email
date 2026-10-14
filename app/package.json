@@ -4,10 +4,10 @@
   "type": "module",
   "packageManager": "npm@11.9.0",
   "dependencies": {
-    "@deft/app-kit": "file:deft-app-kit-0.1.0-alpha.30.tgz",
+    "@deft/app-kit": "file:deft-app-kit-0.1.0-alpha.33.tgz",
     "esbuild": "0.28.2"
   },
-  "version": "1.8.0-preview.2",
+  "version": "1.9.0-preview.1",
   "scripts": {
     "build": "node build.mjs",
     "test": "node --test release-package.test.mjs imported-history.test.mjs",

@@ -1,3 +1,4 @@
+import {AppIntegrationCaptureNominationV2Schema,APP_INTEGRATION_CAPTURE_NOMINATION_BYTES} from '@deft/app-kit';
 import {createHash} from 'node:crypto';
 import {canonical,fail} from './contract.mjs';
 import {resourceView} from './mailbox-store.mjs';
@@ -9,11 +10,11 @@ export function integrationKnowledgePresentation(record,presentation){
  const result={...presentation,metadata:{...presentation.metadata,capture_folders:JSON.stringify([...new Set(folders)])}};
  const resource=resourceView(record),evidence=integrationKnowledgeEvidence({resource,presentation:result,policy:{include_bulk:true,excluded_senders:[],excluded_folders:[]}});
  const text=String(resource.data.subject??'')+'\n'+(evidence.body??presentation.plain_text);
- const nomination={schema_version:'deft.app_capture_nomination.v1',eligible:evidence.eligible,...(evidence.reason?{reason:evidence.reason}:{}),
-  ...(evidence.body_digest?{body_digest:evidence.body_digest,thread_key:evidence.thread_key}:{}),sender:String(resource.data.from_address??resource.data.from??resource.data.sender??'').slice(0,320),
+ const nomination={schema_version:'deft.app_capture_nomination.v2',eligible:evidence.eligible,...(evidence.reason?{reason:evidence.reason}:{}),
+  ...(evidence.body_digest?{body:evidence.body,body_digest:evidence.body_digest,thread_key:evidence.thread_key}:{}),folders:[...new Set(folders)],sender:String(resource.data.from_address??resource.data.from??resource.data.sender??'').slice(0,320),
   received_at:typeof(resource.data.received_at??resource.data.date)==='string'?String(resource.data.received_at??resource.data.date).slice(0,64):null,
   is_bulk:/\b(?:unsubscribe|view in browser|limited time offer|sale ends|newsletter)\b/iu.test(text)||resource.data.is_bulk===true,partial:true,attachments_processed:false};
- const encoded=JSON.stringify(nomination);if(Buffer.byteLength(encoded)>2048)fail('EMAIL_INTEGRATION_KNOWLEDGE_DENIED');
+ const encoded=JSON.stringify(AppIntegrationCaptureNominationV2Schema.parse(nomination));if(Buffer.byteLength(encoded)>APP_INTEGRATION_CAPTURE_NOMINATION_BYTES)fail('EMAIL_INTEGRATION_KNOWLEDGE_DENIED');
  result.metadata.capture_nomination=encoded;return result;
 }
 

@@ -2,11 +2,11 @@
 
 Email is a separately built sideloaded App with an external Email Runtime. The App uses Deft's generic trusted renderer; the Runtime owns provider custody, mailbox state, MIME, drafts, files and reviewed sending. Deft supplies account authority, native records, reviewed actions and Task/source navigation.
 
-This checkout prepares App `1.8.0-preview.2` with Runtime `0.3.1-e5.11`. The previous candidate was App `1.8.0-preview.1` with Runtime `0.3.1-e5.9`; its immutable downloads remain historical evidence. The recovered baseline is App `1.7.1-e5.3`, Runtime `0.3.1-e5.8` and Host125. A clean app build reproduced that installed baseline package. Current UI/provider acceptance and a fresh public installation remain separate gates. See [compatibility](docs/compatibility.md).
+This checkout prepares the author-independence candidate: App `1.9.0-preview.1`, Runtime `0.4.0-preview.1`, both using Kit `0.1.0-alpha.33`. It declares generic record form v3, sealed supplemental effects and capture nomination v2. Mailbox grammar, MIME, provider custody, Sent-copy semantics and quoted-history normalization are Email-owned modules. Historical preview.2/E5.11 and sealed Kit30/32 artifacts remain evidence for their exact old versions; they do not prove acceptance of this new candidate. See [compatibility](docs/compatibility.md).
 
 ## Build from this repository
 
-Use Node >=22.13.0, npm 11.9.0 and pnpm 10.33.0. The clean local app proof used Node 24.14.0. Both Kit tarballs are included with fixed hashes; dependencies come from their lockfiles. No Deft developer checkout or copied `node_modules` is required.
+Use Node >=22.13.0, npm 11.9.0 and pnpm 10.33.0. The current local toolchain is Node24.14.0; production Node22 remains the supported baseline. The packed Kit33 dependency is included with fixed lock integrity; older sealed packages are preserved. No Deft developer checkout or copied `node_modules` is required. The operator separately supplies a compatible published Host image, HTTPS/OAuth client and private registration/configuration files. App development requires no Host source patch, SQL change or built-in Email adapter.
 
 ```sh
 npm --prefix app ci --no-audit --no-fund

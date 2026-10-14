@@ -1,7 +1,7 @@
 // Behavioral port of frozen Host109p1 email-calendar-invitation.ts. AGPL-3.0-only.
 import { createHash } from 'node:crypto';
 import ical from 'node-ical';
-import { parseMailboxList } from '@deft/app-kit';
+import { parseMailboxList } from './domain/mailbox-list.mjs';
 const hash = (value) => createHash('sha256').update(value).digest('hex');
 function fail(reason) { throw Error(reason); }
 const clean = (value, max) => value.length > 0 && value.length <= max && !/[\u0000-\u001f\u007f-\u009f]/u.test(value);

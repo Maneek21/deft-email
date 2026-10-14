@@ -149,8 +149,10 @@
     {
       "source": "examples/apps/email/providers/remote-image-proxy.mjs",
       "target": "vendor/providers/remote-image-proxy.mjs",
-      "sha256": "daadb6d4cc3a8e20fc18546bebfecae314a3e8cbe49423a541ae164ddb390893",
-      "mode": "byte_copy"
+      "sha256": "1474472303085e557d484d7ea0f1fd1f65cf806429690102320aff46a98af776",
+      "mode": "reviewed_adaptation",
+      "original_sha256": "daadb6d4cc3a8e20fc18546bebfecae314a3e8cbe49423a541ae164ddb390893",
+      "reason": "Email-owned HTML/MIME image validation with unchanged parser algorithms; public Kit dependency no longer defines Email transport semantics."
     },
     {
       "source": "examples/apps/email/providers/calendar-source-parts.mjs",
@@ -268,8 +270,10 @@
     {
       "source": "examples/apps/email/outgoing-snapshot.mjs",
       "target": "vendor/outgoing-snapshot.mjs",
-      "sha256": "1396e55a758a43260e112de410da84e156d3fbbfd00520288755098b1b6b5c60",
-      "mode": "byte_copy"
+      "sha256": "5c7dd2e5206fde06354fdfafc87fb6c709f4642f61ec8e966ba03e5740722ce9",
+      "mode": "reviewed_adaptation",
+      "original_sha256": "1396e55a758a43260e112de410da84e156d3fbbfd00520288755098b1b6b5c60",
+      "reason": "Email-owned HTML/MIME image validation with unchanged parser algorithms; public Kit dependency no longer defines Email transport semantics."
     },
     {
       "source": "examples/apps/email/providers/native-conversation.mjs",
@@ -345,8 +349,10 @@
     {
       "source": "examples/apps/email/outgoing-payload-builder.mjs",
       "target": "vendor/outgoing-payload-builder.mjs",
-      "sha256": "0c504432c44cad3090128d8771dbd39d4d262d72b2cf2f0ef6c8abd05ea0ee01",
-      "mode": "byte_copy"
+      "sha256": "e4711e489ac25bba38fb18693aac8065999300bf83c66e45656da49c3893a76d",
+      "mode": "reviewed_adaptation",
+      "original_sha256": "0c504432c44cad3090128d8771dbd39d4d262d72b2cf2f0ef6c8abd05ea0ee01",
+      "reason": "Email-owned mailbox/HTML semantic validation; same parser algorithms, no Host/runtime behavior change beyond dependency ownership."
     },
     {
       "source": "examples/apps/email/providers/native-imap.mjs",
@@ -640,5 +646,6 @@
       "reason": "Bounded data-only60s foreground memo and durable membership generation invalidation; operation-local pure rechecks with fresh entry/provider/token/commit/disclosure online authority, unchanged session/custody/mutation locks and frozen vendors",
       "sha256": "b4d8d23a8ffe488bfed77cf0be59bb54a2b110d4899ad33108961d54b560cf18"
     }
-  ]
+  ],
+  "parent_provenance_sha256": "f963f3af24c7e9bf345dd9121eee2cad6f29707afb7966213f4fda3f33bfdb62"
 }

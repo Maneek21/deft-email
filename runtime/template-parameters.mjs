@@ -1,5 +1,5 @@
 import {AppRecordChangeParametersSchema} from '@deft/app-kit';
-import {parseNativeSafeComposeHtml} from '@deft/app-kit/experience';
+import {parseNativeSafeComposeHtml} from './domain/safe-compose-html.mjs';
 import {validateSettingValue} from './settings-store.mjs';
 import {fail} from './contract.mjs';
 const marker=/\{\{([A-Za-z][A-Za-z0-9_]{0,63})\}\}/gu;

@@ -1,0 +1,11 @@
+# Author independence candidate
+
+App `1.9.0-preview.1` and Runtime `0.4.0-preview.1` use the packed Kit `0.1.0-alpha.33`. The App declares record form v3 fields, labels/review and file controls. The Runtime owns mailbox validation, MIME and raster validation, provider identity/custody, Sent-copy semantics and normalized capture nomination v2. Generic Host contracts validate scoped authority, bounded data, exact revisions/content/plan/custody pins and typed receipts. Historical parsers do not authorize new execution.
+
+The normal build is the README's locked App and Runtime install followed by App build/package/UI checks. No Host checkout or copied dependencies are inputs. `runtime/domain/PROVENANCE.json` identifies the retained helper source and adaptations; `PROVENANCE.alpha32.json` preserves the prior provenance bytes. The current provenance checker verifies both the frozen vendor closure and Email-owned domain helpers. Sealed Kit30/32 remain unchanged historical artifacts; only Kit33 is active.
+
+Operator setup remains separate: use a compatible prebuilt Host and published deployment assets, configure HTTPS and a provider client, then perform public protocol7 sideload stage/review/activate, administrative Runtime admission, owner resource/data/action consent and private channel installation. Configuration is not source patching or SQL. Source-offer availability and compatible Host identity must be established before installed acceptance.
+
+Human consent, Experience exposure and short Runtime leases are separate. Technical renewal stays inside its issued ceiling; expiry/revocation requires the supported current review/reissuance path. Never replay an uncertain Send or revive an expired session ID. Unknown outcomes and retained journals remain evidence.
+
+Independence acceptance additionally requires a fresh database/custody, ordinary OAuth, read/Refresh, exact save/reopen/files/review/one Send with independent receipt, restart recovery and source-to-Task/backlink. The frozen older demo is historical evidence. This candidate's source/build tests alone do not satisfy those live gates.

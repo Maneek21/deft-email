@@ -1,6 +1,7 @@
 import {nativeDraftRecord,writeNativeImportRow} from './native-adoption-records.mjs';
 import {createHash} from 'node:crypto';
-import {parseNativeSafeComposeHtml, nativeComposeInlineFileIds, validateNativeComposeRaster} from '@deft/app-kit/experience';
+import {parseNativeSafeComposeHtml,nativeComposeInlineFileIds} from './domain/safe-compose-html.mjs';
+import {validateNativeComposeRaster} from './domain/native-compose-raster.mjs';
 import {canonical, digest, exact, fail} from './contract.mjs';
 
 export const DRAFT_LIMITS = Object.freeze({json_bytes:480*1024,body_characters:256*1024,max_files:32,file_bytes:25*1024*1024,total_file_bytes:25*1024*1024});

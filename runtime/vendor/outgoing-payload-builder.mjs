@@ -1,5 +1,6 @@
 import {createHash} from 'node:crypto';
-import {parseMailboxList,parseSafeComposeHtml} from '@deft/app-kit/experience';
+import {parseMailboxList} from '../domain/mailbox-list.mjs';
+import {parseSafeComposeHtml} from '../domain/safe-compose-html.mjs';
 import {createOutgoingSnapshotService,replyRecipients} from './outgoing-snapshot.mjs';
 import {validateEmailAccount} from './account-registry.mjs';
 

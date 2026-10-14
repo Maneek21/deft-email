@@ -41,3 +41,5 @@ jobs:
           npm run test:runtime:preview
           node --test runtime/runtime-channel-renewal-startup.test.mjs
           node --test runtime/http-failure-diagnostic.test.mjs runtime/sync-handoff-host-uuid.test.mjs
+          node --test runtime/prepared-effect.test.mjs runtime/email-domain-boundary.test.mjs runtime/integration-source.test.mjs runtime/capture-transport.test.mjs
+          node --test runtime/smtp-send-runner.test.mjs runtime/run-inspection-runtime.test.mjs

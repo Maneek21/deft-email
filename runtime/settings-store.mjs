@@ -1,4 +1,4 @@
-import {parseNativeSafeComposeHtml} from '@deft/app-kit/experience';
+import {parseNativeSafeComposeHtml} from './domain/safe-compose-html.mjs';
 import {canonical,digest,exact,fail} from './contract.mjs';
 import {uuid} from './draft-store.mjs';
 import {writeNativeImportRow} from './native-adoption-records.mjs';

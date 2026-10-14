@@ -1,5 +1,5 @@
 import {createHash} from 'node:crypto';
-import {parseNativeSafeComposeHtml,plainTextToNativeComposeHtml} from '@deft/app-kit/experience';
+import {parseNativeSafeComposeHtml,plainTextToNativeComposeHtml} from './domain/safe-compose-html.mjs';
 import {validateDraftContent} from './draft-store.mjs';
 import {validateSettingValue} from './settings-store.mjs';
 import {fail} from './contract.mjs';

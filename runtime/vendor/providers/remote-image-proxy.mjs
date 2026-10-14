@@ -1,4 +1,4 @@
-import {validateNativeComposeRaster} from '@deft/app-kit/experience';
+import {validateNativeComposeRaster} from '../../domain/native-compose-raster.mjs';
 import { lookup } from 'node:dns/promises';
 import { request } from 'node:https';
 import { isIP } from 'node:net';

@@ -38,7 +38,7 @@ Docker29 may identify an image by OCI index/manifest digest, distinct from its p
 
 App/Runtime dependency pins remain Kit30/Kit32. Runtime E5.9 changes only the Host connection UUID validation boundary in four executable modules; valid UUIDv5 reattach sessions now pass, while draft/file UUIDv4 guards remain strict. Its exact artifact/image/source pins are recorded in the release asset manifest and Runtime delta/build receipt. Node22.23.2, frozen dependencies, vendor57 provenance and Kit32 remain unchanged. Prepared Git snapshots and candidate downloads are not a published accepted release or an E6 public sideload pass.
 
-## Current review candidate, not installed acceptance
+## Historical recovery candidate, not current installed acceptance
 
 | Artifact | Identity | SHA256 |
 |---|---|---|
@@ -52,3 +52,9 @@ Two App builds reproduced these exact package bytes. App Kit30, Runtime Kit32 an
 App preview.2 clears previous-account view/action references before a filter switch, removes deferred unread polling and explains the current compose-account distinction. No connection authority or manifest declarations were broadened. A new package still changes grant-bound identities: protocol7 upgrade requires fresh public review/activation and current registrations, followed by exact-account v2 reattachment. The inbox filter does not switch the Host account for compose.
 
 The compatible Host source05 pins above remain historical baseline evidence; the Host and Author Kit PR stack contains additional review changes. Verify the actually deployed Host source/image before installed acceptance. Neither this new App build nor an open PR proves current recipient delivery, rendered UI acceptance or fresh public sideload.
+
+## Current author-independent candidate
+
+App `1.9.0-preview.1` and Runtime `0.4.0-preview.1` both use the sealed Kit `0.1.0-alpha.33` archive, SHA256 `c022a3e215766d9730367002f210013ec14b46e01ee6fdf71ed25ca754cb9037`. They require the generic Host V3 record form, prepared supplemental effect, V2 inspection and V2 source nomination contracts. They are not compatible with a Host advertising only the historical Email contracts above. Exact App, Runtime and Host source/artifact pins must accompany installed acceptance; historical delivery and fresh-install receipts do not establish acceptance for this new candidate.
+
+The [author workflow](author-independence.md) builds from this separate repository without a Host checkout. Operator setup configures published Host assets, provider credentials and reviewed public registrations; it does not patch Host source or SQL.
