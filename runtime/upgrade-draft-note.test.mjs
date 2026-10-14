@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {randomUUID} from 'node:crypto';
+import {createDurableStore} from './durable-store.mjs';
+import {createDraftStore,validateDraftContent} from './draft-store.mjs';
+import {buildEmailActionPayload} from './vendor/outgoing-payload-builder.mjs';
+import {EMAIL_RECORD_FORM_PROFILE,emailRecordForm,emptyEmailRecord} from '../app/record-ui.mjs';
+import {recordView} from './data-runtime.mjs';
+import {DeftExperienceRecordFormV3ProfileSchema} from '@deft/app-kit';
+
+test('declared draft-only note survives actual encrypted restart and never enters MIME',async t=>{
+ const parent=await mkdtemp(join(tmpdir(),'email-author-upgrade-')),root=join(parent,'state'),encryption_key=Buffer.alloc(32,42),scope={org_id:randomUUID(),owner_user_id:randomUUID(),account_id:randomUUID()},check=async()=>{};
+ let store=await createDurableStore({root,encryption_key,key_id:'fixture-upgrade',allow_windows_fixture:process.platform==='win32'});
+ t.after(async()=>{await store.close();await rm(parent,{recursive:true,force:true});});
+ const fresh=emptyEmailRecord(),seed={record_id:randomUUID(),revision:0,content_digest:'sha256:'+'0'.repeat(64),seed:{schema_version:'deft.record_form_seed.v1',value:fresh}};
+ const profile=DeftExperienceRecordFormV3ProfileSchema.parse(emailRecordForm(seed).profile);assert.equal(fresh.author_note,'');assert.equal(profile.fields.find(field=>field.field==='author_note').label,'Private draft note (not sent)');
+ let drafts=createDraftStore({store});
+ const value={mode:'compose',to:'recipient@example.test',cc:'',bcc:'',subject:'Upgrade fixture',body:'Exact outgoing body',body_html:'',reply_record_id:'',attachments:[]};
+ let record=await drafts.create(scope,randomUUID(),value,{request_id:randomUUID(),user_id:scope.owner_user_id,check});
+ const old=recordView(record),beforeDigest=record.content_digest;assert.equal(Object.hasOwn(old.value,'author_note'),false);assert.equal(old.content_digest,'sha256:'+beforeDigest);assert.equal(emailRecordForm(old).profile.fields.some(field=>field.field==='author_note'),false);assert.equal(EMAIL_RECORD_FORM_PROFILE.fields.some(field=>field.field==='author_note'),false);
+ const note='PRIVATE_ONLY_MARKER_8f1c';
+ record=await drafts.save(scope,record.draft_id,record.revision,{...value,author_note:note},{request_id:randomUUID(),user_id:scope.owner_user_id,check});
+ const saved=structuredClone(record);await store.close();store=await createDurableStore({root,encryption_key,key_id:'fixture-upgrade',allow_windows_fixture:process.platform==='win32'});drafts=createDraftStore({store});
+ record=await drafts.read(scope,saved.draft_id,check);assert.equal(record.content.author_note,note);assert.equal(record.content_digest,saved.content_digest);assert.equal(record.revision,saved.revision);assert.equal(recordView(record).summary.author_note_supported,true);assert.equal(emailRecordForm(recordView(record)).profile.fields.some(field=>field.field==='author_note'),true);
+ await assert.rejects(drafts.save(scope,record.draft_id,record.revision-1,record.content,{request_id:randomUUID(),user_id:scope.owner_user_id,check}),{code:'EMAIL_DRAFT_CONFLICT'});
+ for(const author_note of ['x'.repeat(1001),'bad\ncontrol',42])assert.throws(()=>validateDraftContent({...value,author_note}),{code:'EMAIL_DRAFT_INVALID'});
+ const action= randomUUID(),account={account_id:scope.account_id,provider:'gmail',display_label:'Fixture',primary_address:'sender@example.test',verified_sender_identities:['sender@example.test'],capabilities:['send'],connection_target:'fixture-target',resource_binding_id:randomUUID(),action_binding_id:action,authority_epoch:1,health:'connected'};
+ const input=Object.fromEntries(['to','cc','bcc','subject','body'].map(key=>[key,record.content[key]]));
+ const packet=await buildEmailActionPayload({binding:{action_key:'send_message',draft_id:record.draft_id,draft_revision:record.revision,resource_target_key:account.connection_target,runtime_binding_id:action,org_id:scope.org_id,owner_user_id:scope.owner_user_id,installation_id:randomUUID()},draft_value:record.content,draft_updated_at:record.updated_at,input,files:[],max_payload_bytes:8388608},account);
+ assert.equal(packet.bytes.includes(Buffer.from(note)),false);assert.equal(JSON.stringify(packet.metadata).includes(note),false);assert.ok(packet.bytes.includes(Buffer.from(value.body)));
+});

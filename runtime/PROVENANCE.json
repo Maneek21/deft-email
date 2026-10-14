@@ -410,7 +410,9 @@
       "reason": "Strict native draft, quota, managed signature and app-owned scoped CAS behavioral port",
       "source_sha256": "0b413d372f5eb6d9652f35111c2da464de103a9195ad9b1de2c403e6fecd858b",
       "mode": "behavioral_port",
-      "sha256": "dfd87748ed948b3ed42153daaac5e8c7e461b7076eb266d6440d750c206fbc42"
+      "sha256": "ebde79575260cb15bd426637c0e277cf7ac982c0863a60286f74f0091430262a",
+      "original_sha256": "dfd87748ed948b3ed42153daaac5e8c7e461b7076eb266d6440d750c206fbc42",
+      "adaptation": "Author-owned optional bounded draft note, excluded from outgoing MIME; generic public profile declaration only"
     },
     {
       "target": "draft-store.mjs",
@@ -418,7 +420,9 @@
       "reason": "Scoped draft/file revisions and lifecycle behavioral port with independent encrypted store",
       "source_sha256": "65883da1bd835b002b60ffc6b6da9f04b26a6700b425ccd9abc759e0d09498d8",
       "mode": "behavioral_port",
-      "sha256": "dfd87748ed948b3ed42153daaac5e8c7e461b7076eb266d6440d750c206fbc42"
+      "sha256": "ebde79575260cb15bd426637c0e277cf7ac982c0863a60286f74f0091430262a",
+      "original_sha256": "dfd87748ed948b3ed42153daaac5e8c7e461b7076eb266d6440d750c206fbc42",
+      "adaptation": "Author-owned optional bounded draft note, excluded from outgoing MIME; generic public profile declaration only"
     },
     {
       "target": "reply-compose.mjs",
@@ -498,7 +502,9 @@
       "target": "data-runtime.mjs",
       "mode": "independent_adapter",
       "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
-      "sha256": "b5e6f89d37859c2eab82afd9fdeb0cb681e0bb88b38ee7e1aa9627dfbe0b7e22"
+      "sha256": "ac99073e28eb5478fd36f391f19bb9dfd910d1db3c2af9f4d5d2a20b798062ec",
+      "original_sha256": "b5e6f89d37859c2eab82afd9fdeb0cb681e0bb88b38ee7e1aa9627dfbe0b7e22",
+      "adaptation": "App-owned note-presence summary; no on-read mutation or digest projection"
     },
     {
       "target": "send-runner.mjs",
@@ -632,7 +638,9 @@
       "target": "data-runtime.mjs",
       "mode": "independent_adapter",
       "reason": "Bounded data-only60s foreground memo and durable membership generation invalidation; operation-local pure rechecks with fresh entry/provider/token/commit/disclosure online authority, unchanged session/custody/mutation locks and frozen vendors",
-      "sha256": "b5e6f89d37859c2eab82afd9fdeb0cb681e0bb88b38ee7e1aa9627dfbe0b7e22"
+      "sha256": "ac99073e28eb5478fd36f391f19bb9dfd910d1db3c2af9f4d5d2a20b798062ec",
+      "original_sha256": "b5e6f89d37859c2eab82afd9fdeb0cb681e0bb88b38ee7e1aa9627dfbe0b7e22",
+      "adaptation": "App-owned note-presence summary; no on-read mutation or digest projection"
     },
     {
       "target": "mailbox-store.mjs",

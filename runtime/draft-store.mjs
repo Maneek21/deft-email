@@ -20,12 +20,13 @@ export function validateFileMetadata(value) {
 /** Behavioral port of frozen email-draft-service.ts, with public native HTML
  * validation. Exact user text survives; MIME normalization never stores drafts. */
 export function validateDraftContent(raw) {
-  const optional=['from_identity','managed_signature'].filter(field=>Object.hasOwn(raw??{},field));
+  const optional=['from_identity','managed_signature','author_note'].filter(field=>Object.hasOwn(raw??{},field));
   exact(raw,['mode','to','cc','bcc','subject','body','body_html','reply_record_id','attachments',...optional]);
   if(!['compose','reply','reply_all','forward'].includes(raw.mode)||['to','cc','bcc'].some(field=>typeof raw[field]!=='string'||raw[field].length>16384||Buffer.byteLength(raw[field])>16384||controls.test(raw[field]))
     ||typeof raw.subject!=='string'||raw.subject.length>998||controls.test(raw.subject)||typeof raw.body!=='string'||raw.body.length>DRAFT_LIMITS.body_characters||/[\u0000\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u.test(raw.body)
     ||typeof raw.body_html!=='string'||raw.body_html.length>DRAFT_LIMITS.body_characters||typeof raw.reply_record_id!=='string'||raw.reply_record_id!==''&&!/^mail_[a-f0-9]{64}$/u.test(raw.reply_record_id)
     ||!Array.isArray(raw.attachments)||raw.attachments.length>DRAFT_LIMITS.max_files||Buffer.byteLength(JSON.stringify(raw))>DRAFT_LIMITS.json_bytes)fail('EMAIL_DRAFT_INVALID');
+  if(Object.hasOwn(raw,'author_note')&&(typeof raw.author_note!=='string'||raw.author_note.length>1000||controls.test(raw.author_note)))fail('EMAIL_DRAFT_INVALID');
   const value=structuredClone(raw);value.attachments=value.attachments.map(validateFileMetadata);
   if(new Set(value.attachments.map(file=>file.file_id)).size!==value.attachments.length||value.attachments.reduce((sum,file)=>sum+file.size_bytes,0)>DRAFT_LIMITS.total_file_bytes)fail('EMAIL_DRAFT_INVALID');
   if(value.from_identity){exact(value.from_identity,['address']);if(typeof value.from_identity.address!=='string'||value.from_identity.address.length>320||!/^\S+@\S+\.\S+$/u.test(value.from_identity.address)||controls.test(value.from_identity.address))fail('EMAIL_DRAFT_INVALID');}

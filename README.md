@@ -1,3 +1,5 @@
+> Optional Note6 candidate: App 1.9.0-preview.6 / Runtime 0.4.0-preview.4, based on corrected Preview5 source 36fa8f66. The base-status text below is inherited; live Note6 upgrade acceptance remains pending. See docs/independence-upgrade.md.
+
 # Email developer preview for Deft
 
 Email is a separately built sideloaded App with an external Email Runtime. The App uses Deft's generic trusted renderer; the Runtime owns provider custody, mailbox state, MIME, drafts, files and reviewed sending. Deft supplies account authority, native records, reviewed actions and Task/source navigation.
