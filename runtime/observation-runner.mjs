@@ -18,7 +18,17 @@ const accountFromRecord=(binding,record)=>{if(!record?.secret?.identity||record.
 const scopeClaim={org_id:'org_id',installation_id:'app_installation_id',app_version_id:'app_version_id',grant_snapshot_id:'grant_snapshot_id',lifecycle_epoch:'lifecycle_epoch',grant_epoch:'grant_epoch',runtime_registration_id:'runtime_registration_id',runtime_epoch:'runtime_epoch',resource_binding_id:'resource_binding_id'};
 const unknown=()=>({status:'indeterminate'});
 import {observationDiagnosticCodes as diagnosticCodes} from './observation-diagnostics.mjs';
+// Closed public transport codes, never exception messages or response contents.
+const channelCodes=new Set(['APP_RESOURCE_SYNC_DISABLED','APP_RESOURCE_SYNC_ACCESS_DENIED','APP_RESOURCE_SYNC_INVALID_REQUEST','APP_RESOURCE_SYNC_TOO_LARGE','APP_RESOURCE_SYNC_TIMEOUT','APP_RESOURCE_SYNC_FAILURE','APP_RESOURCE_SYNC_ABORTED','APP_RESOURCE_SYNC_INVALID_RESPONSE','APP_RESOURCE_SYNC_RESPONSE_TOO_LARGE']);
+const channelDiagnostic=(error,phase)=>phase==='host_result'&&channelCodes.has(error?.code)&&Number.isInteger(error?.status)&&error.status>=0&&error.status<=599?{code:error.code,http_status:error.status}:null;
 
+/** Share one claim cadence across retained channels. Empty/expired channels
+ * cannot consume the peer budget reserved for an active Run's start/result. */
+export function createResourceObservationPoller(runners){
+ if(!Array.isArray(runners)||runners.length<1||runners.length>32||runners.some(r=>typeof r?.runOnce!=='function'))fail('EMAIL_OBSERVATION_CONFIG_INVALID');
+ let next=0;
+ return Object.freeze({runOnce(signal){const runner=runners[next];next=(next+1)%runners.length;return runner.runOnce(signal);}});
+}
 
 /** One public v3 observation Run. No scheduler, owner token, action, MIME or
  * attachment stage is introduced. Restart recovery never repeats provider I/O. */
@@ -29,7 +39,7 @@ export function createResourceObservationRunner({runtime_client,observation_clie
  async function executeClaim(claim,rawStarted,signal,emit){
   let started,sourceMapping;try{started=await parseResourceSyncStartForClaimV3(claim,rawStarted);sourceMapping=await assertIntegrationSourceDescriptor(started.descriptor,claim.descriptor_digest);}catch(error){try{onDiagnostic?.({event:'email_observation_failure',run_id:claim.run_id,phase:'release_parse',code:diagnosticCodes.has(error?.code)?error.code:'OPAQUE_LOCAL_ERROR',elapsed_ms:0,authority_calls:0,provider_calls:0});}catch{}throw error;}
   if(claim.org_id!==registration.org_id||claim.runtime_registration_id!==registration.runtime_registration_id||claim.runtime_epoch!==registration.runtime_epoch)fail('EMAIL_OBSERVATION_SCOPE_DENIED');
-  const began=performance.now();let phase='authority',authorityCalls=0,providerCalls=0,diagnosed=false;const diagnose=error=>{if(diagnosed)return;diagnosed=true;const expired=expiry.signal.aborted||deadline<=now(),code=expired?'EMAIL_OBSERVATION_EXPIRED':combined.aborted?'EMAIL_OBSERVATION_CANCELLED':diagnosticCodes.has(error?.code)?error.code:'OPAQUE_LOCAL_ERROR';try{onDiagnostic?.({event:'email_observation_failure',run_id:claim.run_id,phase,code,elapsed_ms:Math.round(performance.now()-began),authority_calls:authorityCalls,provider_calls:providerCalls});}catch{}};
+  const began=performance.now();let phase='authority',authorityCalls=0,providerCalls=0,diagnosed=false;const diagnose=error=>{if(diagnosed)return;diagnosed=true;const expired=expiry.signal.aborted||deadline<=now(),code=expired?'EMAIL_OBSERVATION_EXPIRED':combined.aborted?'EMAIL_OBSERVATION_CANCELLED':diagnosticCodes.has(error?.code)?error.code:'OPAQUE_LOCAL_ERROR';try{onDiagnostic?.({event:'email_observation_failure',run_id:claim.run_id,phase,code,...(!expired&&!combined.aborted?channelDiagnostic(error,phase):null),elapsed_ms:Math.round(performance.now()-began),authority_calls:authorityCalls,provider_calls:providerCalls});}catch{}};
   const expiry=new AbortController(),combined=AbortSignal.any([signal,expiry.signal].filter(Boolean)),operationDeadline=now()+30000;let lease=Math.min(Date.parse(claim.lease_expires_at),Date.parse(started.lease_expires_at)),deadline=Math.min(lease,operationDeadline),authority,timer;
   const arm=()=>{clearTimeout(timer);timer=setTimeout(()=>expiry.abort(new Error('EMAIL_OBSERVATION_EXPIRED')),Math.max(0,deadline-now()));timer.unref();};
   const local=()=>{combined.throwIfAborted();if(!Number.isFinite(deadline)||deadline<=now())fail('EMAIL_OBSERVATION_AUTHORITY_DENIED');};arm();

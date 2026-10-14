@@ -15,7 +15,7 @@ import {createRegistrationDispatcher, validateRegistrations} from './registratio
 import {createDeclaredIntegrationToolsRuntime} from './declared-integration-tools.mjs';
 import {createDataRuntime} from './data-runtime.mjs';
 import {createAppActionRunner} from './action-runner.mjs';
-import {createResourceObservationRunner} from './observation-runner.mjs';
+import {createResourceObservationRunner,createResourceObservationPoller} from './observation-runner.mjs';
 import {createAppRuntimeClient,createDeftResourceSyncClientV3,createResourceObservationClient} from '@deft/app-kit';
 import {createAuthorityClient, createHttpHandler,trustedUrl} from './http.mjs';
 import {exact, fail,canonical,validateRegistration} from './contract.mjs';
@@ -83,7 +83,7 @@ export async function startRuntime(config, options = {}) {
     await new Promise((done, reject) => {server.once('error', reject); server.listen(config.listen_port, '127.0.0.1', done);});
     const stopped=new AbortController();
     const worker=(runner,waitMs,maxWaitMs=waitMs)=>runPollingWorker(runner,{signal:stopped.signal,waitMs,maxWaitMs});
-    const workers=[...(options.start_send_workers===false?[]:channel_renewals.map(({renewal})=>renewal.run(stopped.signal))),...(mirror_coordinator&&options.start_mirror_worker!==false?[worker(mirror_coordinator,5000)]:[]),...(local_job_runner&&options.start_local_job_worker!==false?[worker(local_job_runner,5000)]:[]),...(options.start_send_workers===false?[]:send_runners.map(runner=>worker(runner,500,5000))),...(options.start_observation_workers===false?[]:observation_runners.map(runner=>worker(runner,5000)))];
+    const workers=[...(options.start_send_workers===false?[]:channel_renewals.map(({renewal})=>renewal.run(stopped.signal))),...(mirror_coordinator&&options.start_mirror_worker!==false?[worker(mirror_coordinator,5000)]:[]),...(local_job_runner&&options.start_local_job_worker!==false?[worker(local_job_runner,5000)]:[]),...(options.start_send_workers===false?[]:send_runners.map(runner=>worker(runner,500,5000))),...(options.start_observation_workers===false||!observation_runners.length?[]:[worker(createResourceObservationPoller(observation_runners),5000)])];
     return {server, store, data_runtime,integration_tool_runtime, mirror_coordinator,send_runners, observation_runners, local_job_runtime,local_job_runner, async close() {stopped.abort();for(const {renewal}of channel_renewals)renewal.close();await Promise.all(workers);await new Promise(done => server.close(done)); await store.close(); encryption_key.fill(0); }};
   } catch (error) { await store.close(); encryption_key.fill(0); throw error; }
 }

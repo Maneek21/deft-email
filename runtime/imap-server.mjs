@@ -1,6 +1,6 @@
 import {createRuntimeChannelRenewal} from './runtime-channel-renewal.mjs';
 import {createRunInspectionRuntime} from './run-inspection-runtime.mjs';
-import {createResourceObservationRunner} from './observation-runner.mjs';
+import {createResourceObservationRunner,createResourceObservationPoller} from './observation-runner.mjs';
 import {createLocalJobRuntime} from './local-job-runtime.mjs';
 import {createLocalJobClient,createLocalJobRunner} from './local-job-client.mjs';
 import {createServer} from 'node:http';
@@ -53,7 +53,7 @@ export async function startFormRuntime(config,options={}){
   const server=createServer((request,response)=>['/v1/data','/v1/local-jobs','/v1/run-inspections','/v1/integration-tools'].includes(request.url)?dataHandler(request,response):formHandler(request,response));server.headersTimeout=10000;server.requestTimeout=60000;server.timeout=65000;
   await new Promise((done,reject)=>{server.once('error',reject);server.listen(config.listen_port,'127.0.0.1',done);});
   const stopped=new AbortController(),worker=async(runner,waitMs)=>{while(!stopped.signal.aborted){try{await runner.runOnce(stopped.signal);}catch{}if(!stopped.signal.aborted)try{await delay(waitMs,undefined,{signal:stopped.signal});}catch{}}};
-  const workers=[...(options.start_send_workers===false?[]:channel_renewals.map(({renewal})=>renewal.run(stopped.signal))),...(options.start_observation_workers===false?[]:observation_runners.map(runner=>worker(runner,5000))),...(local_job_runner&&options.start_local_job_worker!==false?[worker(local_job_runner,5000)]:[]),...(options.start_send_workers===false?[]:send_runners.map(runner=>worker(runner,500)))];
+  const workers=[...(options.start_send_workers===false?[]:channel_renewals.map(({renewal})=>renewal.run(stopped.signal))),...(options.start_observation_workers===false||!observation_runners.length?[]:[worker(createResourceObservationPoller(observation_runners),5000)]),...(local_job_runner&&options.start_local_job_worker!==false?[worker(local_job_runner,5000)]:[]),...(options.start_send_workers===false?[]:send_runners.map(runner=>worker(runner,500)))];
   return {server,store,forms,data_runtime,integration_tool_runtime,send_runners,observation_runners,local_job_runtime,local_job_runner,async close(){stopped.abort();for(const {renewal}of channel_renewals)renewal.close();await Promise.all(workers);await new Promise(done=>server.close(done));await store.close();encryption_key.fill(0);}};
  }catch(error){await store.close();encryption_key.fill(0);throw error;}
 }

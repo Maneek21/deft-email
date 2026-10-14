@@ -9,6 +9,32 @@ import {fileURLToPath} from 'node:url';
 import {randomUUID,randomBytes} from 'node:crypto';
 import {makeScope,registrationFor,client} from './test-support.mjs';
 import {startRuntime} from './server.mjs';
+import {createResourceObservationPoller} from './observation-runner.mjs';
+import {runPollingWorker} from './polling-worker.mjs';
+
+test('eight configured observation channels share one initial public claim instead of flooding their Host peer',async t=>{
+ const parent=await mkdtemp(join(tmpdir(),'email-observation-budget-')),scope=makeScope(),clientFile=join(parent,'client.json'),paths=[];
+ await writeFile(clientFile,JSON.stringify(client),{mode:0o600});
+ for(let index=0;index<8;index++){
+  const path=join(parent,'channel-'+index+'.json');paths.push(path);
+  await writeFile(path,JSON.stringify({channel_url:'https://host.example/api/app-resource-sync-channel/v3',observation_authority_url:'https://host.example/api/app-resource-observations/runtime',credential:{session_id:randomUUID(),session_token:randomBytes(32).toString('base64url')},registration:registrationFor(scope)}),{mode:0o600});
+ }
+ let instance,claims=0,providerCalls=0,claimed;const first=new Promise(done=>{claimed=done;});
+ t.after(async()=>{await instance?.close();await rm(parent,{recursive:true,force:true});});
+ instance=await startRuntime({listen_port:0,store_root:join(parent,'state'),key_id:'observation-budget',encryption_key_hex:randomBytes(32).toString('hex'),runtime_auth_token:randomBytes(32).toString('base64url'),authority_token:randomBytes(32).toString('base64url'),authority_url:'https://host.example/api/app-connection-sessions/runtime/authority',registrations:[registrationFor(scope)],gmail_client_file:clientFile,resource_sync_channel_files:paths},{allow_windows_fixture:process.platform==='win32',start_send_workers:false,fetch(){providerCalls++;throw Error('Unexpected provider call');},async channelFetch(url,options){assert.equal(url.pathname,'/api/app-resource-sync-channel/v3/claim');assert.equal(JSON.parse(options.body).max_claims,1);claims++;claimed();return Response.json({schema_version:'deft.app_runtime_channel.v3',audience:'app_resource_sync',claim:null});}});
+ await first;await new Promise(setImmediate);
+ assert.equal(claims,1,'retained channels must share the initial claim admission');assert.equal(providerCalls,0);
+});
+
+test('shared observation polling reaches each exact channel, awaits active work and never retries its result',async()=>{
+ const controller=new AbortController(),visited=[],waits=[],signals=[];let release,entered;
+ const active=new Promise(done=>{release=done;}),started=new Promise(done=>{entered=done;});
+ const runners=Array.from({length:8},(_,index)=>({async runOnce(signal){visited.push(index);signals.push(signal);if(index===3){entered();await active;throw Error('Uncertain original result');}return null;}}));
+ const polling=runPollingWorker(createResourceObservationPoller(runners),{signal:controller.signal,waitMs:5000,wait:async ms=>{waits.push(ms);if(waits.length===9)controller.abort();}});
+ await started;assert.deepEqual(visited,[0,1,2,3],'no competing claim while an exact Run is active');release();await polling;
+ assert.deepEqual(visited,[0,1,2,3,4,5,6,7,0]);assert.ok(signals.every(s=>s===controller.signal));assert.ok(waits.every(ms=>ms===5000));
+ assert.equal(visited.filter(index=>index===3).length,1,'an uncertain result is not retried');
+});
 
 test('configured independent process polls only the public v3 channel with its explicit private credential',async t=>{
  const parent=await mkdtemp(join(tmpdir(),'email-observation-process-')),scope=makeScope(),token=randomBytes(32).toString('base64url'),credential={session_id:randomUUID(),session_token:randomBytes(32).toString('base64url')};let providerCalls=0,claims=0,child,ready;
