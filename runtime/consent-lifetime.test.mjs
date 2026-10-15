@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {appConsentDeadline, appConsentExpiryValid, DEFT_APP_KIT_VERSION} from '@deft/app-kit';
 import {validateScope, canonical} from './contract.mjs';
 import {makeScope} from './test-support.mjs';
 import {createDataChecker} from './data-contract.mjs';
@@ -37,4 +38,17 @@ test('persistent technical delegation never admits a missing or oversized techni
  for(const expiry of [null,undefined,new Date(now+900001).toISOString()])assert.throws(()=>createRuntimeChannelRenewal({channel:{...channel,technical_renewal:{...metadata,expires_at:expiry}},runtime_client:client,now:()=>now}));
  const renewal=createRuntimeChannelRenewal({channel,runtime_client:client,now:()=>now});
  try{assert.equal(await renewal.renew(new AbortController().signal),false);assert.equal(await renewal.client.claim(),null);}finally{renewal.close();}
+});
+
+// Exercise the installed packed public Kit, including the offset fix absent in Kit34.
+test('packed Kit35 admits ISO offsets and rejects malformed or ambiguous consent lifetimes',()=>{
+ assert.equal(DEFT_APP_KIT_VERSION,'0.1.0-alpha.35');
+ const offset='2046-10-15T17:30:00+05:30',utc='2046-10-15T12:00:00Z';
+ assert.equal(appConsentDeadline(offset),Date.parse(utc));
+ assert.equal(appConsentDeadline(utc),Date.parse(utc));
+ assert.equal(appConsentDeadline(null,'until_revoked'),Infinity);
+ for(const [expiry,mode] of [[null,undefined],[undefined,undefined],[null,'forever'],[utc,'until_revoked'],[offset,'until_revoked'],['invalid',undefined],['2046-10-15T12:00:00',undefined],['2046-10-15T17:30:00+99:99',undefined]]){
+  assert.throws(()=>appConsentDeadline(expiry,mode));
+  assert.equal(appConsentExpiryValid(expiry,mode),false);
+ }
 });

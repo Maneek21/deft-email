@@ -3,6 +3,9 @@ import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 
 const pins = [
+  ['../app/deft-app-kit-0.1.0-alpha.35.tgz', '82c2d5bff2776e423b58647fad0f4a6a6430535f4e60c8146fed737d83f33ad5'],
+  ['../runtime/deft-app-kit-0.1.0-alpha.35.tgz', '82c2d5bff2776e423b58647fad0f4a6a6430535f4e60c8146fed737d83f33ad5'],
+
   ['../app/deft-app-kit-0.1.0-alpha.34.tgz', 'd5b0c498025684e4eae9fafe950846794b39874fac1f3277914e7e3c61bd93ef'],
   ['../runtime/deft-app-kit-0.1.0-alpha.34.tgz', 'd5b0c498025684e4eae9fafe950846794b39874fac1f3277914e7e3c61bd93ef'],
   ['../app/deft-app-kit-0.1.0-alpha.33.tgz', 'c022a3e215766d9730367002f210013ec14b46e01ee6fdf71ed25ca754cb9037'],
