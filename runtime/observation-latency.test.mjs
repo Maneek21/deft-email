@@ -64,3 +64,37 @@ test('same25-item real authority-latency fixture measures requests and elapsed b
  console.log(JSON.stringify({event:'synthetic_observation_measured',measurements}));assert.equal(measurements[0].provider,measurements[1].provider);// Immutable publication adds current boundary checks; retain at least50% fewer authority roundtrips with the same actual provider reads. Wall-time remains measured evidence because durable filesystem latency varies across platforms.
  assert.ok(measurements[0].authority>=measurements[1].authority*2);
 });
+
+
+test('observation retains every authority check while bounding one peer burst under actual16 slots',async t=>{
+ const f=await fixture(t),events=[];let active=0,peak=0,overloaded=0,checks=0;
+ // Seven already-admitted same-peer requests leave nine of the real16 slots.
+ // This is competing-work evidence, not a claim that10 alone exceeds16.
+ f.onAuthority(async()=>{checks++;active++;peak=Math.max(peak,active);try{if(active+7>16){overloaded++;throw Object.assign(Error('static authority overload'),{code:'APP_RESOURCE_SYNC_FAILURE',status:503});}await delay(100);}finally{active--;}});
+ const result=await f.runner({onDiagnostic:e=>events.push(e)}).runOnce();
+ console.log(JSON.stringify({event:'synthetic_observation_authority_burst',peer_limit:16,competing_requests:7,peak,overloaded,checks,status:result.status,diagnostics:events}));
+ assert.equal(result.status,'returned');assert.equal(result.page.upserts.length,25);assert.equal(overloaded,0);assert.equal(peak,1);assert.equal(f.resultCalls,1);assert.ok(checks>25);
+});
+
+
+test('Host503 diagnostics retain their closed origin and queued failures never reach provider or disclosure',async t=>{
+ const f=await fixture(t),events=[],before=f.providerCalls;let calls=0;
+ f.onAuthority(async()=>{calls++;await delay(10);throw Object.assign(Error('PRIVATE_HOST_BODY_MUST_NOT_ESCAPE'),{code:'APP_RESOURCE_SYNC_FAILURE',status:503});});
+ assert.equal((await f.runner({onDiagnostic:e=>events.push(e)}).runOnce()).status,'indeterminate');
+ assert.equal(calls,1);assert.equal(f.providerCalls,before);assert.equal(f.resultCalls,0);assert.equal(events.length,1);assert.equal(events[0].code,'APP_RESOURCE_SYNC_FAILURE');assert.equal(events[0].http_status,503);assert.ok(!JSON.stringify(events).includes('PRIVATE_HOST_BODY'));
+});
+
+
+test('queued authority abort remains fenced before provider and never emits a result',async t=>{
+ const f=await fixture(t),events=[],controller=new AbortController(),before=f.providerCalls;
+ f.onAuthority(async()=>{controller.abort();await delay(20);});
+ assert.equal((await f.runner({onDiagnostic:e=>events.push(e)}).runOnce(controller.signal)).status,'indeterminate');assert.equal(f.providerCalls,before);assert.equal(f.resultCalls,0);assert.ok(events.some(e=>e.code==='EMAIL_OBSERVATION_CANCELLED'));
+});
+
+
+test('mid-provider Host503 settles queued checks without further provider I/O or retry',async t=>{
+ const f=await fixture(t),events=[],before=f.providerCalls;let denied=0;
+ f.onAuthority(async()=>{await delay(5);if(f.providerCalls-before>=2){denied++;throw Object.assign(Error('opaque Host body'),{code:'APP_RESOURCE_SYNC_FAILURE',status:503});}});
+ assert.equal((await f.runner({onDiagnostic:e=>events.push(e)}).runOnce()).status,'indeterminate');assert.equal(denied,1);assert.equal(f.providerCalls-before,2);assert.equal(f.resultCalls,0);assert.equal(events.length,1);assert.equal(events[0].code,'APP_RESOURCE_SYNC_FAILURE');assert.equal(events[0].http_status,503);
+ const calls=f.providerCalls;assert.equal((await f.runner({onDiagnostic:()=>{}}).runOnce()).status,'indeterminate');assert.equal(f.providerCalls,calls);
+});

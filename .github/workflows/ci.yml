@@ -40,6 +40,7 @@ jobs:
           pnpm --dir runtime run test:uuid
           pnpm --dir runtime run test:upgrade
           npm run test:runtime:preview
+          node --test runtime/observation-latency.test.mjs
           node --test runtime/runtime-channel-renewal-startup.test.mjs
           node --test runtime/http-failure-diagnostic.test.mjs runtime/sync-handoff-host-uuid.test.mjs
           node --test runtime/prepared-effect.test.mjs runtime/email-domain-boundary.test.mjs runtime/integration-source.test.mjs runtime/capture-transport.test.mjs
