@@ -62,6 +62,15 @@ test('actual Compose view selects its packed Kit v3 form capability before Host 
  assert.equal(form.seed.schema_version,'deft.record_form_seed.v1');assert.equal(form.seed.value.to,'');
  assert.equal(form.expected_revision,0);assert.equal(form.disabled,false);
 });
+
+test('new compose retains its private note profile through first save and queued edits',async()=>{
+ const ui=await start();await ui.click('compose');const form=node(ui,'draft_form'),profile=form.profile;
+ assert.ok(profile.fields.some(field=>field.field==='author_note'));
+ for(const [record_state,dirty] of [['saving',true],['saved',false]]){
+  await ui.input({node_id:'draft_form',record_id:form.record_id,record_revision:1,content_digest:digest,record_state,dirty,valid:true});
+  assert.deepEqual(node(ui,'draft_form').profile,profile);assert.equal(node(ui,'draft_form').seed,undefined);
+ }
+});
 test('account filters stay compact and empty results keep actionable controls',async()=>{
  const ui=await start({messages:[],targets:[{key:'primary',label:'Primary'},{key:'secondary',label:'Secondary'}]});
  assert.equal(node(ui,'account_catalog').layout,'horizontal');assert.ok(node(ui,'refresh'));assert.ok(node(ui,'toggle_search'));assert.match(node(ui,'mail_empty').text,/No messages/);

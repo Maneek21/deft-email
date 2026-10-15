@@ -34,5 +34,5 @@ export function emailRecordEvent(previous,event){
  if(event?.node_id!=='draft_form'||event.record_id!==previous?.record_id||!Number.isSafeInteger(event.record_revision)
   ||event.record_revision<previous.revision||!digest(event.content_digest)||!['saved','saving','unsaved','blocked','submitted'].includes(event.record_state)
   ||typeof event.dirty!=='boolean'||typeof event.valid!=='boolean')throw Error('EMAIL_DRAFT_EVENT_INVALID');
- return {...previous,...(event.record_revision>0?{seed:undefined}:{}),revision:event.record_revision,content_digest:event.content_digest,state:event.record_state,dirty:event.dirty,valid:event.valid};
+ return {...previous,...(event.record_revision>0?{seed:undefined,...(Object.hasOwn(previous.seed?.value??{},'author_note')?{summary:{...previous.summary,author_note_supported:true}}:{})}:{}),revision:event.record_revision,content_digest:event.content_digest,state:event.record_state,dirty:event.dirty,valid:event.valid};
 }
