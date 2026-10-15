@@ -15,7 +15,7 @@ async function fixture(t){const parent=await mkdtemp(join(tmpdir(),'email-batch-
 test('25 row projection keeps exact IDs/digests with three fresh batch authority checks',async t=>{
  const store=await fixture(t),mailbox=createMailboxStore({store}),s=scope();let online=0,local=0;
  const result=await mailbox.commit(s,page(s),async()=>{online++;},{localCheck:()=>{local++;},include_items:true});
- assert.equal(online,3);assert.equal(local,75);assert.equal(result.items.length,25);
+ assert.equal(online,3);assert.equal(local,100);assert.equal(result.items.length,25);
  for(const item of result.items)assert.deepEqual(item,resourceView(await mailbox.get(s,item.record_id,async()=>{})));
 });
 test('revocation during row writes denies disclosure and checkpoint advancement; future reads require current authority',async t=>{

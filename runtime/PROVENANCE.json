@@ -579,8 +579,10 @@
     {
       "target": "mailbox-store.mjs",
       "mode": "independent_adapter",
+      "runtime_version": "0.4.0-preview.9",
+      "adaptation": "Retain the same owned provider locator envelope across epoch-only reattachment, before mailbox cache and immutable publication handoff; current authority and lineage remain independently required.",
       "reason": "Public Kit16 immutable resource plans and independently consented Organize runtime effects; whole-plan/per-item no-replay, exact custody/current authority and request-local observation checks; frozen provider51 unchanged",
-      "sha256": "8145b23ab987525931f64b8c0cb3847a559225df6457e0d48e0318dc040227ad"
+      "sha256": "2a7d2d5397f11f6579e4ad4ad4bd672bef7eaed6e44cfda529f2bbf09170d9c3"
     },
     {
       "target": "connection-reattach-runtime.mjs",
@@ -677,8 +679,10 @@
     {
       "target": "mailbox-store.mjs",
       "mode": "independent_adapter",
+      "runtime_version": "0.4.0-preview.9",
+      "adaptation": "Retain the same owned provider locator envelope across epoch-only reattachment, before mailbox cache and immutable publication handoff; current authority and lineage remain independently required.",
       "reason": "Bounded data-only60s foreground memo and durable membership generation invalidation; operation-local pure rechecks with fresh entry/provider/token/commit/disclosure online authority, unchanged session/custody/mutation locks and frozen vendors",
-      "sha256": "8145b23ab987525931f64b8c0cb3847a559225df6457e0d48e0318dc040227ad"
+      "sha256": "2a7d2d5397f11f6579e4ad4ad4bd672bef7eaed6e44cfda529f2bbf09170d9c3"
     },
     {
       "target": "foreground-cache.mjs",

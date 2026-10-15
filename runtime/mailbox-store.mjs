@@ -8,6 +8,14 @@ import {createSyncHandoff} from './sync-handoff.mjs';
 
 export function resourceUuid(scope,logical_message_id){if(!/^mail_[a-f0-9]{64}$/u.test(logical_message_id??''))fail('EMAIL_DATA_RESOURCE_INVALID');const bytes=Buffer.from(digest([scope.org_id,scope.owner_user_id,scope.account_id,logical_message_id]),'hex').subarray(0,16);bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;const text=bytes.toString('hex');return `${text.slice(0,8)}-${text.slice(8,12)}-${text.slice(12,16)}-${text.slice(16,20)}-${text.slice(20)}`;}
 const key=(scope,part)=>'email.data.mailbox.'+digest([scope.org_id,scope.owner_user_id,scope.account_id,part]);
+// Keep the original owned locator envelope when only custody generation moves.
+// createOwnedSourceResolver still validates its lineage before provider access.
+function retainedSource(scope,item,previous){
+ const a=previous?.provider_source,b=item.provider_source;
+ if(!a||!b||a.schema_version!=='deft.email_provider_source.v1'||b.schema_version!==a.schema_version||a.account_id!==scope.account_id||a.logical_message_id!==item.logical_message_id||![a.authority_epoch,b.authority_epoch].every(n=>Number.isSafeInteger(n)&&n>=1&&n<=2147483646))return b;
+ const {authority_epoch:old,...oldIdentity}=a,{authority_epoch:current,...currentIdentity}=b;
+ return canonical(oldIdentity)===canonical(currentIdentity)?a:b;
+}
 export const resourceView=record=>({record_id:record.record_id,content_digest:'sha256:'+digest([record.logical_message_id,record.provider_revision,record.provider_source,record.data]),revision:String(record.revision),label:(record.data.label||record.data.subject||'(No subject)').replace(/[\u0000-\u001f\u007f<>]/gu,' ').slice(0,200)||'(No subject)',data:record.data,tombstone:record.deleted,membership_generation:record.revision,checkpoint_generation:record.checkpoint_generation??1});
 /** App-owned locator/catalog. Provider page state advances only after durable
  * message/tombstone rows; partial pages never infer absence/deletion. */
@@ -28,7 +36,10 @@ export function createMailboxStore({store,now=Date.now,imapAliases}){
       if(imapAliases)page=await imapAliases.remapPage(scope,page,check);
       if(!Array.isArray(page.items)||!Array.isArray(page.tombstones??[])||!Array.isArray(page.state_updates??[]))fail('EMAIL_DATA_RESOURCE_INVALID');
       return store.withLock({key:key(scope,'index')},async tx=>{
-        await check();let prior=await tx.read();const index=prior?.value??{scope,ids:[],states:{},generation:null,complete:false,observed_at:null};if(canonical(index.scope)!==canonical(scope))fail('EMAIL_DATA_AUTHORITY_DENIED');const ids=new Set(index.ids),written=[];let content_changed=false;const sync_sequence=page.state_updates?.length&&sync_producer?await handoff.capture(scope,index,page,sync_producer,localCheck):index.sync_publication_sequence??null;
+        await check();let prior=await tx.read();const index=prior?.value??{scope,ids:[],states:{},generation:null,complete:false,observed_at:null};if(canonical(index.scope)!==canonical(scope))fail('EMAIL_DATA_AUTHORITY_DENIED');
+        // Normalize before capturing the immutable page as well as cache rows.
+        const items=[];for(const item of page.items){await localCheck();if(item.account_id!==scope.account_id)fail('EMAIL_DATA_RESOURCE_INVALID');const previous=(await read(scope,resourceUuid(scope,item.logical_message_id)))?.value;if(previous&&canonical(previous.scope)!==canonical(scope))fail('EMAIL_DATA_AUTHORITY_DENIED');items.push({...item,provider_source:retainedSource(scope,item,previous)});}page={...page,items};
+        const ids=new Set(index.ids),written=[];let content_changed=false;const sync_sequence=page.state_updates?.length&&sync_producer?await handoff.capture(scope,index,page,sync_producer,localCheck):index.sync_publication_sequence??null;
         // Sealed rows commit separately. Invalidate just before the first actual
         // change; unchanged provider observations retain warm cache generations.
         let invalidated=false;const invalidate=async()=>{if(invalidated)return;

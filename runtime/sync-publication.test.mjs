@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {createMailboxStore,resourceUuid} from './mailbox-store.mjs';
+import {createMailboxStore,resourceUuid,resourceView} from './mailbox-store.mjs';
+import {integrationSourceProjection} from './integration-source.mjs';
 import {createSyncPublication} from './sync-publication.mjs';
 import {SYNC_HANDOFF_LIMITS} from './sync-handoff.mjs';
 import {makeScope} from './test-support.mjs';
@@ -14,6 +15,23 @@ const logical=n=>'mail_'+n.toString(16).padStart(64,'0');
 function nativePage(f,n,{count=1,tombstones=[]}={}){return {account_id:f.scope.account_id,items:Array.from({length:count},(_,i)=>({account_id:f.scope.account_id,logical_message_id:logical(n*25+i),revision:'r'+n,data:{subject:'Synthetic '+n},provider_source:{provider:'gmail',synthetic_id:n*25+i},folders:['inbox'],flags:{},received_at:'2026-10-09T00:00:00Z',inventory_generation:'g1'})),tombstones,state_updates:[{state_key:'native',generation:'g1',value:{continuation:n}}],observed_at:'2026-10-09T00:00:00Z',complete:true,has_more:false,next_cursor:'gmail-native-v1:'+randomUUID(),failure_count:0};}
 const commit=(f,p)=>f.mailbox.commit(f.scope,p,current,{localCheck:current,sync_producer:f.producer});
 function publish(f,cursor=null,extra={}){return createSyncPublication({store:f.store,mailbox:f.mailbox}).page({scope:f.scope,consumer:f.consumer,producer:f.producer,input_cursor:cursor,limit:25,check:current,localCheck:current,readNative:async()=>{throw Error('UNEXPECTED_PROVIDER_IO');},...extra});}
+
+test('authority epoch alone preserves cached source digest and the actual observation publication handoff',async()=>{
+ const f=fixture(),one=nativePage(f,1);one.items[0].provider_source={schema_version:'deft.email_provider_source.v1',account_id:f.scope.account_id,provider:'gmail',authority_epoch:2,logical_message_id:one.items[0].logical_message_id,conversation_id:'conversation',locator:{kind:'gmail',message_id:'synthetic',thread_id:'thread'}};
+ await commit(f,one);const first=await publish(f),id=resourceUuid(f.scope,one.items[0].logical_message_id),before=await f.mailbox.get(f.scope,id,current);
+ const two={...structuredClone(one),next_cursor:'gmail-native-v1:'+randomUUID(),observed_at:'2026-10-10T00:00:00Z'};two.items[0].provider_source.authority_epoch=3;await commit(f,two);
+ const after=await f.mailbox.get(f.scope,id,current),second=await publish(f,first.next_cursor);
+ assert.equal(after.provider_source.authority_epoch,2);assert.equal(after.revision,before.revision);assert.equal(resourceView(after).content_digest,resourceView(before).content_digest);
+ assert.equal(second.items[0].provider_source.authority_epoch,2);const mapping={record_id_field:'source_record_id',content_digest_field:'source_content_digest',observed_at_field:'source_observed_at'};
+ assert.equal(integrationSourceProjection(f.scope,second.items[0],second.observed_at,mapping).data.source_content_digest,resourceView(before).content_digest);
+ const stamp=await f.mailbox.cacheSnapshot(f.scope,[],current);await f.mailbox.commit(f.scope,{...two,state_updates:[]},current);assert.deepEqual((await f.mailbox.cacheSnapshot(f.scope,[],current)).stamp,stamp.stamp);
+});
+
+test('authority epoch preservation cannot hide content, provider revision, locator or account changes',async()=>{
+ for(const mutate of [p=>p.items[0].data.subject='Changed',p=>p.items[0].revision='changed',p=>p.items[0].provider_source.locator.message_id='other',p=>p.items[0].provider_source.account_id='foreign']){
+  const f=fixture(),one=nativePage(f,1);one.items[0].provider_source={schema_version:'deft.email_provider_source.v1',account_id:f.scope.account_id,provider:'gmail',authority_epoch:2,logical_message_id:one.items[0].logical_message_id,conversation_id:'conversation',locator:{kind:'gmail',message_id:'synthetic',thread_id:'thread'}};await commit(f,one);const id=resourceUuid(f.scope,one.items[0].logical_message_id),before=resourceView(await f.mailbox.get(f.scope,id,current));const two={...structuredClone(one),next_cursor:'gmail-native-v1:'+randomUUID()};two.items[0].provider_source.authority_epoch=3;mutate(two);await commit(f,two);assert.notEqual(resourceView(await f.mailbox.get(f.scope,id,current)).content_digest,before.content_digest);
+ }
+});
 
 test('foreground partitions hand off immutable ordered pages without changing native checkpoint or UUID mapping',async()=>{const f=fixture(),one=nativePage(f,1),two=nativePage(f,2);await commit(f,one);await commit(f,two);const nativeCursor=await f.mailbox.cursor(f.scope,current),first=await publish(f);assert.deepEqual(first.items,one.items);assert.equal(first.complete,false);assert.equal(first.has_more,true);assert.deepEqual(await publish(f),first);const second=await publish(f,first.next_cursor);assert.deepEqual(second.items,two.items);assert.equal(second.complete,true);assert.equal(await f.mailbox.cursor(f.scope,current),nativeCursor);for(const p of [one,two])assert.equal((await f.mailbox.getLogical(f.scope,p.items[0].logical_message_id,current)).record_id,resourceUuid(f.scope,p.items[0].logical_message_id));});
 
