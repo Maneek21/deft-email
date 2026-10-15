@@ -1,11 +1,11 @@
-import {fail} from './contract.mjs';
+import {fail,consentDeadline} from './contract.mjs';
 
 /** Current support is a read-only observation, never permission to append. The
  * reviewed Send still resolves and seals its exact destination independently. */
 export async function smtpSentCopySupport({account,connector,check,signal,expires_at,now=Date.now}){
  await check();
  if(!account)return {smtp_supported:false,append_available:false,sent_copy_reason:'provider_managed'};
- if(!account.profile?.smtp||!account.capabilities?.includes('send')||!account.action_consents?.some(row=>row.action_key==='send_message'&&Date.parse(row.expires_at)>now()))return {smtp_supported:true,append_available:false,sent_copy_reason:'send_unavailable'};
+ if(!account.profile?.smtp||!account.capabilities?.includes('send')||!account.action_consents?.some(row=>row.action_key==='send_message'&&consentDeadline(row)>now()))return {smtp_supported:true,append_available:false,sent_copy_reason:'send_unavailable'};
  const result=await connector.imap(account.profile.imap,{check,signal,expires_at},async client=>{
   await check();const rows=await client.list();await check();
   if(!Array.isArray(rows)||rows.length>512||Buffer.byteLength(JSON.stringify(rows))>1048576)fail('EMAIL_SMTP_COPY_DESTINATION_DENIED');

@@ -18,7 +18,7 @@ import {purposeFor} from './purpose-set.mjs';
 
 import {ORGANIZE_OPERATIONS} from './resource-plan-store.mjs';
 
-import {canonical,fail} from './contract.mjs';
+import {canonical,fail,consentDeadline} from './contract.mjs';
 
 
 
@@ -54,7 +54,7 @@ export async function createResourceTriage({session,custody,client,journal,check
 
  const fetchCurrent=async(url,options={})=>{await current();if(activeCustodyRead)activeCustodyRead();else await fencedCustody.withAccount(selected,tx=>tx.read());await check();await current();return fetchImpl(url,{...options,signal:AbortSignal.any([signal,options.signal,AbortSignal.timeout(30000)].filter(Boolean))});};
 
- const oauth=createEmailOAuth({clients:{[provider]:client},custody:fencedCustody,fetch:fetchCurrent,now,host:{async resolveAccount(input){await current();if(input.account_id!==account.account_id||input.purpose!=='modify'||canonical(input.scope)!==canonical(scope))fail('EMAIL_RESOURCE_ACTION_AUTHORITY_DENIED');return selected;},async assertAuthority(input){await current();if(input.purpose!=='modify'||canonical(input.binding)!==canonical(selected))fail('EMAIL_RESOURCE_ACTION_AUTHORITY_DENIED');return {allowed:true,expires_at:Math.min(getDeadline(),Date.parse(purpose.expires_at))};}}});
+ const oauth=createEmailOAuth({clients:{[provider]:client},custody:fencedCustody,fetch:fetchCurrent,now,host:{async resolveAccount(input){await current();if(input.account_id!==account.account_id||input.purpose!=='modify'||canonical(input.scope)!==canonical(scope))fail('EMAIL_RESOURCE_ACTION_AUTHORITY_DENIED');return selected;},async assertAuthority(input){await current();if(input.purpose!=='modify'||canonical(input.binding)!==canonical(selected))fail('EMAIL_RESOURCE_ACTION_AUTHORITY_DENIED');return {allowed:true,expires_at:Math.min(getDeadline(),consentDeadline(purpose))};}}});
 
  const binding={scope,account,action_binding_id:purpose.action_binding_id,operations:Object.values(ORGANIZE_OPERATIONS).filter(value=>!['undo','create_folder','rename_folder','manual_rule'].includes(value)&&(provider==='gmail'||value!=='labels')).sort()},adapter=(provider==='gmail'?createGmailTriageAdapter:createMicrosoftTriageAdapter)({binding,now,fetch:fetchCurrent,assertAuthority:async({binding:requested,operation})=>{await current();return canonical(requested)===canonical(binding)&&binding.operations.includes(operation);},getAccessToken:async()=>{await current();const token=await oauth.getAccessToken({scope,account,account_id:account.account_id,authority_epoch:account.authority_epoch,operation:'modify'});const row=await fencedCustody.withAccount(selected,tx=>tx.read());await current();return {token,granted_scopes:row.secret.scopes};}});
 
@@ -63,7 +63,7 @@ export async function createResourceTriage({session,custody,client,journal,check
  const fencedEffect=method=>async request=>{let reserved=false;try{return await adapter[method]({...request,reserve:async()=>{await request.reserve();reserved=true;}});}catch(error){const known=reserved&&['EMAIL_TRIAGE_PROVIDER_REJECTED','EMAIL_TRIAGE_CONFLICT'].includes(error.code)&&error.status>=400&&error.status<500&&error.status!==408;if(reserved&&!known)uncertain=true;throw error;}};
  const fencedAdapter={...adapter,apply:fencedEffect('apply'),undo:fencedEffect('undo')};
 
- const service=createEmailTriageService({journal,now,adapterFor:async expected=>{await effectCurrent();if(canonical(expected)!==canonical(binding))fail('EMAIL_RESOURCE_ACTION_AUTHORITY_DENIED');return fencedAdapter;},resolveAuthority:async({scope:requested,account_id,operation})=>{await effectCurrent();if(canonical(requested)!==canonical(scope)||account_id!==account.account_id||!binding.operations.includes(operation))fail('EMAIL_RESOURCE_ACTION_AUTHORITY_DENIED');return {binding,actor:{kind:'human',user_id:scope.owner_id},expires_at:Math.min(getDeadline(),Date.parse(purpose.expires_at))};},resolveMessage:async request=>{await effectCurrent();const row=await resolveMessage(request.logical_id),source=resolveProviderSource({scope,account,source:row});await effectCurrent();return {scope,account_id:account.account_id,locator:source.locator};}});
+ const service=createEmailTriageService({journal,now,adapterFor:async expected=>{await effectCurrent();if(canonical(expected)!==canonical(binding))fail('EMAIL_RESOURCE_ACTION_AUTHORITY_DENIED');return fencedAdapter;},resolveAuthority:async({scope:requested,account_id,operation})=>{await effectCurrent();if(canonical(requested)!==canonical(scope)||account_id!==account.account_id||!binding.operations.includes(operation))fail('EMAIL_RESOURCE_ACTION_AUTHORITY_DENIED');return {binding,actor:{kind:'human',user_id:scope.owner_id},expires_at:Math.min(getDeadline(),consentDeadline(purpose))};},resolveMessage:async request=>{await effectCurrent();const row=await resolveMessage(request.logical_id),source=resolveProviderSource({scope,account,source:row});await effectCurrent();return {scope,account_id:account.account_id,locator:source.locator};}});
 
  return Object.freeze({service,scope,account,purpose,custody_generation:generation,check:async()=>{await current();await fencedCustody.withAccount(selected,tx=>tx.read());await check();await current();}});
 

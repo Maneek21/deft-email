@@ -1,4 +1,4 @@
-import {canonical,digest,exact,fail,isoTime,opaque,validateScope,hostUuid} from './contract.mjs';
+import {consentFields,consentDeadline,canonical,digest,exact,fail,isoTime,opaque,validateScope,hostUuid} from './contract.mjs';
 import {uuid} from './draft-store.mjs';
 import {AppDataRecordSchema,AppPreparedRecordChangeSchema,AppRecordChangeParametersSchema} from '@deft/app-kit';
 import {validateDraftContent} from './draft-store.mjs';
@@ -33,12 +33,12 @@ export function validateChangeRequest(raw){
  validateInvocation(input);changeReference({store_key:input.store_key,record_id:input.record_id,expected_revision:input.expected_revision,expected_content_digest:input.expected_content_digest});changeReference(input.source);
  if(!key(input.operation_key)||input.store_key===input.source.store_key||raw.operation==='record_apply_change'&&(!uuid(input.prepared_id)||!hash(input.prepared_digest)))fail('EMAIL_DATA_INPUT_INVALID');
  if(!Array.isArray(raw.record_authorities)||raw.record_authorities.length!==2)fail('EMAIL_DATA_INPUT_INVALID');
- raw.record_authorities.forEach((proof,index)=>{exact(proof,['role','store_key','consent_id','consent_digest','data_policy_digest','consent_expires_at']);if(proof.role!==['destination','source'][index]||proof.store_key!==[input.store_key,input.source.store_key][index]||!key(proof.store_key)||!uuid(proof.consent_id)||!hash(proof.consent_digest)||!hash(proof.data_policy_digest)||!isoTime(proof.consent_expires_at))fail('EMAIL_DATA_INPUT_INVALID');});
- if(Date.parse(raw.expires_at)>Math.min(Date.parse(raw.scope.consent_expires_at),...raw.record_authorities.map(proof=>Date.parse(proof.consent_expires_at))))fail('EMAIL_DATA_INPUT_INVALID');
+ raw.record_authorities.forEach((proof,index)=>{exact(proof,['role','store_key','consent_id','consent_digest','data_policy_digest','consent_expires_at',...consentFields(proof)]);if(proof.role!==['destination','source'][index]||proof.store_key!==[input.store_key,input.source.store_key][index]||!key(proof.store_key)||!uuid(proof.consent_id)||!hash(proof.consent_digest)||!hash(proof.data_policy_digest))fail('EMAIL_DATA_INPUT_INVALID');});
+ if(Date.parse(raw.expires_at)>Math.min(consentDeadline(raw.scope,'consent_expires_at'),...raw.record_authorities.map(proof=>consentDeadline(proof,'consent_expires_at'))))fail('EMAIL_DATA_INPUT_INVALID');
  return structuredClone(raw);
 }
 export function createChangeChecker({request,assertCurrent,signal,now=Date.now}){
- let deadline=Math.min(Date.parse(request.expires_at),Date.parse(request.scope.consent_expires_at),...request.record_authorities.map(proof=>Date.parse(proof.consent_expires_at)),now()+30000);
+ let deadline=Math.min(Date.parse(request.expires_at),consentDeadline(request.scope,'consent_expires_at'),...request.record_authorities.map(proof=>consentDeadline(proof,'consent_expires_at')),now()+30000);
  const controller=new AbortController(),combined=AbortSignal.any([signal,controller.signal].filter(Boolean));let timer;
  const arm=()=>{clearTimeout(timer);timer=setTimeout(()=>controller.abort(new Error('EMAIL_DATA_AUTHORITY_EXPIRED')),Math.max(0,deadline-now()));timer.unref();};arm();
  const checkLocal=()=>{combined.throwIfAborted();if(deadline<=now())fail('EMAIL_DATA_AUTHORITY_DENIED');};

@@ -1,4 +1,4 @@
-import {canonical,digest,fail} from './contract.mjs';
+import {consentDeadline,canonical,digest,fail} from './contract.mjs';
 import {draftCollectionKey} from './draft-store.mjs';
 import {settingsCollectionKey} from './settings-store.mjs';
 import {changeInputDigest,changeAuthorizationDigest,changeReference,preparedChangeDigest} from './record-change-contract.mjs';
@@ -19,7 +19,7 @@ export async function executeRecordChange({request,scope,session,store,drafts,se
  const journalKey='email.data.request.'+digest([scope,request.request_id]);
  const readSource=async()=>{const source=await settings.read(scope,input.source.store_key,input.source.record_id,localCheck);if(source.status!=='draft'||source.revision!==input.source.expected_revision||source.content_digest!==input.source.expected_content_digest)fail('EMAIL_SETTINGS_CONFLICT');if(source.store_key==='signatures'&&!identities.some(identity=>identity.address.trim().toLocaleLowerCase('en-US')===source.value.address.trim().toLocaleLowerCase('en-US')))fail('EMAIL_SETTINGS_IDENTITY_DENIED');return source;};
  const readDestination=async()=>{const destination=await drafts.read(scope,input.record_id,localCheck);if(destination.status!=='draft'||destination.revision!==input.expected_revision||'sha256:'+destination.content_digest!==input.expected_content_digest)fail('EMAIL_DRAFT_CONFLICT');return destination;};
- const boundedExpiry=()=>new Date(Math.min(now()+5*60*1000,Date.parse(request.scope.consent_expires_at),...request.record_authorities.map(proof=>Date.parse(proof.consent_expires_at)))).toISOString();
+ const boundedExpiry=()=>new Date(Math.min(now()+5*60*1000,consentDeadline(request.scope,'consent_expires_at'),...request.record_authorities.map(proof=>consentDeadline(proof,'consent_expires_at')))).toISOString();
  const validatePrepared=prepared=>{
   if(prepared.schema_version!==(input.parameters===undefined?'deft.app_prepared_record_change.v1':'deft.app_prepared_record_change.v2')||input.parameters!==undefined&&canonical(prepared.parameters)!==canonical(input.parameters)||prepared.prepared_digest!==preparedChangeDigest(prepared)||prepared.prepared_id!==input.prepared_id||prepared.prepared_digest!==input.prepared_digest||prepared.operation_key!==input.operation_key||prepared.invocation_mode!==input.invocation_mode||prepared.account_ref!==scope.account_id||prepared.authorization_digest!==authorization_digest||canonical(prepared.destination)!==canonical(destinationRef(input))||canonical(prepared.source)!==canonical(input.source)||Date.parse(prepared.expires_at)<=now())fail('EMAIL_RECORD_CHANGE_PREPARED_DENIED');
  };

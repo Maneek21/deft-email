@@ -15,7 +15,7 @@ import {createServer} from 'node:http';
 import {createHttpHandler} from './http.mjs';
 const sha=bytes=>'sha256:'+createHash('sha256').update(bytes).digest('hex');
 const empty={mode:'compose',to:'recipient@example.test',cc:'',bcc:'',subject:'Synthetic draft',body:'Exact body\n',body_html:'',reply_record_id:'',attachments:[]};
-async function fixture(t,provider=providerFixture,options={}){const parent=await mkdtemp(join(tmpdir(),'email-e2-data-')),root=join(parent,'private');let store;const encryption_key=Buffer.alloc(32,41),scope=makeScope(),registration=registrationFor(scope);let calls=0,allowed=true;const fetch=async(...args)=>{calls++;return provider(...args);};store=await createDurableStore({root,encryption_key,key_id:'fixture-data',allow_windows_fixture:process.platform==='win32'});const connectionRuntime=createConnectionRuntime({registration,client,store,encryption_key,key_id:'fixture-data',assertCurrent:authority,fetch});const begin=beginFor(scope);if(options.sessionId)begin.session_id=options.sessionId;const begun=await connectionRuntime.request(begin),connected=await connectionRuntime.request(nextFor(begin,begun,'callback'));
+async function fixture(t,provider=providerFixture,options={}){const parent=await mkdtemp(join(tmpdir(),'email-e2-data-')),root=join(parent,'private');let store;const encryption_key=Buffer.alloc(32,41),scope={...makeScope(),...(options.persistent?{consent_expires_at:null,consent_lifetime:'until_revoked'}:{})},registration=registrationFor(scope);let calls=0,allowed=true;const fetch=async(...args)=>{calls++;return provider(...args);};store=await createDurableStore({root,encryption_key,key_id:'fixture-data',allow_windows_fixture:process.platform==='win32'});const connectionRuntime=createConnectionRuntime({registration,client,store,encryption_key,key_id:'fixture-data',assertCurrent:authority,fetch});const begin=beginFor(scope);if(options.sessionId)begin.session_id=options.sessionId;const begun=await connectionRuntime.request(begin),connected=await connectionRuntime.request(nextFor(begin,begun,'callback'));
   let lose=false;const dataStore={withLock(options,work){return store.withLock(options,tx=>work({...tx,async compareAndSwap(value){if(lose&&value.value.schema_version==='email.app_mutation.v1'&&value.value.state==='completed'){lose=false;throw Error('synthetic response journal loss after draft CAS');}return tx.compareAndSwap(value);}}));}};
   const dependencies=()=>({registrations:[registration],client,store:dataStore,encryption_key,key_id:'fixture-data',imageDependencies:options.imageDependencies,assertCurrent:async input=>{if(!allowed)throw Error('revoked');await options.onAuthority?.(input);return {...input,allowed:true};},fetch});let runtime=createDataRuntime(dependencies());
   const request=(operation,input)=>({schema_version:'deft.app_data_runtime.v1',request_id:randomUUID(),scope,connection:{session_id:begin.session_id,session_revision:5,runtime_session_ref:begun.runtime_session_ref,account_ref:connected.account.account_ref},authority:{consent_id:randomUUID(),consent_digest:'sha256:'+'d'.repeat(64),data_policy_digest:'sha256:'+'e'.repeat(64)},operation,expires_at:new Date(Date.now()+29000).toISOString(),input});
@@ -115,4 +115,13 @@ test('public readonly mailbox status counts cached Inbox beyond visible pages an
  await f.restart();const restored=await f.run(f.request('record_read',{store_key:'mailbox_status',record_id:result.items[0].record_id}));assert.equal(restored.record.value.unread_count,38);assert.equal(f.calls,before);
  await assert.rejects(f.run(f.request('record_create',{store_key:'mailbox_status',record_id:randomUUID(),value:{unread_count:0}})));
  f.deny();await assert.rejects(f.run(f.request('record_list',request.input)));assert.equal(f.calls,before);
+});
+
+test('until-revoked account retains draft across restart and still denies revoked or foreign reads',async t=>{
+ const f=await fixture(t,providerFixture,{persistent:true}),id=randomUUID();
+ const created=await f.run(f.request('record_create',{store_key:'drafts',record_id:id,value:empty}));
+ await f.restart();const read=f.request('record_read',{store_key:'drafts',record_id:id});
+ assert.equal((await f.run(read)).record.content_digest,created.record.content_digest);
+ const foreign=structuredClone(read);foreign.request_id=randomUUID();foreign.scope.owner_user_id=randomUUID();
+ await assert.rejects(f.run(foreign));const before=f.calls;f.deny();await assert.rejects(f.run({...read,request_id:randomUUID()}));assert.equal(f.calls,before);
 });

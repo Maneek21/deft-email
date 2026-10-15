@@ -1,6 +1,6 @@
 import {uuid} from './draft-store.mjs';
 import {randomBytes,randomUUID} from 'node:crypto';
-import {canonical,digest,fail,exact} from './contract.mjs';
+import {consentDeadline,canonical,digest,fail,exact} from './contract.mjs';
 import {FORM_VERSION,FORM_LIMITS,validateFormRequest,formRegistration,formIdentity,sameFormPins,validateCredentialInput,credentialPrincipal,formReceiptDigest} from './connection-form-contract.mjs';
 
 const sessionKey=id=>'email.imap.form.session.'+id;
@@ -15,7 +15,7 @@ export function createConnectionFormRuntime({registrations,store,setup_origin,as
  const origin=new URL(setup_origin);if(origin.protocol!=='https:'||origin.username||origin.password||origin.port||origin.pathname!=='/'||origin.search||origin.hash||!/^sha256:[a-f0-9]{64}$/u.test(policy_digest)||typeof endpointPolicy!=='function')fail('EMAIL_FORM_CONFIG_INVALID');
  const admitted=registrations.map(formRegistration);if(!admitted.length||admitted.length>32||new Set(admitted.map(value=>canonical([value.org_id,value.runtime_registration_id]))).size!==admitted.length)fail('EMAIL_FORM_CONFIG_INVALID');
  async function current(request,operation,signal,deadline=Date.parse(request.expires_at)){
-  signal?.throwIfAborted();if(!Number.isFinite(deadline)||deadline<=now()||deadline>Date.parse(request.scope.consent_expires_at)||deadline>now()+(operation==='submit'?60000:30000))fail('EMAIL_FORM_AUTHORITY_DENIED');
+  signal?.throwIfAborted();if(!Number.isFinite(deadline)||deadline<=now()||deadline>consentDeadline(request.scope,'consent_expires_at')||deadline>now()+(operation==='submit'?60000:30000))fail('EMAIL_FORM_AUTHORITY_DENIED');
   const pins=admitted.find(value=>value.org_id===request.scope.org_id&&value.runtime_registration_id===request.scope.runtime_registration_id);if(!pins||Object.keys(pins).some(key=>pins[key]!==request.scope[key]))fail('EMAIL_FORM_REGISTRATION_DENIED');
   const call={...request,schema_version:'deft.app_connection_form_authority.v1',operation,expires_at:new Date(deadline).toISOString()};const response=await assertCurrent(call,signal);
   exact(response,[...Object.keys(call),'allowed']);if(response.allowed!==true||canonical({...response,allowed:undefined})!==canonical({...call,allowed:undefined})||deadline<=now())fail('EMAIL_FORM_AUTHORITY_DENIED');signal?.throwIfAborted();return deadline;
@@ -47,12 +47,12 @@ export function createConnectionFormRuntime({registrations,store,setup_origin,as
   // Ticket index is encrypted and cannot enumerate credential/session data.
   const index=await store.withLock({key:'email.imap.form.ticket.'+digest(ticket)},tx=>tx.read());if(!index)fail('EMAIL_FORM_TICKET_DENIED');
   return store.withLock({key:sessionKey(index.value.session_id)},async tx=>{const row=await tx.read(),value=row?.value;if(!value||value.ticket_digest!==digest(ticket)||value.browser||value.input_consumed||Date.parse(value.input_expires_at)<=now())fail('EMAIL_FORM_TICKET_DENIED');
-   await current({...value.request,runtime_session_ref:value.runtime_session_ref},'status',signal,Math.min(now()+30000,Date.parse(value.request.scope.consent_expires_at)));
+   await current({...value.request,runtime_session_ref:value.runtime_session_ref},'status',signal,Math.min(now()+30000,consentDeadline(value.request.scope,'consent_expires_at')));
    const browser=randomBytes(32).toString('base64url'),csrf=randomBytes(32).toString('base64url');if(!await tx.compareAndSwap({expected_revision:row.revision,value:{...value,browser:{cookie_digest:digest(browser),csrf_digest:digest(csrf)}}}))fail('EMAIL_FORM_CONFLICT');return {browser,csrf,session_id:value.request.session_id,expires_at:value.input_expires_at};});
  }
  async function submit({session_id,browser,csrf,value},signal){const profile=validateCredentialInput(value);try{return await store.withLock({key:sessionKey(session_id)},async tx=>{const row=await tx.read(),session=row?.value;
   if(!session||session.policy_digest!==policy_digest||session.state!=='awaiting_input'||session.input_consumed||Date.parse(session.input_expires_at)<=now()||session.browser?.cookie_digest!==digest(browser)||session.browser?.csrf_digest!==digest(csrf))fail('EMAIL_FORM_SUBMIT_DENIED');
-  const deadline=Math.min(now()+60000,Date.parse(session.input_expires_at),Date.parse(session.request.scope.consent_expires_at),...session.request.action_consents.map(consent=>Date.parse(consent.expires_at))),request={...session.request,runtime_session_ref:session.runtime_session_ref};
+  const deadline=Math.min(now()+60000,Date.parse(session.input_expires_at),consentDeadline(session.request.scope,'consent_expires_at'),...session.request.action_consents.map(consent=>consentDeadline(consent))),request={...session.request,runtime_session_ref:session.runtime_session_ref};
   const check=()=>current(request,'submit',signal,deadline);await check();const hasSend=session.request.action_consents.some(consent=>consent.action_key==='send_message');if(profile.smtp&&!hasSend)fail('EMAIL_FORM_SMTP_NOT_GRANTED');
   if(!endpointPolicy(profile))fail('EMAIL_IMAP_ENDPOINT_DENIED');const principal=credentialPrincipal(request.scope,profile);
   const before=await store.withLock({key:custodyKey(request.scope,session.account_id)},t=>t.read());if(request.source&&(!before||before.value.pending_transition!==session_id||before.value.principal_digest!==principal||before.value.pending_effect))fail('EMAIL_FORM_SOURCE_DENIED');

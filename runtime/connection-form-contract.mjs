@@ -1,15 +1,15 @@
-import {exact,fail,canonical,digest,validateScope,validateRegistration,isoTime,opaque} from './contract.mjs';
+import {consentFields,consentDeadline,exact,fail,canonical,digest,validateScope,validateRegistration,isoTime,opaque} from './contract.mjs';
 export const FORM_VERSION='deft.app_connection_form_runtime.v1';
 export const FORM_LIMITS=Object.freeze({json_bytes:65536,setup_ms:60000,input_lease_ms:300000,dns_ms:5000,connect_ms:20000});
 export const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu.test(value);
 export function validateFormRequest(raw){
  exact(raw,['schema_version','session_id','scope','operation','expires_at','setup_expires_at','action_consents','source',...(raw?.operation==='begin'?[]:['runtime_session_ref'])]);
  if(raw.schema_version!==FORM_VERSION||!uuid(raw.session_id)||!['begin','status','disconnect'].includes(raw.operation)||(!isoTime(raw.expires_at)||!isoTime(raw.setup_expires_at)))fail('EMAIL_FORM_INPUT_INVALID');
- validateScope(raw.scope);if(Date.parse(raw.expires_at)>Date.parse(raw.scope.consent_expires_at)||Date.parse(raw.setup_expires_at)>Date.parse(raw.scope.consent_expires_at))fail('EMAIL_FORM_INPUT_INVALID');
+ validateScope(raw.scope);if(Date.parse(raw.expires_at)>consentDeadline(raw.scope,'consent_expires_at')||Date.parse(raw.setup_expires_at)>consentDeadline(raw.scope,'consent_expires_at'))fail('EMAIL_FORM_INPUT_INVALID');
  if(raw.operation!=='begin'&&!(raw.operation==='status'&&raw.runtime_session_ref===null)&&!opaque(raw.runtime_session_ref))fail('EMAIL_FORM_INPUT_INVALID');
  if(!Array.isArray(raw.action_consents)||raw.action_consents.length>2)fail('EMAIL_FORM_INPUT_INVALID');
- let previous='';const bindings=new Set();for(const consent of raw.action_consents){exact(consent,['action_binding_id','action_key','authority_epoch','consent_id','consent_digest','expires_at']);
-  if(!uuid(consent.action_binding_id)||!uuid(consent.consent_id)||consent.consent_id!==consent.action_binding_id||bindings.has(consent.action_binding_id)||!['organize_messages','send_message'].includes(consent.action_key)||consent.action_key<=previous||!Number.isInteger(consent.authority_epoch)||consent.authority_epoch<0||!/^sha256:[a-f0-9]{64}$/u.test(consent.consent_digest)||!isoTime(consent.expires_at)||Date.parse(consent.expires_at)>Date.parse(raw.scope.consent_expires_at))fail('EMAIL_FORM_INPUT_INVALID');previous=consent.action_key;bindings.add(consent.action_binding_id);}
+ let previous='';const bindings=new Set();for(const consent of raw.action_consents){exact(consent,['action_binding_id','action_key','authority_epoch','consent_id','consent_digest','expires_at',...consentFields(consent)]);
+  if(!uuid(consent.action_binding_id)||!uuid(consent.consent_id)||consent.consent_id!==consent.action_binding_id||bindings.has(consent.action_binding_id)||!['organize_messages','send_message'].includes(consent.action_key)||consent.action_key<=previous||!Number.isInteger(consent.authority_epoch)||consent.authority_epoch<0||!/^sha256:[a-f0-9]{64}$/u.test(consent.consent_digest)||consentDeadline(consent)>consentDeadline(raw.scope,'consent_expires_at'))fail('EMAIL_FORM_INPUT_INVALID');previous=consent.action_key;bindings.add(consent.action_binding_id);}
  if(raw.source!==null){exact(raw.source,['session_id','session_revision','scope','runtime_session_ref','account_ref']);validateScope(raw.source.scope);if(!uuid(raw.source.session_id)||!Number.isInteger(raw.source.session_revision)||raw.source.session_revision<1||!opaque(raw.source.runtime_session_ref)||!opaque(raw.source.account_ref)||raw.source.session_id===raw.session_id)fail('EMAIL_FORM_INPUT_INVALID');}
  return structuredClone(raw);
 }

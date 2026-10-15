@@ -2,7 +2,7 @@ import {nativeContinuityEpochs} from './native-adoption-continuity.mjs';
 import {lineageKey,validateLineage} from './account-lineage.mjs';
 import {NATIVE_TABLES} from './native-adoption-retained.mjs';
 import {randomBytes} from 'node:crypto';
-import {canonical,digest,exact,fail,validateScope,validateRegistration,isoTime} from './contract.mjs';
+import {consentDeadline,canonical,digest,exact,fail,validateScope,validateRegistration,isoTime} from './contract.mjs';
 import {uuid} from './draft-store.mjs';
 import {nativeScope} from './native-adoption-records.mjs';
 import {nativeAdoptionKey,readNativeIdentity} from './native-adoption-identity.mjs';
@@ -30,9 +30,9 @@ export function createNativeActivation({store,custody,registration:rawRegistrati
  const registration=validateRegistration(rawRegistration),fingerprint=oauthClientFingerprint('gmail',validateOAuthClient('gmail',client));
  if(typeof assertCurrent!=='function')fail('EMAIL_NATIVE_ACTIVATION_AUTHORITY_REQUIRED');
  function checker(admission,phase,receipt_digest=null){return async()=>{
-  if(Object.keys(registration).some(k=>registration[k]!==admission.destination_scope[k])||Date.parse(admission.destination_scope.consent_expires_at)<=now())fail('EMAIL_NATIVE_ACTIVATION_AUTHORITY_DENIED');
+  if(Object.keys(registration).some(k=>registration[k]!==admission.destination_scope[k])||consentDeadline(admission.destination_scope,'consent_expires_at')<=now())fail('EMAIL_NATIVE_ACTIVATION_AUTHORITY_DENIED');
   const current=await assertCurrent({admission:structuredClone(admission),phase,receipt_digest});exact(current,['allowed','expires_at','route']);
-  if(current.allowed!==true||!isoTime(current.expires_at)||Date.parse(current.expires_at)<=now()||Date.parse(current.expires_at)>Math.min(now()+30000,Date.parse(admission.destination_scope.consent_expires_at)))fail('EMAIL_NATIVE_ACTIVATION_AUTHORITY_DENIED');
+  if(current.allowed!==true||!isoTime(current.expires_at)||Date.parse(current.expires_at)<=now()||Date.parse(current.expires_at)>Math.min(now()+30000,consentDeadline(admission.destination_scope,'consent_expires_at')))fail('EMAIL_NATIVE_ACTIVATION_AUTHORITY_DENIED');
   const route=current.route;exact(route,['adoption_id','scope','state','snapshot_digest','source_principal_digest','source_binding_digest','source_generation','destination_binding_digest','destination_admission_digest','runtime_receipt_digest']);
   if(route.adoption_id!==admission.adoption_id||canonical(route.scope)!==canonical(admission.scope)||route.snapshot_digest!==admission.snapshot_digest||route.source_principal_digest!==admission.source_principal_digest
    ||route.destination_binding_digest!==digest(admission.destination_binding)||route.destination_admission_digest!==digest(admission)||route.state!==(phase==='prepare'?'runtime_prepared':'runtime_active')||route.runtime_receipt_digest!==receipt_digest)fail('EMAIL_NATIVE_ACTIVATION_ROUTE_DENIED');

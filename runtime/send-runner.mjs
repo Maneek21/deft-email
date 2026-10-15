@@ -10,7 +10,7 @@ import {grantedOAuthCapabilities,validateOAuthClient,oauthClientFingerprint} fro
 import {validateEmailAccount} from './vendor/account-registry.mjs';
 import {createDraftStore,uuid} from './draft-store.mjs';
 import {createPreparedActions,RELEASE_INPUT_KEYS,SEND_INPUT_KEYS} from './prepared-actions.mjs';
-import {canonical,digest,exact,fail,opaque,hostUuid} from './contract.mjs';
+import {canonical,digest,exact,fail,opaque,hostUuid,consentDeadline} from './contract.mjs';
 
 import {createGraphSendJournal} from './graph-send-journal.mjs';
 import {purposeFor} from './purpose-set.mjs';
@@ -49,7 +49,7 @@ export function createSendRunner({runtime_client,registration,client,provider='g
       // every provider I/O, avoiding lock inversion during token refresh.
       const session=await store.withLock({key:'email.runtime.session.'+input.connection_session_id},async tx=>(await tx.read())?.value);
       if(!session||session.state!=='connected'||canonical(session.scope)!==canonical(value.connection_scope)||canonical(session.scope)!==canonical(value.connection_scope)||session.client_fingerprint!==fingerprint||session.binding.provider!==provider||session.runtime_session_ref!==value.connection.runtime_session_ref||session.account?.account_ref!==input.account_ref||!session.binding.capabilities.includes('send'))fail('EMAIL_SEND_CONNECTION_DENIED');
-      repairScope=session.scope;await assertNoCredentialRepair({store,scope:repairScope});const fencedCustody=await fenceCredentialGeneration({store,custody,session});const sendConsent=purposeFor(session,'send_message',now);if(sendConsent.action_binding_id!==authority.runtime_binding_id)fail('EMAIL_SEND_CONNECTION_DENIED');operationDeadline=Math.min(operationDeadline,Date.parse(value.prepared.expires_at),Date.parse(sendConsent.expires_at),...(value.prepared.required_action_consents??[]).map(row=>Date.parse(row.expires_at)));deadline=Math.min(deadline,operationDeadline);arm();
+      repairScope=session.scope;await assertNoCredentialRepair({store,scope:repairScope});const fencedCustody=await fenceCredentialGeneration({store,custody,session});const sendConsent=purposeFor(session,'send_message',now);if(sendConsent.action_binding_id!==authority.runtime_binding_id)fail('EMAIL_SEND_CONNECTION_DENIED');operationDeadline=Math.min(operationDeadline,Date.parse(value.prepared.expires_at),consentDeadline(sendConsent),...(value.prepared.required_action_consents??[]).map(row=>consentDeadline(row)));deadline=Math.min(deadline,operationDeadline);arm();
       const largeGraph=provider==='microsoft'&&Buffer.from(value.snapshot.mime_bytes,'base64url').length>3*1024*1024;if(!largeGraph){operationDeadline=Math.min(operationDeadline,now()+30000);deadline=Math.min(deadline,operationDeadline);arm();}if(largeGraph){const modify=purposeFor(session,'organize_messages',now);if(canonical(value.prepared.required_action_consents)!==canonical([modify]))fail('EMAIL_GRAPH_SEND_MODIFY_REQUIRED');}
       const future=Boolean(value.prepared.future_release),release=value.future_local_release;
       if(future&&(!release||release.run_id!==claim.run_id||release.release_id!==release.original_request_id||release.snapshot_digest!==input.prepared_digest))fail('EMAIL_SEND_FUTURE_RELEASE_DENIED');

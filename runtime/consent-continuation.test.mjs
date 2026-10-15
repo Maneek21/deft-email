@@ -72,9 +72,24 @@ test('fresh authority revocation prevents interrupted publication recovery witho
  await assert.rejects(f.runtime.request(activation));f.deny();await assert.rejects(f.runtime.request({...activation,operation:'status'}));assert.equal(await read(f,activation.session_id),null);assert.deepEqual(await read(f,f.id),source);assert.deepEqual(await f.data.custody.withAccount(source.value.binding,tx=>tx.read()),before);
 });
 test('Runtime uses the sealed Kit canonical wire vector without parallel digest encoding',async()=>{
- const vector=JSON.parse(await readFile('/kit/WIRE-VECTOR.json','utf8'));
+ const vector=JSON.parse(await readFile(new URL('./consent-continuation-wire-vector.json',import.meta.url),'utf8'));
  const {schema_version,eligibility,...pins}=vector.review_value;assert.deepEqual(continuationPins(vector.prepare),pins);
  assert.equal(continuationReviewDigest(vector.prepare,vector.eligibility),vector.review_digest);
  assert.equal(continuationReceiptDigest(vector.activate,vector.activate.review,vector.connected.runtime_session_ref),vector.receipt_digest);
  const status={...vector.activate,operation:'status',expires_at:vector.activate.scope.consent_expires_at};assert.equal(continuationReceiptDigest(status,status.review,vector.connected.runtime_session_ref),vector.receipt_digest);
+});
+
+test('explicit until-revoked continuation preserves custody and old history, while fresh revocation still denies',async t=>{
+ const f=await fixture(t),old=await read(f,f.id),before=await f.data.custody.withAccount(old.value.binding,tx=>tx.read()),calls=f.calls;
+ const id=randomUUID(),draft=await f.data.request(f.dataRequest('record_create',{store_key:'drafts',record_id:id,value:empty}));
+ const request=await f.next();request.scope={...request.scope,consent_expires_at:null,consent_lifetime:'until_revoked'};
+ request.action_consents=request.action_consents.map(action=>({...action,expires_at:null,consent_lifetime:'until_revoked'}));
+ const activation=await f.prepare(request),result=await f.activate(activation),session=(await read(f,f.id)).value;
+ assert.equal(result.state,'connected');assert.deepEqual(await read(f,old.value.session_id),old);
+ assert.deepEqual(await f.data.custody.withAccount(session.binding,tx=>tx.read()),before);
+ assert.equal(purposeFor(session,'send_message',()=>Date.parse('2046-10-15T12:00:00Z')).consent_lifetime,'until_revoked');
+ assert.throws(()=>purposeFor(old.value,'send_message',()=>Date.parse('2046-10-15T12:00:00Z')));
+ await f.restart();assert.deepEqual(await f.runtime.request({...activation,operation:'status'}),result);
+ assert.equal((await f.data.request(f.dataRequest('record_read',{store_key:'drafts',record_id:id}))).record.content_digest,draft.record.content_digest);
+ f.deny();await assert.rejects(f.runtime.request({...activation,operation:'status'}));assert.equal(f.calls,calls);
 });

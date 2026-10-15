@@ -436,7 +436,9 @@
       "target": "connection-runtime.mjs",
       "mode": "independent_adapter",
       "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
-      "sha256": "8b8f26cd700624bc87c419466d05fe088de88867f18b11ba63967165a405a645"
+      "sha256": "48cd072bfd3cab441cd44b5c6f4cb838ad6b8d161b2ca5677b6a622b1b56849a",
+      "original_sha256": "8b8f26cd700624bc87c419466d05fe088de88867f18b11ba63967165a405a645",
+      "adaptation": "Public Kit34 explicitly reviewed until-revoked consent; finite request, claim and effect deadlines and current-authority checks remain enforced."
     },
     {
       "target": "connection-upgrade-runtime.mjs",
@@ -448,13 +450,17 @@
       "target": "upgrade-contract.mjs",
       "mode": "independent_adapter",
       "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
-      "sha256": "3a6dfaf5deca2bd137f73feb04a64e0130f393492b9849901cfd25d49b7f003a"
+      "sha256": "8dfdb78a1beef9d93b4b08235139e3fc2eefc9de1718d85e0e0971cade6aabee",
+      "original_sha256": "3a6dfaf5deca2bd137f73feb04a64e0130f393492b9849901cfd25d49b7f003a",
+      "adaptation": "Public Kit34 explicitly reviewed until-revoked consent; finite request, claim and effect deadlines and current-authority checks remain enforced."
     },
     {
       "target": "purpose-set.mjs",
       "mode": "independent_adapter",
       "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
-      "sha256": "ac2459bdaa54ad1e07fa5c891ffdd260b717a50d6d845a0926254c4af1a2d455"
+      "sha256": "5f61bc2534326dbfe9cd1ed8beed2d4cf3afe88fe1df868f44a746198989d7b5",
+      "original_sha256": "ac2459bdaa54ad1e07fa5c891ffdd260b717a50d6d845a0926254c4af1a2d455",
+      "adaptation": "Public Kit34 explicitly reviewed until-revoked consent; finite request, claim and effect deadlines and current-authority checks remain enforced."
     },
     {
       "target": "file-copy.mjs",
@@ -484,7 +490,9 @@
       "target": "server.mjs",
       "mode": "independent_adapter",
       "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
-      "sha256": "69b839308e2d152cc6819edd39d4d4c5fc5aab3beb46ca73712a208951c1ef24"
+      "sha256": "0af763841171a4487ef4fb44c8a73a0c489c7c089c62612f1745a5d17053f687",
+      "original_sha256": "69b839308e2d152cc6819edd39d4d4c5fc5aab3beb46ca73712a208951c1ef24",
+      "adaptation": "Public Kit34 explicitly reviewed until-revoked consent; finite request, claim and effect deadlines and current-authority checks remain enforced."
     },
     {
       "target": "http.mjs",
@@ -496,7 +504,9 @@
       "target": "data-contract.mjs",
       "mode": "independent_adapter",
       "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
-      "sha256": "cc89be0408e480fd90dd97c1988e0632d27897c0c39ed3989f355b98fae8ce53"
+      "sha256": "3c1eed6c2e6af643a068e9ea1867787bd04017f410833517d07a1f0f94fac6c9",
+      "original_sha256": "cc89be0408e480fd90dd97c1988e0632d27897c0c39ed3989f355b98fae8ce53",
+      "adaptation": "Public Kit34 explicitly reviewed until-revoked consent; finite request, claim and effect deadlines and current-authority checks remain enforced."
     },
     {
       "target": "data-runtime.mjs",
@@ -510,31 +520,41 @@
       "target": "send-runner.mjs",
       "mode": "independent_adapter",
       "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
-      "sha256": "80c404389b34e6c1713ba51c9784898b70e91ce60a67e8acabe74d78e54b2024"
+      "sha256": "71a05aa366d51ea785166f7ec389d6daf31f03147aaec9ed9e8087b80e5e1ab5",
+      "original_sha256": "80c404389b34e6c1713ba51c9784898b70e91ce60a67e8acabe74d78e54b2024",
+      "adaptation": "Public Kit34 explicitly reviewed until-revoked consent; finite request, claim and effect deadlines and current-authority checks remain enforced."
     },
     {
       "target": "resource-plan-store.mjs",
       "mode": "independent_adapter",
       "reason": "Public Kit16 immutable resource plans and independently consented Organize runtime effects; whole-plan/per-item no-replay, exact custody/current authority and request-local observation checks; frozen provider51 unchanged",
-      "sha256": "36f00b97aff8c185213e47f91852284ef8e280a97642b209f9b7cce1313d493c"
+      "sha256": "003204a3106bdf87def1660d0461d36910e9027da73c9fb18f593b511143e234",
+      "original_sha256": "36f00b97aff8c185213e47f91852284ef8e280a97642b209f9b7cce1313d493c",
+      "adaptation": "Public Kit34 explicitly reviewed until-revoked consent; finite request, claim and effect deadlines and current-authority checks remain enforced."
     },
     {
       "target": "resource-actions.mjs",
       "mode": "independent_adapter",
       "reason": "Public Kit16 immutable resource plans and independently consented Organize runtime effects; whole-plan/per-item no-replay, exact custody/current authority and request-local observation checks; frozen provider51 unchanged",
-      "sha256": "57ffcdf911236f41f8c356ea68443cd481a08fe36ca0ea29c1dc539cdb78d767"
+      "sha256": "df9e25b46d25220d94914d54abff7c374ef81b023cfe11baaa183e2fd2496dfb",
+      "original_sha256": "57ffcdf911236f41f8c356ea68443cd481a08fe36ca0ea29c1dc539cdb78d767",
+      "adaptation": "Public Kit34 explicitly reviewed until-revoked consent; finite request, claim and effect deadlines and current-authority checks remain enforced."
     },
     {
       "target": "resource-triage.mjs",
       "mode": "independent_adapter",
       "reason": "Public Kit16 immutable resource plans and independently consented Organize runtime effects; whole-plan/per-item no-replay, exact custody/current authority and request-local observation checks; frozen provider51 unchanged",
-      "sha256": "f54b4521435d7648b2f7e650f15592df9d0e8a724919beb8b9855d5f4d8a11d9"
+      "sha256": "dadde5b001b82aa1187040554697ec61b4e368c8c4453c7599ef3aa5a668804c",
+      "original_sha256": "f54b4521435d7648b2f7e650f15592df9d0e8a724919beb8b9855d5f4d8a11d9",
+      "adaptation": "Public Kit34 explicitly reviewed until-revoked consent; finite request, claim and effect deadlines and current-authority checks remain enforced."
     },
     {
       "target": "organize-runner.mjs",
       "mode": "independent_adapter",
       "reason": "Public Kit16 immutable resource plans and independently consented Organize runtime effects; whole-plan/per-item no-replay, exact custody/current authority and request-local observation checks; frozen provider51 unchanged",
-      "sha256": "99da782d6d9d8f14e6bea829ed84b720aa06db4ebcb1c119c8dbf8117300a0fd"
+      "sha256": "85ae8e790a3b51aeb5d72698f75c3933e3c38920229d93b5434583c695b7ba41",
+      "original_sha256": "99da782d6d9d8f14e6bea829ed84b720aa06db4ebcb1c119c8dbf8117300a0fd",
+      "adaptation": "Public Kit34 explicitly reviewed until-revoked consent; finite request, claim and effect deadlines and current-authority checks remain enforced."
     },
     {
       "target": "action-runner.mjs",
@@ -570,7 +590,9 @@
       "target": "observation-runner.mjs",
       "mode": "independent_adapter",
       "reason": "Public Kit16 immutable resource plans and independently consented Organize runtime effects; whole-plan/per-item no-replay, exact custody/current authority and request-local observation checks; frozen provider51 unchanged",
-      "sha256": "f16d93fe98f12e2ba04e7c77c5996517951370466d3336dc6c13c563e26097f9"
+      "sha256": "fef712e4358a4adff3aaf11aa15f0edc6027a0224b51c2dc289ee2922ed42ac6",
+      "original_sha256": "f16d93fe98f12e2ba04e7c77c5996517951370466d3336dc6c13c563e26097f9",
+      "adaptation": "Public Kit34 explicitly reviewed until-revoked consent; finite request, claim and effect deadlines and current-authority checks remain enforced."
     }
   ],
   "owned_adapters": [

@@ -4,7 +4,7 @@ import {folderManagementOperation,prepareFolderManagement} from './folder-manage
 import {resourceView} from './mailbox-store.mjs';
 import {createResourceTriage} from './resource-triage.mjs';
 import {ORGANIZE_OPERATIONS} from './resource-plan-store.mjs';
-import {canonical,exact,fail} from './contract.mjs';
+import {consentDeadline,canonical,exact,fail} from './contract.mjs';
 import {purposeFor} from './purpose-set.mjs';
 /** Public data-port preparation only. Provider prestate reads are fenced, and
  * immutable storage contains no reusable execution authority or owner token. */
@@ -15,7 +15,7 @@ export async function prepareResourceAction({request,scope,input,session,client,
  if((input.record_sources||input.parameters)&&!folderManagementOperation(input.operation_key)&&input.operation_key!=='manual_rule')fail('EMAIL_RESOURCE_ACTION_INPUT_DENIED');
  if(input.labels&&input.operation_key!=='labels'||input.undo&&input.operation_key!=='undo'||input.destination&&!['move','restore','not_spam'].includes(input.operation_key)||input.operation_key==='labels'&&!input.labels||input.operation_key==='undo'&&!input.undo||input.operation_key==='move'&&!input.destination)fail('EMAIL_RESOURCE_ACTION_INPUT_DENIED');
  const purpose=forms?imapOrganizePurpose(await forms.currentAccount(),now):purposeFor(session,'organize_messages',now),expires_at=Date.parse(input.prepare_expires_at??request.expires_at);
- if(!Number.isFinite(expires_at)||expires_at<=now()||expires_at>now()+300000||expires_at>Date.parse(request.scope.consent_expires_at)||expires_at>Date.parse(purpose.expires_at))fail('EMAIL_RESOURCE_PLAN_DENIED');
+ if(!Number.isFinite(expires_at)||expires_at<=now()||expires_at>now()+300000||expires_at>consentDeadline(request.scope,'consent_expires_at')||expires_at>consentDeadline(purpose))fail('EMAIL_RESOURCE_PLAN_DENIED');
  // Undo nominates the exact original successful effect. Its historical source
  // digest can differ after that effect is observed; only the pinned immutable
  // original can admit it. Fresh actions still require the current digest.

@@ -1,5 +1,5 @@
 import {createHash} from 'node:crypto';
-import {canonical,digest,exact,fail,opaque} from './contract.mjs';
+import {canonical,digest,exact,fail,opaque,consentDeadline} from './contract.mjs';
 import {createNativeImapEffectsBridge} from './vendor/providers/native-imap-effects.mjs';
 import {triageDigest} from './vendor/providers/triage-contract.mjs';
 import {digest as nativeDigest} from './vendor/providers/contract.mjs';
@@ -17,7 +17,7 @@ function declaration(raw){exact(raw,['schema_version','effect_key','account_ref'
  * credential nor accepts author nominations. The outer reviewed Run executor
  * supplies freshly validated action authority and immutable snapshot bytes. */
 export function createSmtpCompoundSend({forms,store,connector,now=Date.now,onPhase=async()=>{}}){
- async function purpose(account,binding,check){await check();const action=account.action_consents.find(row=>row.action_key==='send_message'&&row.action_binding_id===binding);if(!account.profile.smtp||!account.capabilities.includes('send')||!action||Date.parse(action.expires_at)<=now())fail('EMAIL_SMTP_AUTHORITY_DENIED');return action;}
+ async function purpose(account,binding,check){await check();const action=account.action_consents.find(row=>row.action_key==='send_message'&&row.action_binding_id===binding);if(!account.profile.smtp||!account.capabilities.includes('send')||!action||consentDeadline(action)<=now())fail('EMAIL_SMTP_AUTHORITY_DENIED');return action;}
  const descriptor=(account,scope,binding,copy=false)=>({org_id:scope.org_id,owner_user_id:scope.owner_user_id,installation_id:scope.installation_id,account_id:account.account_id,provider:'imap_smtp',resource_binding_id:scope.resource_binding_id,authority_epoch:account.authority_epoch,connection_revision:account.connection_revision,principal_digest:account.principal_digest,health:account.state,
   capabilities:[...account.capabilities,...(copy&&!account.capabilities.includes('modify')?['modify']:[])],primary_address:account.profile.primary_address,display_label:account.profile.display_label,connection_target:scope.target_key,action_binding_id:binding,verified_sender_identities:[account.profile.primary_address]});
  const nativeView=value=>Object.fromEntries(['account_id','provider','resource_binding_id','authority_epoch','connection_revision','principal_digest','health','capabilities','primary_address','display_label'].map(k=>[k,value[k]]));

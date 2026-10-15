@@ -1,6 +1,6 @@
 import {providerActionPreview} from './resource-action-preview.mjs';
 import {resourceView} from './mailbox-store.mjs';
-import {canonical,digest,exact,fail} from './contract.mjs';
+import {consentDeadline,canonical,digest,exact,fail} from './contract.mjs';
 import {uuid} from './draft-store.mjs';
 import {triageDigest,triageJson,TRIAGE_LIMITS} from './vendor/providers/triage-contract.mjs';
 
@@ -29,7 +29,7 @@ export function createResourcePlanStore({store,now=Date.now}){
   async prepare({request,scope,input,native_plan,records,purpose,custody_generation,check,reference_names={}}){
    exact(input,['store_key','resource_key','action_key','operation_key','sources',...['destination','labels','undo','record_sources','parameters'].filter(key=>Object.hasOwn(input,key)),...(Object.hasOwn(input,'prepare_expires_at')?['prepare_expires_at']:[])]);
    const count=(input.sources?.length??0)+(input.record_sources?.length??0),id=request.request_id,expires=Date.parse(input.prepare_expires_at??request.expires_at);
-   if(input.store_key!=='drafts'||input.resource_key!==request.scope.resource_key||input.action_key!=='organize_messages'||!Object.hasOwn(ORGANIZE_OPERATIONS,input.operation_key)||!uuid(id)||!count||count>25||new Set(input.sources.map(ref=>ref.record_id)).size!==input.sources.length||records.length!==count||native_plan.operation_id!==id||(input.operation_key==='undo'?!native_plan.undo_of:native_plan.operation.kind!==ORGANIZE_OPERATIONS[input.operation_key])||native_plan.items.length!==count||!Number.isSafeInteger(custody_generation)||custody_generation<1||!Number.isFinite(expires)||expires<=now()||expires>now()+300000||expires>Date.parse(request.scope.consent_expires_at)||expires>Date.parse(purpose.expires_at)||expires>native_plan.expires_at)fail('EMAIL_RESOURCE_PLAN_DENIED');
+   if(input.store_key!=='drafts'||input.resource_key!==request.scope.resource_key||input.action_key!=='organize_messages'||!Object.hasOwn(ORGANIZE_OPERATIONS,input.operation_key)||!uuid(id)||!count||count>25||new Set(input.sources.map(ref=>ref.record_id)).size!==input.sources.length||records.length!==count||native_plan.operation_id!==id||(input.operation_key==='undo'?!native_plan.undo_of:native_plan.operation.kind!==ORGANIZE_OPERATIONS[input.operation_key])||native_plan.items.length!==count||!Number.isSafeInteger(custody_generation)||custody_generation<1||!Number.isFinite(expires)||expires<=now()||expires>now()+300000||expires>consentDeadline(request.scope,'consent_expires_at')||expires>consentDeadline(purpose)||expires>native_plan.expires_at)fail('EMAIL_RESOURCE_PLAN_DENIED');
    for(const [index,ref] of input.sources.entries()){exact(ref,['resource_key','record_id','content_digest']);if(ref.resource_key!==input.resource_key||!uuid(ref.record_id)||!/^sha256:[a-f0-9]{64}$/u.test(ref.content_digest??'')||records[index].record_id!==ref.record_id||native_plan.items[index].logical_id!==records[index].logical_message_id)fail('EMAIL_RESOURCE_PLAN_DENIED');}
    // Original Undo nominations remain in the manifest. Independently pin the
    // current mailbox observation so changes after this review still fence it.

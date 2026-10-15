@@ -1,4 +1,4 @@
-import {canonical,fail} from './contract.mjs';
+import {consentDeadline,canonical,fail} from './contract.mjs';
 import {createNativeImapBridge} from './vendor/providers/native-imap.mjs';
 
 /** Per-call trusted composition, never a Worker or endpoint nomination.
@@ -7,7 +7,7 @@ import {createNativeImapBridge} from './vendor/providers/native-imap.mjs';
 export function createImapReadPorts({forms,connector,session_id,scope,check,imageDependencies,now=Date.now}){
  const row=()=>forms.currentAccount(session_id,scope,check);
  const descriptor=account=>({org_id:scope.org_id,owner_user_id:scope.owner_user_id,installation_id:scope.installation_id,account_id:account.account_id,provider:'imap_smtp',resource_binding_id:scope.resource_binding_id,authority_epoch:account.authority_epoch,connection_revision:account.connection_revision,principal_digest:account.principal_digest,health:account.state,capabilities:account.capabilities,primary_address:account.profile.primary_address,display_label:account.profile.display_label});
- const sameContext=context=>{if(['org_id','owner_user_id','installation_id','resource_binding_id'].some(key=>context[key]!==scope[key])||typeof context.recheck!=='function'||context.expires_at<=now()||context.expires_at>Date.parse(scope.consent_expires_at))fail('EMAIL_IMAP_ACCESS_DENIED');};
+ const sameContext=context=>{if(['org_id','owner_user_id','installation_id','resource_binding_id'].some(key=>context[key]!==scope[key])||typeof context.recheck!=='function'||context.expires_at<=now()||context.expires_at>consentDeadline(scope,'consent_expires_at'))fail('EMAIL_IMAP_ACCESS_DENIED');};
  const nativeView=account=>{const {org_id,owner_user_id,installation_id,...view}=descriptor(account);return view;};
  const host=Object.freeze({
   async current(context){sameContext(context);context.signal?.throwIfAborted();await context.recheck();const account=await row();if(context.account_id!==account.account_id)fail('EMAIL_IMAP_ACCESS_DENIED');return descriptor(account);},
@@ -23,7 +23,7 @@ export function createImapReadPorts({forms,connector,session_id,scope,check,imag
  const readBridge=createNativeImapBridge({host,imageDependencies,now});
  const bridge=Object.freeze({...readBridge,async nativeEmailSendIdentity(context){
   sameContext(context);await check();const account=await row();
-  const action=account.action_consents.filter(value=>value.action_key==='send_message'&&Date.parse(value.expires_at)>now());
+  const action=account.action_consents.filter(value=>value.action_key==='send_message'&&consentDeadline(value)>now());
   if(context.account_id!==account.account_id||!account.profile.smtp||!account.capabilities.includes('send')||action.length!==1)fail('EMAIL_IMAP_SEND_DENIED');
   await check();return {...descriptor(account),connection_target:scope.target_key,action_binding_id:action[0].action_binding_id,verified_sender_identities:[account.profile.primary_address],identity_assurance:'owner_declared_authenticated'};
  }});return Object.freeze({host,bridge});

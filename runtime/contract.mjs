@@ -1,3 +1,4 @@
+import {appConsentDeadline} from '@deft/app-kit';
 import {createHash} from 'node:crypto';
 
 export const fail = code => { throw Object.assign(new Error(code), {code}); };
@@ -14,12 +15,22 @@ const key = value => typeof value === 'string' && /^[a-z][a-z0-9_]{0,47}$/u.test
 const hash = value => typeof value === 'string' && /^sha256:[a-f0-9]{64}$/u.test(value);
 const epoch = value => Number.isInteger(value) && value >= 0 && value <= 2147483647;
 export const isoTime = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/u.test(value) && Number.isFinite(Date.parse(value)) && new Date(Date.parse(value)).toISOString().slice(0, 19) === value.slice(0, 19);
+/** Only an explicitly reviewed persistent consent has no deadline. Request,
+ * review, claim and provider deadlines remain finite and are checked separately. */
+export function consentDeadline(value, field='expires_at') {
+  if(Object.hasOwn(value??{},'consent_lifetime')
+    ? value.consent_lifetime!=='until_revoked'||value[field]!==null
+    : !isoTime(value?.[field]))fail('EMAIL_RUNTIME_INPUT_INVALID');
+  return appConsentDeadline(value[field],value.consent_lifetime);
+}
+export const consentFields=value=>Object.hasOwn(value??{},'consent_lifetime')?['consent_lifetime']:[];
 export const opaque = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,512}$/u.test(value);
 const scopeIds = ['org_id', 'owner_user_id', 'installation_id', 'app_version_id', 'grant_snapshot_id', 'resource_binding_id', 'runtime_registration_id', 'operator_user_id'];
 const scopeKeys = [...scopeIds, 'package_digest', 'grant_snapshot_digest', 'lifecycle_epoch', 'grant_epoch', 'target_key', 'resource_key', 'runtime_epoch', 'profile_digest', 'consent_expires_at'];
 export function validateScope(scope) {
-  exact(scope, scopeKeys);
-  if (scopeIds.some(field => !uuid(scope[field])) || ['package_digest', 'grant_snapshot_digest', 'profile_digest'].some(field => !hash(scope[field])) || ['lifecycle_epoch', 'grant_epoch', 'runtime_epoch'].some(field => !epoch(scope[field])) || !key(scope.target_key) || !key(scope.resource_key) || !isoTime(scope.consent_expires_at)) fail('EMAIL_RUNTIME_INPUT_INVALID');
+  exact(scope, [...scopeKeys,...consentFields(scope)]);
+  if (scopeIds.some(field => !uuid(scope[field])) || ['package_digest', 'grant_snapshot_digest', 'profile_digest'].some(field => !hash(scope[field])) || ['lifecycle_epoch', 'grant_epoch', 'runtime_epoch'].some(field => !epoch(scope[field])) || !key(scope.target_key) || !key(scope.resource_key)) fail('EMAIL_RUNTIME_INPUT_INVALID');
+  consentDeadline(scope,'consent_expires_at');
   return structuredClone(scope);
 }
 /** Wire projection of frozen E1 AppConnectionRuntimeRequestSchema. No provider options or owner credentials can enter. */
@@ -31,7 +42,7 @@ export function validateRequest(input) {
   exact(input, [...common, ...additional,...actionFields]);
   if (input.schema_version !== 'deft.app_connection_runtime.v1' || !uuid(input.session_id) || !isoTime(input.expires_at)) fail('EMAIL_RUNTIME_INPUT_INVALID');
   validateScope(input.scope);
-  if(actionFields.length){const consent=input.action_consent;exact(consent,['action_binding_id','action_key','authority_epoch','consent_id','consent_digest','expires_at']);if(!uuid(consent.action_binding_id)||!uuid(consent.consent_id)||!key(consent.action_key)||!epoch(consent.authority_epoch)||!hash(consent.consent_digest)||!isoTime(consent.expires_at)||Date.parse(consent.expires_at)<=Date.now()||Date.parse(consent.expires_at)>Date.parse(input.scope.consent_expires_at))fail('EMAIL_RUNTIME_INPUT_INVALID');}
+  if(actionFields.length){const consent=input.action_consent;exact(consent,['action_binding_id','action_key','authority_epoch','consent_id','consent_digest','expires_at',...consentFields(consent)]);if(!uuid(consent.action_binding_id)||!uuid(consent.consent_id)||!key(consent.action_key)||!epoch(consent.authority_epoch)||!hash(consent.consent_digest)||consentDeadline(consent)<=Date.now()||consentDeadline(consent)>consentDeadline(input.scope,'consent_expires_at'))fail('EMAIL_RUNTIME_INPUT_INVALID');}
   if (input.operation === 'begin') { if (!/^[A-Za-z0-9_-]{43}$/u.test(input.callback_state ?? '')) fail('EMAIL_RUNTIME_INPUT_INVALID'); }
   else if (!opaque(input.runtime_session_ref)) fail('EMAIL_RUNTIME_INPUT_INVALID');
   if (input.operation === 'callback') {

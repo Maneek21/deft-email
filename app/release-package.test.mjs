@@ -9,8 +9,8 @@ const verified = await verifyDeftAppPackageJson(json);
 const manifest = verified.package.manifest;
 const metadata = JSON.parse(readFileSync(new URL('./package.json', import.meta.url)));
 
-test('fresh package authenticates its manifest and worker artifact against public Kit33', () => {
-  assert.equal(DEFT_APP_KIT_VERSION, '0.1.0-alpha.33');
+test('fresh package authenticates its manifest and worker artifact against public Kit34', () => {
+  assert.equal(DEFT_APP_KIT_VERSION, '0.1.0-alpha.34');
   assert.equal(manifest.id, 'io.deft.email');
   assert.equal(manifest.version, metadata.version);
   assert.equal(manifest.license, metadata.license);
@@ -19,6 +19,7 @@ test('fresh package authenticates its manifest and worker artifact against publi
   assert.equal(manifest.experiences.length, 1);
   assert.equal(manifest.experiences[0].key, 'main');
   assert.equal(manifest.native_actions.length, 0);
+  assert.ok(manifest.owner_connections.every(policy => policy.allow_until_revoked === true));
 });
 
 for (const key of ['send_message', 'organize_messages']) {

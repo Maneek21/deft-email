@@ -1,0 +1,399 @@
+{
+  "prepare": {
+    "schema_version": "deft.app_connection_consent_continuation_runtime.v1",
+    "session_id": "00000000-0000-4000-8000-000000000021",
+    "scope": {
+      "org_id": "00000000-0000-4000-8000-000000000001",
+      "owner_user_id": "00000000-0000-4000-8000-000000000002",
+      "installation_id": "00000000-0000-4000-8000-000000000003",
+      "app_version_id": "00000000-0000-4000-8000-000000000004",
+      "grant_snapshot_id": "00000000-0000-4000-8000-000000000005",
+      "package_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "grant_snapshot_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "lifecycle_epoch": 6,
+      "grant_epoch": 6,
+      "target_key": "e2_gmail_sender",
+      "resource_key": "inbox",
+      "resource_binding_id": "00000000-0000-4000-8000-000000000006",
+      "runtime_registration_id": "00000000-0000-4000-8000-000000000007",
+      "operator_user_id": "00000000-0000-4000-8000-000000000008",
+      "runtime_epoch": 1,
+      "profile_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "consent_expires_at": "2026-10-11T02:00:00Z"
+    },
+    "source": {
+      "session_id": "00000000-0000-4000-8000-000000000020",
+      "session_revision": 7,
+      "scope": {
+        "org_id": "00000000-0000-4000-8000-000000000001",
+        "owner_user_id": "00000000-0000-4000-8000-000000000002",
+        "installation_id": "00000000-0000-4000-8000-000000000003",
+        "app_version_id": "00000000-0000-4000-8000-000000000004",
+        "grant_snapshot_id": "00000000-0000-4000-8000-000000000005",
+        "package_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "grant_snapshot_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "lifecycle_epoch": 6,
+        "grant_epoch": 6,
+        "target_key": "e2_gmail_sender",
+        "resource_key": "inbox",
+        "resource_binding_id": "00000000-0000-4000-8000-000000000006",
+        "runtime_registration_id": "00000000-0000-4000-8000-000000000007",
+        "operator_user_id": "00000000-0000-4000-8000-000000000008",
+        "runtime_epoch": 1,
+        "profile_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "consent_expires_at": "2026-10-11T01:00:00Z"
+      },
+      "runtime_session_ref": "original_runtime_session_ref",
+      "account_ref": "gmail_controlled_sender",
+      "action_consents": [
+        {
+          "action_binding_id": "00000000-0000-4000-8000-000000000030",
+          "action_key": "draft_mirror",
+          "authority_epoch": 1,
+          "consent_id": "00000000-0000-4000-8000-000000000030",
+          "consent_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "expires_at": "2026-10-11T01:00:00Z"
+        },
+        {
+          "action_binding_id": "00000000-0000-4000-8000-000000000031",
+          "action_key": "send_message",
+          "authority_epoch": 1,
+          "consent_id": "00000000-0000-4000-8000-000000000031",
+          "consent_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "expires_at": "2026-10-11T01:00:00Z"
+        }
+      ]
+    },
+    "action_consents": [
+      {
+        "action_binding_id": "00000000-0000-4000-8000-000000000030",
+        "action_key": "draft_mirror",
+        "authority_epoch": 1,
+        "consent_id": "00000000-0000-4000-8000-000000000030",
+        "consent_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "expires_at": "2026-10-11T02:00:00Z"
+      },
+      {
+        "action_binding_id": "00000000-0000-4000-8000-000000000031",
+        "action_key": "send_message",
+        "authority_epoch": 1,
+        "consent_id": "00000000-0000-4000-8000-000000000031",
+        "consent_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "expires_at": "2026-10-11T02:00:00Z"
+      }
+    ],
+    "transport_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "review_expires_at": "2026-10-11T01:58:00Z",
+    "expires_at": "2026-10-11T01:55:00Z",
+    "operation": "prepare"
+  },
+  "eligibility": {
+    "account": {
+      "account_ref": "gmail_controlled_sender",
+      "label": "Synthetic controlled sender"
+    },
+    "custody_generation": 9,
+    "custody_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  },
+  "review_value": {
+    "schema_version": "deft.app_connection_consent_continuation_review_pin.v1",
+    "session_id": "00000000-0000-4000-8000-000000000021",
+    "scope": {
+      "org_id": "00000000-0000-4000-8000-000000000001",
+      "owner_user_id": "00000000-0000-4000-8000-000000000002",
+      "installation_id": "00000000-0000-4000-8000-000000000003",
+      "app_version_id": "00000000-0000-4000-8000-000000000004",
+      "grant_snapshot_id": "00000000-0000-4000-8000-000000000005",
+      "package_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "grant_snapshot_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "lifecycle_epoch": 6,
+      "grant_epoch": 6,
+      "target_key": "e2_gmail_sender",
+      "resource_key": "inbox",
+      "resource_binding_id": "00000000-0000-4000-8000-000000000006",
+      "runtime_registration_id": "00000000-0000-4000-8000-000000000007",
+      "operator_user_id": "00000000-0000-4000-8000-000000000008",
+      "runtime_epoch": 1,
+      "profile_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "consent_expires_at": "2026-10-11T02:00:00Z"
+    },
+    "source": {
+      "session_id": "00000000-0000-4000-8000-000000000020",
+      "session_revision": 7,
+      "scope": {
+        "org_id": "00000000-0000-4000-8000-000000000001",
+        "owner_user_id": "00000000-0000-4000-8000-000000000002",
+        "installation_id": "00000000-0000-4000-8000-000000000003",
+        "app_version_id": "00000000-0000-4000-8000-000000000004",
+        "grant_snapshot_id": "00000000-0000-4000-8000-000000000005",
+        "package_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "grant_snapshot_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "lifecycle_epoch": 6,
+        "grant_epoch": 6,
+        "target_key": "e2_gmail_sender",
+        "resource_key": "inbox",
+        "resource_binding_id": "00000000-0000-4000-8000-000000000006",
+        "runtime_registration_id": "00000000-0000-4000-8000-000000000007",
+        "operator_user_id": "00000000-0000-4000-8000-000000000008",
+        "runtime_epoch": 1,
+        "profile_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "consent_expires_at": "2026-10-11T01:00:00Z"
+      },
+      "runtime_session_ref": "original_runtime_session_ref",
+      "account_ref": "gmail_controlled_sender",
+      "action_consents": [
+        {
+          "action_binding_id": "00000000-0000-4000-8000-000000000030",
+          "action_key": "draft_mirror",
+          "authority_epoch": 1,
+          "consent_id": "00000000-0000-4000-8000-000000000030",
+          "consent_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "expires_at": "2026-10-11T01:00:00Z"
+        },
+        {
+          "action_binding_id": "00000000-0000-4000-8000-000000000031",
+          "action_key": "send_message",
+          "authority_epoch": 1,
+          "consent_id": "00000000-0000-4000-8000-000000000031",
+          "consent_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "expires_at": "2026-10-11T01:00:00Z"
+        }
+      ]
+    },
+    "action_consents": [
+      {
+        "action_binding_id": "00000000-0000-4000-8000-000000000030",
+        "action_key": "draft_mirror",
+        "authority_epoch": 1,
+        "consent_id": "00000000-0000-4000-8000-000000000030",
+        "consent_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "expires_at": "2026-10-11T02:00:00Z"
+      },
+      {
+        "action_binding_id": "00000000-0000-4000-8000-000000000031",
+        "action_key": "send_message",
+        "authority_epoch": 1,
+        "consent_id": "00000000-0000-4000-8000-000000000031",
+        "consent_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "expires_at": "2026-10-11T02:00:00Z"
+      }
+    ],
+    "transport_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "review_expires_at": "2026-10-11T01:58:00Z",
+    "eligibility": {
+      "account": {
+        "account_ref": "gmail_controlled_sender",
+        "label": "Synthetic controlled sender"
+      },
+      "custody_generation": 9,
+      "custody_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }
+  },
+  "review_digest": "sha256:cb068f93762b374d3c176c3e5825398ce01f89f480b06fb83be004ee17481932",
+  "activate": {
+    "schema_version": "deft.app_connection_consent_continuation_runtime.v1",
+    "session_id": "00000000-0000-4000-8000-000000000021",
+    "scope": {
+      "org_id": "00000000-0000-4000-8000-000000000001",
+      "owner_user_id": "00000000-0000-4000-8000-000000000002",
+      "installation_id": "00000000-0000-4000-8000-000000000003",
+      "app_version_id": "00000000-0000-4000-8000-000000000004",
+      "grant_snapshot_id": "00000000-0000-4000-8000-000000000005",
+      "package_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "grant_snapshot_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "lifecycle_epoch": 6,
+      "grant_epoch": 6,
+      "target_key": "e2_gmail_sender",
+      "resource_key": "inbox",
+      "resource_binding_id": "00000000-0000-4000-8000-000000000006",
+      "runtime_registration_id": "00000000-0000-4000-8000-000000000007",
+      "operator_user_id": "00000000-0000-4000-8000-000000000008",
+      "runtime_epoch": 1,
+      "profile_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "consent_expires_at": "2026-10-11T02:00:00Z"
+    },
+    "source": {
+      "session_id": "00000000-0000-4000-8000-000000000020",
+      "session_revision": 7,
+      "scope": {
+        "org_id": "00000000-0000-4000-8000-000000000001",
+        "owner_user_id": "00000000-0000-4000-8000-000000000002",
+        "installation_id": "00000000-0000-4000-8000-000000000003",
+        "app_version_id": "00000000-0000-4000-8000-000000000004",
+        "grant_snapshot_id": "00000000-0000-4000-8000-000000000005",
+        "package_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "grant_snapshot_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "lifecycle_epoch": 6,
+        "grant_epoch": 6,
+        "target_key": "e2_gmail_sender",
+        "resource_key": "inbox",
+        "resource_binding_id": "00000000-0000-4000-8000-000000000006",
+        "runtime_registration_id": "00000000-0000-4000-8000-000000000007",
+        "operator_user_id": "00000000-0000-4000-8000-000000000008",
+        "runtime_epoch": 1,
+        "profile_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "consent_expires_at": "2026-10-11T01:00:00Z"
+      },
+      "runtime_session_ref": "original_runtime_session_ref",
+      "account_ref": "gmail_controlled_sender",
+      "action_consents": [
+        {
+          "action_binding_id": "00000000-0000-4000-8000-000000000030",
+          "action_key": "draft_mirror",
+          "authority_epoch": 1,
+          "consent_id": "00000000-0000-4000-8000-000000000030",
+          "consent_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "expires_at": "2026-10-11T01:00:00Z"
+        },
+        {
+          "action_binding_id": "00000000-0000-4000-8000-000000000031",
+          "action_key": "send_message",
+          "authority_epoch": 1,
+          "consent_id": "00000000-0000-4000-8000-000000000031",
+          "consent_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "expires_at": "2026-10-11T01:00:00Z"
+        }
+      ]
+    },
+    "action_consents": [
+      {
+        "action_binding_id": "00000000-0000-4000-8000-000000000030",
+        "action_key": "draft_mirror",
+        "authority_epoch": 1,
+        "consent_id": "00000000-0000-4000-8000-000000000030",
+        "consent_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "expires_at": "2026-10-11T02:00:00Z"
+      },
+      {
+        "action_binding_id": "00000000-0000-4000-8000-000000000031",
+        "action_key": "send_message",
+        "authority_epoch": 1,
+        "consent_id": "00000000-0000-4000-8000-000000000031",
+        "consent_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "expires_at": "2026-10-11T02:00:00Z"
+      }
+    ],
+    "transport_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "review_expires_at": "2026-10-11T01:58:00Z",
+    "expires_at": "2026-10-11T01:55:00Z",
+    "operation": "activate",
+    "review": {
+      "account": {
+        "account_ref": "gmail_controlled_sender",
+        "label": "Synthetic controlled sender"
+      },
+      "custody_generation": 9,
+      "custody_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "digest": "sha256:cb068f93762b374d3c176c3e5825398ce01f89f480b06fb83be004ee17481932"
+    }
+  },
+  "receipt_value": {
+    "schema_version": "deft.app_connection_consent_continuation_receipt.v1",
+    "session_id": "00000000-0000-4000-8000-000000000021",
+    "scope": {
+      "org_id": "00000000-0000-4000-8000-000000000001",
+      "owner_user_id": "00000000-0000-4000-8000-000000000002",
+      "installation_id": "00000000-0000-4000-8000-000000000003",
+      "app_version_id": "00000000-0000-4000-8000-000000000004",
+      "grant_snapshot_id": "00000000-0000-4000-8000-000000000005",
+      "package_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "grant_snapshot_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "lifecycle_epoch": 6,
+      "grant_epoch": 6,
+      "target_key": "e2_gmail_sender",
+      "resource_key": "inbox",
+      "resource_binding_id": "00000000-0000-4000-8000-000000000006",
+      "runtime_registration_id": "00000000-0000-4000-8000-000000000007",
+      "operator_user_id": "00000000-0000-4000-8000-000000000008",
+      "runtime_epoch": 1,
+      "profile_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "consent_expires_at": "2026-10-11T02:00:00Z"
+    },
+    "source": {
+      "session_id": "00000000-0000-4000-8000-000000000020",
+      "session_revision": 7,
+      "scope": {
+        "org_id": "00000000-0000-4000-8000-000000000001",
+        "owner_user_id": "00000000-0000-4000-8000-000000000002",
+        "installation_id": "00000000-0000-4000-8000-000000000003",
+        "app_version_id": "00000000-0000-4000-8000-000000000004",
+        "grant_snapshot_id": "00000000-0000-4000-8000-000000000005",
+        "package_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "grant_snapshot_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "lifecycle_epoch": 6,
+        "grant_epoch": 6,
+        "target_key": "e2_gmail_sender",
+        "resource_key": "inbox",
+        "resource_binding_id": "00000000-0000-4000-8000-000000000006",
+        "runtime_registration_id": "00000000-0000-4000-8000-000000000007",
+        "operator_user_id": "00000000-0000-4000-8000-000000000008",
+        "runtime_epoch": 1,
+        "profile_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "consent_expires_at": "2026-10-11T01:00:00Z"
+      },
+      "runtime_session_ref": "original_runtime_session_ref",
+      "account_ref": "gmail_controlled_sender",
+      "action_consents": [
+        {
+          "action_binding_id": "00000000-0000-4000-8000-000000000030",
+          "action_key": "draft_mirror",
+          "authority_epoch": 1,
+          "consent_id": "00000000-0000-4000-8000-000000000030",
+          "consent_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "expires_at": "2026-10-11T01:00:00Z"
+        },
+        {
+          "action_binding_id": "00000000-0000-4000-8000-000000000031",
+          "action_key": "send_message",
+          "authority_epoch": 1,
+          "consent_id": "00000000-0000-4000-8000-000000000031",
+          "consent_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "expires_at": "2026-10-11T01:00:00Z"
+        }
+      ]
+    },
+    "action_consents": [
+      {
+        "action_binding_id": "00000000-0000-4000-8000-000000000030",
+        "action_key": "draft_mirror",
+        "authority_epoch": 1,
+        "consent_id": "00000000-0000-4000-8000-000000000030",
+        "consent_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "expires_at": "2026-10-11T02:00:00Z"
+      },
+      {
+        "action_binding_id": "00000000-0000-4000-8000-000000000031",
+        "action_key": "send_message",
+        "authority_epoch": 1,
+        "consent_id": "00000000-0000-4000-8000-000000000031",
+        "consent_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "expires_at": "2026-10-11T02:00:00Z"
+      }
+    ],
+    "transport_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "review_expires_at": "2026-10-11T01:58:00Z",
+    "review": {
+      "account": {
+        "account_ref": "gmail_controlled_sender",
+        "label": "Synthetic controlled sender"
+      },
+      "custody_generation": 9,
+      "custody_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "digest": "sha256:cb068f93762b374d3c176c3e5825398ce01f89f480b06fb83be004ee17481932"
+    },
+    "runtime_session_ref": "new_runtime_ref"
+  },
+  "receipt_digest": "sha256:ca5a615cd5d555aa52a900e5a920e3a4adf4ad8232119845b6eff63ec19def88",
+  "connected": {
+    "schema_version": "deft.app_connection_consent_continuation_runtime.v1",
+    "session_id": "00000000-0000-4000-8000-000000000021",
+    "state": "connected",
+    "account": {
+      "account_ref": "gmail_controlled_sender",
+      "label": "Synthetic controlled sender"
+    },
+    "custody_generation": 9,
+    "runtime_session_ref": "new_runtime_ref",
+    "receipt_digest": "sha256:ca5a615cd5d555aa52a900e5a920e3a4adf4ad8232119845b6eff63ec19def88"
+  }
+}

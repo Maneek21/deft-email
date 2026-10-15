@@ -1,4 +1,4 @@
-import {canonical,digest,exact,fail,isoTime,opaque,validateScope,hostUuid} from './contract.mjs';
+import {consentDeadline,canonical,digest,exact,fail,isoTime,opaque,validateScope,hostUuid} from './contract.mjs';
 import {uuid} from './draft-store.mjs';
 import {APP_DATA_LIMITS,AppDataRuntimeRequestSchema,AppDataResultSchema,AppDataBinaryMetadataSchema,canonicalAppDataJson} from '@deft/app-kit';
 import {createHash} from 'node:crypto';
@@ -37,7 +37,8 @@ export function validateDataResult(result,request){
 export function dataAuthorityRequest(request,expires_at){return {schema_version:'deft.app_data_authority.v1',request_id:request.request_id,scope:request.scope,connection:request.connection,authority:request.authority,operation:request.operation,input_digest:dataInputDigest(request),expires_at};}
 /** A response must repeat every authority pin; only its deadline can shrink. */
 export function createDataChecker({request,assertCurrent,signal,now=Date.now}){
-  let deadline=Math.min(Date.parse(request.expires_at),Date.parse(request.scope.consent_expires_at),now()+30000);const expiry=new AbortController(),combined=AbortSignal.any([signal,expiry.signal].filter(Boolean));let timer;
+  if(!isoTime(request.expires_at))fail('EMAIL_DATA_AUTHORITY_DENIED');
+  let deadline=Math.min(Date.parse(request.expires_at),consentDeadline(request.scope,'consent_expires_at'),now()+30000);const expiry=new AbortController(),combined=AbortSignal.any([signal,expiry.signal].filter(Boolean));let timer;
   const arm=()=>{clearTimeout(timer);timer=setTimeout(()=>expiry.abort(new Error('EMAIL_DATA_AUTHORITY_EXPIRED')),Math.max(0,deadline-now()));timer.unref();};arm();
   const check=async()=>{combined.throwIfAborted();if(deadline<=now())fail('EMAIL_DATA_AUTHORITY_DENIED');const expected=dataAuthorityRequest(request,new Date(deadline).toISOString()),response=await assertCurrent(expected,combined);exact(response,[...Object.keys(expected),'allowed']);const {expires_at,allowed,...pins}=response,{expires_at:ignored,...expectedPins}=expected;if(allowed!==true||canonical(pins)!==canonical(expectedPins)||!isoTime(expires_at)||Date.parse(expires_at)<=now()||Date.parse(expires_at)>deadline)fail('EMAIL_DATA_AUTHORITY_DENIED');deadline=Math.min(deadline,Date.parse(expires_at));arm();combined.throwIfAborted();return deadline;};
   const checkLocal=()=>{combined.throwIfAborted();if(deadline<=now())fail('EMAIL_DATA_AUTHORITY_DENIED');};

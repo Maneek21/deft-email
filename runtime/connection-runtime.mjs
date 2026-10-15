@@ -4,7 +4,7 @@ import {createEmailOAuth as createUnfencedEmailOAuth} from './vendor/providers/o
 const createEmailOAuth=options=>wrapCredentialProviderBridge({bridge:createUnfencedEmailOAuth(options),store:options.store,scope:options.repair_scope});
 import {createEncryptedEmailCustody} from './vendor/providers/custody-encrypted.mjs';
 import {validateOAuthClient, oauthClientFingerprint} from './vendor/providers/oauth-provider.mjs';
-import {canonical, digest, exact, fail, isoTime, validateRegistration, validateRequest} from './contract.mjs';
+import {consentDeadline,canonical, digest, exact, fail, isoTime, validateRegistration, validateRequest} from './contract.mjs';
 import {reserveTarget,endTarget} from './target-reservation.mjs';
 import * as Kit from '@deft/app-kit';
 import {capabilitiesFor,credentialAnchor,sealPurposeSet} from './purpose-set.mjs';
@@ -34,7 +34,7 @@ export function createConnectionRuntime({registration: rawRegistration, client, 
     });
   }
   function checker(request, signal) {
-    let deadline = Math.min(Date.parse(request.expires_at), Date.parse(request.scope.consent_expires_at), v2?(['begin','callback'].includes(request.operation)?Math.min(...actions(request).map(a=>Date.parse(a.expires_at))):Infinity):request.action_consent?Date.parse(request.action_consent.expires_at):Infinity, now() + 30000);
+    let deadline = Math.min(Date.parse(request.expires_at), consentDeadline(request.scope,'consent_expires_at'), v2?(['begin','callback'].includes(request.operation)?Math.min(...actions(request).map(a=>consentDeadline(a))):Infinity):request.action_consent?consentDeadline(request.action_consent):Infinity, now() + 30000);
     const expiry = new AbortController();
     const combinedSignal = AbortSignal.any([signal, expiry.signal].filter(Boolean));
     let timer;
@@ -82,7 +82,7 @@ export function createConnectionRuntime({registration: rawRegistration, client, 
         record = {session_id: request.session_id, scope: request.scope, ...(v2?{action_consents:request.action_consents}: {action_consent:request.action_consent??null}), client_fingerprint, runtime_session_ref: randomBytes(32).toString('base64url'), binding: {
           scope: {org_id: request.scope.org_id, owner_id: request.scope.owner_user_id, installation_id: request.scope.installation_id}, account_id, provider, connection_target: request.scope.target_key,
           resource_binding_id: request.scope.resource_binding_id, action_binding_id:v2?(request.action_consents.length?credentialAnchor(account_id):null):request.action_consent?.action_binding_id??null, authority_epoch: 1, capabilities: v2?capabilitiesFor(request.action_consents):['read','search','thread',...(request.action_consent?['send']:[])]
-        }, state: 'begin_started', account: null, provider_state: null, callback_expires_at: Math.min(now() + 600000, Date.parse(request.scope.consent_expires_at))};
+        }, state: 'begin_started', account: null, provider_state: null, callback_expires_at: Math.min(now() + 600000, consentDeadline(request.scope,'consent_expires_at'))};
         if(v2)record.purpose_set=sealPurposeSet(record.binding,record.action_consents,1);await persist(record);
       }
       const binding = record.binding, browserBinding = 'email.runtime.session:' + request.session_id;

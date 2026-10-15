@@ -1,4 +1,4 @@
-import {canonical,digest,fail} from './contract.mjs';
+import {canonical,digest,fail,consentDeadline} from './contract.mjs';
 export const purposeCapabilities=Object.freeze({send_message:'send',organize_messages:'modify',mirror_drafts:'modify'});
 export function capabilitiesFor(actions){
  if(!Array.isArray(actions)||actions.some(action=>!Object.hasOwn(purposeCapabilities,action.action_key)))fail('EMAIL_RUNTIME_ACTION_UNSUPPORTED');
@@ -13,10 +13,10 @@ export function sealPurposeSet(binding,actions,custody_generation){
 export function purposeFor(session,action_key,now=Date.now){
  if(!Object.hasOwn(session,'action_consents')){
   const action=session.action_consent;
-  if(!action||action.action_key!==action_key||session.binding.action_binding_id!==action.action_binding_id||Date.parse(action.expires_at)<=now())fail('EMAIL_RUNTIME_ACTION_DENIED');return action;
+  if(!action||action.action_key!==action_key||session.binding.action_binding_id!==action.action_binding_id||consentDeadline(action)<=now())fail('EMAIL_RUNTIME_ACTION_DENIED');return action;
  }
  const set=session.purpose_set;
  if(!set||canonical(set)!==canonical(sealPurposeSet(session.binding,session.action_consents,set.custody_generation)))fail('EMAIL_RUNTIME_ACTION_DENIED');
  const action=session.action_consents.find(value=>value.action_key===action_key);
- if(!action||Date.parse(action.expires_at)<=now()||!session.binding.capabilities.includes(purposeCapabilities[action_key]))fail('EMAIL_RUNTIME_ACTION_DENIED');return action;
+ if(!action||consentDeadline(action)<=now()||!session.binding.capabilities.includes(purposeCapabilities[action_key]))fail('EMAIL_RUNTIME_ACTION_DENIED');return action;
 }
