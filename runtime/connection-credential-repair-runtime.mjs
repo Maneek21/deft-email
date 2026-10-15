@@ -28,13 +28,20 @@ export function createCredentialRepairRuntime({registration:rawRegistration,clie
   try{await check();return await store.withLock({key:journalKey(request.session_id)},async jtx=>{
    let row=await jtx.read(),journal=row?.value;const persist=async value=>{await check();if(!await jtx.compareAndSwap({expected_revision:row?.revision??null,value}))fail('EMAIL_RUNTIME_CONFLICT');row=await jtx.read();journal=row.value;};
    if(journal&&!same(journal.pins,repairPins(request)))denied();
+   const cancelMissingIntent=!journal&&request.operation==='status'&&request.close_prepared===true&&request.review===null&&request.runtime_session_ref===null;
    // Historical run journals precede session locks in worker order. Inspect
    // exact immutable UNKNOWN pins before holding the source session; never
    // invert journal→session by acquiring their locks during drain.
-   if(request.operation==='prepare'){if(typeof inspectHistoricalAttempts!=='function'||await inspectHistoricalAttempts({request,check})!==true)denied();}
+   if(request.operation==='prepare'||cancelMissingIntent){if(typeof inspectHistoricalAttempts!=='function'||await inspectHistoricalAttempts({request,check})!==true)denied();}
    return store.withLock({key:sessionKey(request.source.session_id)},async stx=>{
     const source=(await stx.read())?.value;sourceValid(request,source);
-    const generation=journal?.eligibility.custody_generation;
+    let generation=journal?.eligibility.custody_generation;
+    if(cancelMissingIntent){
+     // The Host authenticated the original unconsumed intent. Reconstruct only
+     // its local cancellation proof; never prepare Begin or call the provider.
+     const record=await custody.withAccount(source.binding,tx=>tx.read()),publication_continuity_digest=await inspectPublication({request,source,check}),eligibility=eligible(request,source,record,publication_continuity_digest);
+     await persist({schema_version:'email.runtime.credential_repair_journal.v1',pins:repairPins(request),state:'preparing',eligibility});generation=eligibility.custody_generation;
+    }
     const finishPrepare=async()=>{
      await reserveCredentialRepair({store,request,check});await drainCredentialProviderOperations({store,request,check});
      const record=await custody.withAccount(source.binding,tx=>tx.read()),publication_continuity_digest=await inspectPublication({request,source,check}),eligibility=eligible(request,source,record,publication_continuity_digest);

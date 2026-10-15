@@ -599,6 +599,14 @@
   ],
   "owned_adapters": [
     {
+      "target": "connection-credential-repair-runtime.mjs",
+      "mode": "independent_adapter",
+      "runtime_version": "0.4.0-preview.8",
+      "reason": "Authenticated original unconsumed repair intent may be explicitly cancelled when Runtime preparation never existed; same generation, immutable UNKNOWN evidence, no OAuth Begin/exchange or automatic refresh retry.",
+      "parent_sha256": "d2ea9ec4039c52d619f44956f6ba6eb415c5476487351c5235d72557e18f8b07",
+      "sha256": "3a418247567e222cc81fdf584603b60cf1732b0c6e1c69cb47647ab68c3c0cbb"
+    },
+    {
       "target": "resource-bytes.mjs",
       "mode": "independent_adapter",
       "reason": "One authoritative native source read and frozen incoming parser/proxy reuse for exact binary references; no vendor modifications or authority caching",

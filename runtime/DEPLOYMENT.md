@@ -8,6 +8,17 @@ Node >=22.13.0, a POSIX local persistent filesystem, one service UID, and exactl
 
 Use EMAIL_RUNTIME_CONFIG_FILE=/absolute/private/runtime.json node server.mjs. The server binds loopback only; a reviewed HTTPS reverse proxy exposes POST /v1/connections and, when explicitly configured, POST /v1/data. Disable body/auth/query logging and redirects. No browser credentials or arbitrary provider URL can enter these ports.
 
+For a v2 installation that supports capability upgrades or credential repair, include both `authority_v2_url` and `upgrade_authority_url`, derived from the same reviewed HTTPS Host origin:
+
+```json
+{
+  "authority_v2_url":"https://HOST/api/app-connection-sessions/runtime/authority-v2",
+  "upgrade_authority_url":"https://HOST/api/app-connection-sessions/runtime/upgrade-authority"
+}
+```
+
+The connection-only example below is legacy v1 and does not enable those engines. A v2 registration alone does not enable repair: omitting `upgrade_authority_url` leaves both upgrade and repair unavailable. Existing-account consent continuation separately requires `consent_continuation_authority_url` at `/api/app-connection-sessions/runtime/consent-continuation-authority`; reattachment separately requires `reattach_authority_url` at `/api/app-connection-sessions/runtime/reattach-authority`. Configure each supported capability explicitly on the reviewed Host origin; no URL or authority fallback is inferred. Preserve the exact registration, directional bearer and custody pins when updating an existing operator configuration. A listening Runtime or successful data read is not proof that these optional capabilities are wired.
+
 Exact connection config:
 
 ```json
