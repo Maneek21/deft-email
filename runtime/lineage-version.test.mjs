@@ -4,6 +4,7 @@ import {randomUUID} from 'node:crypto';
 import {fixture} from './consent-continuation-fixture.mjs';
 import {client,authority,registrationFor,twoAccountProviderFixture} from './test-support.mjs';
 import {createCredentialRepairRuntime} from './connection-credential-repair-runtime.mjs';
+import {createCredentialRepairPorts} from './credential-repair-ports.mjs';
 import {createConsentContinuationRuntime} from './connection-consent-continuation-runtime.mjs';
 import {createReattachRuntime} from './connection-reattach-runtime.mjs';
 import {createUpgradeRuntime} from './connection-upgrade-runtime.mjs';
@@ -26,7 +27,7 @@ async function chain(t,{closeRepair=false}={}){
  let current=await session(f.id);
  const request=(version,target=current.scope)=>({schema_version:version,session_id:randomUUID(),scope:target,source:{scope:current.scope,session_id:current.session_id,session_revision:5,runtime_session_ref:current.runtime_session_ref,account_ref:current.account.account_ref},transport_digest:'sha256:'+'1'.repeat(64),review_expires_at:new Date(Date.now()+300000).toISOString(),expires_at:new Date(Date.now()+29000).toISOString(),operation:'prepare',action_consents:[]});
  const reviewed=async(runtime,raw,digest,keys=['account','custody_generation','custody_digest'])=>{const eligible=await runtime.request(raw),fields=Object.fromEntries(keys.map(k=>[k,eligible[k]]));return {...fields,digest:digest(raw,fields)};};
- const repair=createCredentialRepairRuntime({...deps,registration:registrationFor(current.scope),inspectPublication:async()=> 'sha256:'+'7'.repeat(64),assertHostAcknowledgement:async()=>{},commitRepair:input=>commitCredentialRepairLineage({...input,store}),commitClosure:input=>commitCredentialRepairClosureLineage({...input,store})});
+ const repair=createCredentialRepairRuntime({...deps,registration:registrationFor(current.scope),inspectHistoricalAttempts:createCredentialRepairPorts({store,registration:registrationFor(current.scope)}).inspectHistoricalAttempts,inspectPublication:async()=> 'sha256:'+'7'.repeat(64),assertHostAcknowledgement:async()=>{},commitRepair:input=>commitCredentialRepairLineage({...input,store}),commitClosure:input=>commitCredentialRepairClosureLineage({...input,store})});
  const raw={...request(REPAIR_VERSION),historical_attempts:[],publication_continuity_digest:null},review=await reviewed(repair,raw,repairReviewDigest,['account','custody_generation','custody_digest','fence']);
  const begun=await repair.request({...raw,operation:'begin',review,callback_state:'c'.repeat(43)});
  if(closeRepair){

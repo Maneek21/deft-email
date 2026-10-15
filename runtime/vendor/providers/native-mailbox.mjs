@@ -30,7 +30,7 @@ const accountFingerprint=({account,binding,connection_revision,principal_digest}
  * Host recheck MUST be a fresh SQL-only guard: OAuth calls it inside the custody
  * lock. The service separately checks decorated custody authority before/after
  * provider I/O; adapter authority checks inspect custody outside that lock. */
-export function createNativeEmailBridge({selected,clients,custody,accountFromRecord,fetch:fetchImpl,now=Date.now,monotonic=()=>performance.now(),imageDependencies,identityScopeFor}){
+export function createNativeEmailBridge({selected,clients,custody,accountFromRecord,fetch:fetchImpl,oauthFetch=fetchImpl,now=Date.now,monotonic=()=>performance.now(),imageDependencies,identityScopeFor}){
  function context(value,purpose,inspection){
   nativeOwnerCapabilities(value,{inspection});
   oauthObject(value,purpose==='draft_sync'?[...fields,'draft_sync_before_effect','draft_sync_journal']:purpose==='modify'?[...fields,'triage_journal','triage_before_reserve']:purpose==='prepare_send'?[...fields,'send_prepare_before_effect','send_upload_journal']:purpose==='send'?[...fields,'send_before_reserve','send_upload_journal']:fields,'EMAIL_NATIVE_AUTHORITY_DENIED');
@@ -82,8 +82,11 @@ export function createNativeEmailBridge({selected,clients,custody,accountFromRec
   const identity_scope=identityScopeFor?await identityScopeFor():scope;
   if(identity_scope.org_id!==scope.org_id||identity_scope.owner_id!==scope.owner_id||!oauthText(identity_scope.installation_id,256))oauthFail('EMAIL_NATIVE_AUTHORITY_DENIED');
   await checkSql();
-  const fetchCurrent=async(url,init={})=>{host.signal?.throwIfAborted();return fetchImpl(url,{...init,...(host.signal?{signal:init.signal?AbortSignal.any([host.signal,init.signal]):host.signal}:{})});};
-  const oauth=createEmailOAuth({clients,custody,fetch:fetchCurrent,now,host:{
+  // OAuth refresh/identity verification runs under custody's account lock. Its
+  // transport must recheck authority without reacquiring that same lock.
+  const guardedFetch=transport=>async(url,init={})=>{host.signal?.throwIfAborted();return transport(url,{...init,...(host.signal?{signal:init.signal?AbortSignal.any([host.signal,init.signal]):host.signal}:{})});};
+  const fetchCurrent=guardedFetch(fetchImpl);
+  const oauth=createEmailOAuth({clients,custody,fetch:guardedFetch(oauthFetch),now,host:{
    async resolveAccount({scope:requested,account_id,purpose:requestedPurpose}){if(requestedPurpose!==purpose||account_id!==binding.account_id||!sameEmailScope(requested,scope))oauthFail('EMAIL_NATIVE_AUTHORITY_DENIED');await checkSql();return binding;},
    async assertAuthority({binding:requested,purpose:requestedPurpose}){if(requestedPurpose!==purpose||!sameOAuthBinding(requested,binding))oauthFail('EMAIL_NATIVE_AUTHORITY_DENIED');await checkSql();return {allowed:true,expires_at:host.expires_at};},
   }});

@@ -17,7 +17,7 @@ export function createCredentialRepairRuntime({registration:rawRegistration,clie
  if(typeof commitRepair!=='function'||typeof assertHostAcknowledgement!=='function'||typeof inspectPublication!=='function')fail('EMAIL_RUNTIME_REPAIR_COMMIT_PORT_REQUIRED');
  function sourceValid(request,source){if(!source||source.state!=='connected'||source.session_id!==request.source.session_id||!same(source.scope,request.scope)||source.runtime_session_ref!==request.source.runtime_session_ref||source.account?.account_ref!==request.source.account_ref||source.binding.account_id!==request.source.account_ref||source.client_fingerprint!==fingerprint||source.binding.provider!==provider||!same(source.action_consents??(source.action_consent?[source.action_consent]:[]),request.action_consents))denied();}
  function eligible(request,source,record,publication_continuity_digest){
-  if(!record||!['connected','reauth_required'].includes(record.health)||!same(record.binding,source.binding)||record.secret?.client_fingerprint!==fingerprint||!record.secret?.identity?.provider_subject||record.secret.identity.primary_address!==source.account.label)denied();
+  if(!record||!['connected','reauth_required','refresh_pending'].includes(record.health)||!same(record.binding,source.binding)||record.secret?.client_fingerprint!==fingerprint||!record.secret?.identity?.provider_subject||record.secret.identity.primary_address!==source.account.label)denied();
   const generation=record.setup_generation,identity_digest='sha256:'+digest({binding:record.binding,identity:record.secret.identity,client_fingerprint:fingerprint,scopes:[...record.secret.scopes].sort()}),custody_digest='sha256:'+digest({binding:record.binding,generation,health:record.health,identity_digest});
   if(!/^sha256:[a-f0-9]{64}$/.test(publication_continuity_digest??''))denied();
   const fence={reservation_id:request.session_id,repair_session_id:request.session_id,source_session_id:request.source.session_id,source_revision:request.source.session_revision,account_ref:request.source.account_ref,resource_binding_id:request.scope.resource_binding_id,old_custody_generation:generation,planned_custody_generation:generation+1,identity_digest,historical_attempts:request.historical_attempts,publication_continuity_digest};
@@ -31,7 +31,7 @@ export function createCredentialRepairRuntime({registration:rawRegistration,clie
    // Historical run journals precede session locks in worker order. Inspect
    // exact immutable UNKNOWN pins before holding the source session; never
    // invert journal→session by acquiring their locks during drain.
-   if(request.operation==='prepare'&&request.historical_attempts.length){if(typeof inspectHistoricalAttempts!=='function'||await inspectHistoricalAttempts({request,check})!==true)denied();}
+   if(request.operation==='prepare'){if(typeof inspectHistoricalAttempts!=='function'||await inspectHistoricalAttempts({request,check})!==true)denied();}
    return store.withLock({key:sessionKey(request.source.session_id)},async stx=>{
     const source=(await stx.read())?.value;sourceValid(request,source);
     const generation=journal?.eligibility.custody_generation;
@@ -60,7 +60,7 @@ export function createCredentialRepairRuntime({registration:rawRegistration,clie
       if(now()<Date.parse(request.review_expires_at)||!same(request.review,journal.review)||request.runtime_session_ref!==journal.runtime_session_ref||journal.new_session||journal.receipt_digest||journal.closure)denied();
       await assertCredentialRepairReservation({store,request,check});await drainCredentialProviderOperations({store,request,check});
       const record=await custody.withAccount(source.binding,tx=>tx.read());
-      if(!record||record.health!=='reauth_required'||record.setup_generation!==generation+1||!same(record.binding,source.binding)||record.secret?.client_fingerprint!==fingerprint||record.secret.identity?.provider_subject!==journal.provider_subject||record.secret.identity?.primary_address!==source.account.label||!same([...record.secret.scopes].sort(),journal.scopes))denied();
+      if(!record||!['reauth_required','refresh_pending'].includes(record.health)||record.setup_generation!==generation+1||!same(record.binding,source.binding)||record.secret?.client_fingerprint!==fingerprint||record.secret.identity?.provider_subject!==journal.provider_subject||record.secret.identity?.primary_address!==source.account.label||!same([...record.secret.scopes].sort(),journal.scopes))denied();
       try{await custody.takeState({scope:source.binding.scope,state:journal.provider_state,browser_binding:'email.runtime.credential_repair:'+request.session_id});}catch(error){if(!['EMAIL_OAUTH_STATE_EXPIRED','EMAIL_OAUTH_STATE_REPLAY'].includes(error.code))throw error;}
       await persist({...journal,abandoned_from_state:'exchange_started',exchange_outcome:'unknown',abandoned_provider_state_digest:'sha256:'+digest(journal.provider_state)});
       await close('exchange_abandoned');

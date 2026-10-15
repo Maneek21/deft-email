@@ -59,14 +59,16 @@
     {
       "source": "examples/apps/email/providers/native-mailbox.mjs",
       "target": "vendor/providers/native-mailbox.mjs",
-      "sha256": "2e0cd19024d2a414dd7a0b58fb1412dacfdee4a0b28414f95c715ccc624abfee",
+      "sha256": "b043805caaa855f9bcac980236a3440f95a94013b61f3867b4ee1bab902c33d6",
       "mode": "reviewed_adaptation",
       "source_sha256": "a212ca9f3dcd6c21094c8e29be32bc707689622ef92641a873cefb226f25c863",
       "adaptation": "Preserve Microsoft Archive mapping and admit exact catalog folder pages with provider-returned folder membership filtering.",
       "adaptation_packet_sha256": "735ba6e0dcc07ec2c6ad4e8c1869eb8986cb2130691de33a06ca8ddf5f09d23e",
       "prior_reviewed_sha256": "cc4134c5f8e83e46d53ddf3ad6a8110d4c024ae7d59cafc44dfc912afa484e1d",
       "e5_parent_sha256": "7f1aed86c2a66617ad7fd7f38d072dcc31bcea9ca1cf9aefb73678206828cb08",
-      "e5_merge_reason": "Reviewed original-native import preserves immutable custody, native namespace and inspect-only effect history on exact accepted current E4 parent."
+      "e5_merge_reason": "Reviewed original-native import preserves immutable custody, native namespace and inspect-only effect history on exact accepted current E4 parent.",
+      "oauth_refresh_parent_sha256": "2e0cd19024d2a414dd7a0b58fb1412dacfdee4a0b28414f95c715ccc624abfee",
+      "oauth_refresh_reason": "Separate OAuth-only authority transport while the native account lock is held; ordinary provider data transport retains fresh custody checks. Fixed provider endpoint validation, credential CAS, identity validation and uncertain refresh fencing are unchanged."
     },
     {
       "source": "examples/apps/email/providers/native-owner-consent.mjs",
