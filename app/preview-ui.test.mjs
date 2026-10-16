@@ -40,11 +40,30 @@ test('Refresh failure retains the selected message and reports the failure truth
  const ui=await start({refresh:async()=>{throw Error('Controlled provider failure');}});await ui.click('mail_'+id.replaceAll('-',''));await ui.click('refresh');
  assert.equal(node(ui,'mail_subject').text,'Preview message');assert.equal(node(ui,'mail_'+id.replaceAll('-','')).label,'Preview message');assert.match(node(ui,'status').text,/Refresh could not be completed/);
 });
-test('reader keeps account and date context without placing optional jobs before the body',async()=>{
+test('folder departure removes the old reader before pending work and retains loaded rows on failure',async()=>{
+ for(const fail of[false,true]){
+  let finish,calls=0;const page={outcome:'completed',items:[mail],next_cursor:null,freshness:{complete:true}},ui=await start({listMailbox:async()=>++calls===1?page:new Promise(resolve=>{finish=resolve;})});await ui.click('mail_'+id.replaceAll('-',''));assert.ok(node(ui,'mail_body'));
+  const pending=ui.click('folder_sent');assert.equal(node(ui,'mail_body'),undefined);assert.ok(node(ui,'mail_'+id.replaceAll('-','')));await ui.click('mail_'+id.replaceAll('-',''));assert.equal(node(ui,'mail_body'),undefined);
+  while(!finish)await new Promise(resolve=>setTimeout(resolve,0));finish(fail?{outcome:'failed'}:{...page,items:[]});await pending;assert.equal(node(ui,'mail_body'),undefined);
+  if(fail){assert.ok(node(ui,'mail_'+id.replaceAll('-','')));assert.match(node(ui,'status').text,/This folder could not be loaded/);}else assert.equal(node(ui,'mail_'+id.replaceAll('-','')),undefined);
+ }
+});
+
+test('reader keeps date context without placing optional jobs before the body',async()=>{
  const ui=await start();await ui.click('mail_'+id.replaceAll('-',''));
  const children=node(ui,'reader_panel').children,body=children.findIndex(item=>item.kind==='record_document');
  assert.ok(node(ui,'mail_date')?.text);assert.equal(node(ui,'mail_'+id.replaceAll('-','')).eyebrow,mail.data.sender);
  assert.ok(children.filter(item=>item.kind==='local_job_schedule').every(item=>children.indexOf(item)>body));
+});
+
+test('reader Sent metadata shows actual From To and Cc separately from subject and mailbox account',async()=>{
+ const data={...mail.data,subject:'Synthetic sent subject',sender:'Sender <sender@example.test>',recipients:'Receiver <receiver@example.test>',cc:'Copy <copy@example.test>'},ui=await start({targets:[{key:'primary',label:'sender-mailbox@example.test'}],messages:[{...mail,label:'Subject plus descriptive account label',data}]});await ui.click('mail_'+id.replaceAll('-',''));
+ assert.equal(node(ui,'mail_subject').text,data.subject);assert.equal(node(ui,'mail_sender').text,'From: '+data.sender);assert.equal(node(ui,'mail_recipients').text,'To: '+data.recipients);assert.equal(node(ui,'mail_cc').text,'Cc: '+data.cc);assert.ok(node(ui,'mail_date').text);assert.ok(!node(ui,'reader_metadata').children.some(item=>item.text?.includes('sender-mailbox@example.test')));
+});
+
+test('reader all-account selection retains exact child recipients and never substitutes account labels for missing headers',async()=>{
+ const second='22222222-2222-4222-8222-222222222222',child={...mail,record_id:second,data:{...mail.data,sender:'External <external@example.test>',recipients:'Actual <actual@example.test>',cc:''}},ui=await start({targets:[{key:'primary',label:'Primary mailbox'},{key:'child',label:'Different account context'}],listMailbox:async target=>({outcome:'completed',items:[target==='child'?child:mail],next_cursor:null,freshness:{complete:true}})});await ui.click('account_all');await ui.click('mail_'+second.replaceAll('-',''));assert.equal(node(ui,'mail_recipients').text,'To: '+child.data.recipients);assert.equal(node(ui,'mail_cc'),undefined);assert.equal(node(ui,'mail_body').record_id,second);assert.equal(node(ui,'mail_body').content_digest,child.content_digest);
+ const empty=await start({targets:[{key:'primary',label:'not-a-recipient@example.test'}],messages:[{...mail,data:{...mail.data,recipients:'',cc:''}}]});await empty.click('mail_'+id.replaceAll('-',''));assert.equal(node(empty,'mail_recipients'),undefined);assert.equal(node(empty,'mail_cc'),undefined);assert.ok(!node(empty,'mail_date').text.includes('not-a-recipient@example.test'));
 });
 test('compose uses the trusted recipient profile and has one owner for draft save status',async()=>{
  const ui=await start();await ui.click('compose');const form=node(ui,'draft_form');
