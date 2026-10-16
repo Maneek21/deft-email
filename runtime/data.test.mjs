@@ -135,3 +135,23 @@ test('saved draft reads keep fresh outer authority without nested network round 
  }
  assert.equal((await f.run(f.request('record_read',{store_key:'drafts',record_id:id}))).record.content_digest,created.record.content_digest);
 });
+
+
+test('inflight data authority checker shares only identical inflight authority, never sequential results',async()=>{
+ const request={scope:makeScope(),request_id:randomUUID(),connection:{},authority:{},operation:'record_read',input:{},expires_at:new Date(Date.now()+29000).toISOString()};let calls=0,release;
+ const checker=createDataChecker({request,assertCurrent:async input=>{calls++;await new Promise(done=>release=done);return {...input,allowed:true};}});
+ try{const batch=Array.from({length:10},()=>checker.check());assert.equal(calls,1);release();await Promise.all(batch);const next=checker.check();assert.equal(calls,2);release();await next;const pending=checker.check(),firstRelease=release;request.input={different:true};const distinct=checker.check();assert.equal(calls,4);firstRelease();release();await Promise.all([pending,distinct]);}finally{checker.dispose();}
+});
+
+test('inflight data authority keeps local abort expiry and fresh final denial',async()=>{
+ for(const mode of ['abort','expiry','denial']){let clock=Date.now(),calls=0,release;const controller=new AbortController(),request={scope:makeScope(),request_id:randomUUID(),connection:{},authority:{},operation:'record_read',input:{},expires_at:new Date(clock+29000).toISOString()};const checker=createDataChecker({request,signal:controller.signal,now:()=>clock,assertCurrent:async input=>{calls++;await new Promise(done=>release=done);return {...input,allowed:mode!=='denial'||calls===1};}});
+ try{const work=Promise.all([checker.check(),checker.check()]);assert.equal(calls,1);if(mode==='abort')controller.abort();if(mode==='expiry')clock+=30000;release();if(mode==='denial'){await work;const final=checker.check();assert.equal(calls,2);release();await assert.rejects(final);}else await assert.rejects(work);}finally{checker.dispose();}}
+});
+
+test('inflight data authority actual cold ten-message query shares concurrent authority and keeps final disclosure fresh',async t=>{
+ let callbacks=0,providers=0;
+ const provider=async(url,options)=>{const p=new URL(url);if(p.pathname.endsWith('/messages')){providers++;return Response.json({messages:Array.from({length:10},(_,i)=>({id:'synthetic-cold-'+i})),resultSizeEstimate:10});}if(/\/messages\/synthetic-cold-\d+$/u.test(p.pathname)){providers++;const value=structuredClone(dataFixtureMessage().metadata);value.id=p.pathname.split('/').at(-1);return Response.json(value);}return providerFixture(url,options);};
+ const f=await fixture(t,provider,{onAuthority:async()=>{callbacks++;await new Promise(done=>setTimeout(done,20));}});
+ const input={store_key:'drafts',resource_key:'inbox',cursor:null,limit:10,query:'in:inbox'};const result=await f.run(f.request('resource_list',input));assert.equal(result.items.length,10);assert.equal(providers,11);assert.equal(callbacks,8);
+ callbacks=0;providers=0;const revoked=await fixture(t,provider,{onAuthority:async()=>{callbacks++;await new Promise(done=>setTimeout(done,20));if(callbacks===8)throw Error('revoked before final disclosure');}});await assert.rejects(revoked.run(revoked.request('resource_list',input)));assert.equal(providers,11);assert.equal(callbacks,8);
+});

@@ -40,7 +40,21 @@ export function createDataChecker({request,assertCurrent,signal,now=Date.now}){
   if(!isoTime(request.expires_at))fail('EMAIL_DATA_AUTHORITY_DENIED');
   let deadline=Math.min(Date.parse(request.expires_at),consentDeadline(request.scope,'consent_expires_at'),now()+30000);const expiry=new AbortController(),combined=AbortSignal.any([signal,expiry.signal].filter(Boolean));let timer;
   const arm=()=>{clearTimeout(timer);timer=setTimeout(()=>expiry.abort(new Error('EMAIL_DATA_AUTHORITY_EXPIRED')),Math.max(0,deadline-now()));timer.unref();};arm();
-  const check=async()=>{combined.throwIfAborted();if(deadline<=now())fail('EMAIL_DATA_AUTHORITY_DENIED');const expected=dataAuthorityRequest(request,new Date(deadline).toISOString()),response=await assertCurrent(expected,combined);exact(response,[...Object.keys(expected),'allowed']);const {expires_at,allowed,...pins}=response,{expires_at:ignored,...expectedPins}=expected;if(allowed!==true||canonical(pins)!==canonical(expectedPins)||!isoTime(expires_at)||Date.parse(expires_at)<=now()||Date.parse(expires_at)>deadline)fail('EMAIL_DATA_AUTHORITY_DENIED');deadline=Math.min(deadline,Date.parse(expires_at));arm();combined.throwIfAborted();return deadline;};
+  let pending;
+  const check=async()=>{
+    combined.throwIfAborted();if(deadline<=now())fail('EMAIL_DATA_AUTHORITY_DENIED');
+    const expected=dataAuthorityRequest(request,new Date(deadline).toISOString()),key=canonical(expected);
+    let entry=pending;
+    if(!entry||entry.key!==key){
+      entry={key};pending=entry;
+      entry.work=(async()=>{try{
+        const response=await assertCurrent(expected,combined);exact(response,[...Object.keys(expected),'allowed']);const {expires_at,allowed,...pins}=response,{expires_at:ignored,...expectedPins}=expected;
+        if(allowed!==true||canonical(pins)!==canonical(expectedPins)||!isoTime(expires_at)||Date.parse(expires_at)<=now()||Date.parse(expires_at)>deadline)fail('EMAIL_DATA_AUTHORITY_DENIED');
+        deadline=Math.min(deadline,Date.parse(expires_at));arm();
+      }finally{if(pending===entry)pending=undefined;}})();
+    }
+    await entry.work;combined.throwIfAborted();if(deadline<=now())fail('EMAIL_DATA_AUTHORITY_DENIED');return deadline;
+  };
   const checkLocal=()=>{combined.throwIfAborted();if(deadline<=now())fail('EMAIL_DATA_AUTHORITY_DENIED');};
   return {check,checkLocal,signal:combined,get expires_at(){return deadline;},dispose(){clearTimeout(timer);}};
 }

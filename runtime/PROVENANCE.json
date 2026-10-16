@@ -506,7 +506,8 @@
       "target": "data-contract.mjs",
       "mode": "independent_adapter",
       "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
-      "sha256": "3c1eed6c2e6af643a068e9ea1867787bd04017f410833517d07a1f0f94fac6c9",
+      "sha256": "e66b24aaedd562178652d5f06a79d26038776a37637b4e4402dae14f56483596",
+      "runtime10_adaptation": "Share only identical concurrently pending complete authority envelopes per data request; no settled or cross-request cache, per-waiter abort/deadline checks and fresh final disclosure remain",
       "original_sha256": "cc89be0408e480fd90dd97c1988e0632d27897c0c39ed3989f355b98fae8ce53",
       "adaptation": "Public Kit35 explicitly reviewed until-revoked consent; finite request, claim and effect deadlines and current-authority checks remain enforced."
     },
