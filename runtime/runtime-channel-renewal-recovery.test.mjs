@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createDeftResourceSyncClientV3} from '@deft/app-kit';
+import {createAppRuntimeClient,createDeftResourceSyncClientV3} from '@deft/app-kit';
 import {createRuntimeChannelRenewal} from './runtime-channel-renewal.mjs';
 
 const iso=n=>new Date(n).toISOString();
@@ -21,6 +21,22 @@ function fixture({timeout_ms,fetch:transport,stale=false,remaining_ms,onWait}={}
 }
 const success=({session_id,initial})=>Response.json({renewed:{session_id,expires_at:iso(initial+1720000),renewable_until:iso(initial+3600000)}});
 const unavailable=()=>Response.json({code:'APP_RESOURCE_SYNC_FAILURE'},{status:503});
+
+test('recovery: actual Kit35 action rate limits retry without reopening claims or replaying effects',async()=>{
+ const initial=Date.now(),session_id='752d6bb3-a77d-4c34-93fa-ae62b398bc2e';let now=initial;
+ const channel={channel_url:'https://fixture.invalid/api/app-runtime/channel',credential:{session_id,session_token:'a'.repeat(43)},registration:{},technical_renewal:{expires_at:iso(initial-5000),renewable_until:null,renewal_lifetime:'until_revoked'}};
+ const calls=[],diagnostics=[],controller=new AbortController();
+ const client=createAppRuntimeClient({channel_url:channel.channel_url,credential:channel.credential,fetch:async(url,options)=>{
+  assert.equal(await life.client.claim(),null);calls.push({path:new URL(url).pathname,body:JSON.parse(options.body)});
+  assert.equal(new URL(url).pathname.endsWith('/renew'),true);
+  return now<initial+60000?Response.json({code:'RATE_LIMITED',error:'Too many requests. Try again in a minute.'},{status:429}):Response.json({renewed:{session_id,expires_at:iso(initial+900000),renewable_until:null,renewal_lifetime:'until_revoked'}});
+ }});
+ const life=createRuntimeChannelRenewal({channel,runtime_client:client,now:()=>now,wait:async(ms)=>{if(life.state==='live')controller.abort();else now+=ms;},onDiagnostic:e=>diagnostics.push(e)});
+ await life.run(controller.signal);
+ assert.ok(diagnostics.some(e=>e.phase==='live'&&e.reason==='acknowledged'),'A one-minute host throttle must not permanently deny the existing channel');
+ assert.ok(diagnostics.some(e=>e.reason==='rate_limited'));assert.ok(now-initial<90000);assert.ok(calls.length>3&&calls.length<20);
+ assert.ok(calls.every(c=>JSON.stringify(c)===JSON.stringify(calls[0])),'Retries retain the original session and expiry expectation');
+});
 
 test('recovery: actual Kit35 V3 default timer precedes the Runtime deadline',async()=>{
  const f=fixture({fetch:args=>args.renewals===1?new Promise(()=>{}):success(args)});

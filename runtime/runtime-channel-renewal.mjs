@@ -22,7 +22,8 @@ export function createRuntimeChannelRenewal({channel,runtime_client,now=Date.now
  const reconcilable=()=>!closed&&!denied&&state!=='expired'&&unverified&&startupDeadline>now();
  const terminal=()=>closed||denied||!(unverified?reconcilable():valid());
  const expired=()=>{state='expired';diagnostic('expired','expired');return false;};
- const transport=error=>error?.name==='ResourceSyncClientError'&&error.status===0&&error.code==='APP_RESOURCE_SYNC_TIMEOUT'||error?.status>=500&&error?.status<=599||['TimeoutError','AbortError'].includes(error?.name)||error?.name==='TypeError'&&/fetch failed|network|failed to fetch/iu.test(error.message??'');
+ const rateLimited=error=>['AppRuntimeClientError','ResourceSyncClientError'].includes(error?.name)&&error.status===429;
+ const transport=error=>rateLimited(error)||error?.name==='ResourceSyncClientError'&&error.status===0&&error.code==='APP_RESOURCE_SYNC_TIMEOUT'||error?.status>=500&&error?.status<=599||['TimeoutError','AbortError'].includes(error?.name)||error?.name==='TypeError'&&/fetch failed|network|failed to fetch/iu.test(error.message??'');
  async function renew(signal){
   signal=AbortSignal.any([signal,stopped.signal]);signal.throwIfAborted();if(closed||denied)return false;if(!(unverified?reconcilable():valid()))return expired();if(pending)return pending;
   const startup=unverified;state=startup?'reconciling':'renewing';
@@ -43,7 +44,7 @@ export function createRuntimeChannelRenewal({channel,runtime_client,now=Date.now
      expires_at=reply.expires_at;unverified=false;state='live';diagnostic('live','acknowledged',attempt+1);return true;
     }catch(error){
      if(signal.aborted){state=stopped.signal.aborted?'closed':'unavailable';diagnostic('stopped','cancelled',attempt+1);throw error;}
-     const reason=deadline?.aborted?'operation_deadline':error?.name==='ResourceSyncClientError'&&error.status===0&&error.code==='APP_RESOURCE_SYNC_TIMEOUT'?'sdk_timeout':error?.status>=500&&error.status<=599?'http_unavailable':transport(error)?'transport_unavailable':error?.status===401||error?.status===403?'authority_denied':error?.code==='EMAIL_RUNTIME_RENEWAL_REPLY_DENIED'?'invalid_reply':'unclassified';
+     const reason=deadline?.aborted?'operation_deadline':rateLimited(error)?'rate_limited':error?.name==='ResourceSyncClientError'&&error.status===0&&error.code==='APP_RESOURCE_SYNC_TIMEOUT'?'sdk_timeout':error?.status>=500&&error.status<=599?'http_unavailable':transport(error)?'transport_unavailable':error?.status===401||error?.status===403?'authority_denied':error?.code==='EMAIL_RUNTIME_RENEWAL_REPLY_DENIED'?'invalid_reply':'unclassified';
      if(!(startup?reconcilable():valid()))return expired();
      if(!transport(error)){denied=true;state='denied';diagnostic('denied',reason,attempt+1);return false;}
      state='unavailable';
