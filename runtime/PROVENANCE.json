@@ -523,11 +523,13 @@
       "runtime11_parent_sha256": "0629397c4916f007ee0d171beb75e820662a9568d202652618cb24ce233bf7fd",
       "runtime11_adaptation": "Resolve external image default from the exact current account preference outside the raw source memo; absent means automatic, explicit ask and all source/proxy/current-authority checks remain.",
       "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
-      "sha256": "26345d9c01981a53d04cb154eb50458fafbadace3a00bfe82fad4f1b15d49a65",
+      "sha256": "1dcf989be87641ee2d2bece461413ec4038ea2f942b5282d224daf54138bc2bc",
       "original_sha256": "b5e6f89d37859c2eab82afd9fdeb0cb681e0bb88b38ee7e1aa9627dfbe0b7e22",
-      "runtime_version": "0.4.0-preview.11",
+      "runtime_version": "0.4.0-preview.13",
       "runtime10_parent_sha256": "ac99073e28eb5478fd36f391f19bb9dfd910d1db3c2af9f4d5d2a20b798062ec",
-      "adaptation": "App-owned note-presence summary plus pure saved-draft local checks inside the held session; fresh online entry, post-lock and final disclosure checks remain; no cache or mutation behavior change"
+      "adaptation": "App-owned note-presence summary plus pure saved-draft local checks inside the held session; fresh online entry, post-lock and final disclosure checks remain; no cache or mutation behavior change",
+      "runtime13_parent_sha256": "26345d9c01981a53d04cb154eb50458fafbadace3a00bfe82fad4f1b15d49a65",
+      "runtime13_adaptation": "Within the same held session, non-form remote-image native custody reads and preferences read/list use pure local checks; IMAP image native checks and fresh online entry/post-lock/provider/DNS/redirect/disclosure plus final custody-generation fences remain. No approval cache, provider concurrency or mutation change."
     },
     {
       "target": "send-runner.mjs",
@@ -689,11 +691,13 @@
       "runtime11_parent_sha256": "0629397c4916f007ee0d171beb75e820662a9568d202652618cb24ce233bf7fd",
       "runtime11_adaptation": "Resolve external image default from the exact current account preference outside the raw source memo; absent means automatic, explicit ask and all source/proxy/current-authority checks remain.",
       "reason": "Bounded data-only60s foreground memo and durable membership generation invalidation; operation-local pure rechecks with fresh entry/provider/token/commit/disclosure online authority, unchanged session/custody/mutation locks and frozen vendors",
-      "sha256": "26345d9c01981a53d04cb154eb50458fafbadace3a00bfe82fad4f1b15d49a65",
+      "sha256": "1dcf989be87641ee2d2bece461413ec4038ea2f942b5282d224daf54138bc2bc",
       "original_sha256": "b5e6f89d37859c2eab82afd9fdeb0cb681e0bb88b38ee7e1aa9627dfbe0b7e22",
-      "runtime_version": "0.4.0-preview.11",
+      "runtime_version": "0.4.0-preview.13",
       "runtime10_parent_sha256": "ac99073e28eb5478fd36f391f19bb9dfd910d1db3c2af9f4d5d2a20b798062ec",
-      "adaptation": "App-owned note-presence summary plus pure saved-draft local checks inside the held session; fresh online entry, post-lock and final disclosure checks remain; no cache or mutation behavior change"
+      "adaptation": "App-owned note-presence summary plus pure saved-draft local checks inside the held session; fresh online entry, post-lock and final disclosure checks remain; no cache or mutation behavior change",
+      "runtime13_parent_sha256": "26345d9c01981a53d04cb154eb50458fafbadace3a00bfe82fad4f1b15d49a65",
+      "runtime13_adaptation": "Within the same held session, non-form remote-image native custody reads and preferences read/list use pure local checks; IMAP image native checks and fresh online entry/post-lock/provider/DNS/redirect/disclosure plus final custody-generation fences remain. No approval cache, provider concurrency or mutation change."
     },
     {
       "target": "mailbox-store.mjs",
@@ -710,6 +714,14 @@
       "mode": "independent_adapter",
       "reason": "Bounded data-only60s foreground memo and durable membership generation invalidation; operation-local pure rechecks with fresh entry/provider/token/commit/disclosure online authority, unchanged session/custody/mutation locks and frozen vendors",
       "sha256": "b4d8d23a8ffe488bfed77cf0be59bb54a2b110d4899ad33108961d54b560cf18"
+    },
+    {
+      "target": "runtime-channel-renewal.mjs",
+      "mode": "independent_adapter",
+      "runtime_version": "0.4.0-preview.13",
+      "runtime12_parent_sha256": "7c1fefec4eee5d6511fe099d9f983d1e7d63d9fac717dfb89dd6bcb2d6e6bb17",
+      "reason": "Classify only the actual public SDK observer status0 APP_RESOURCE_SYNC_TIMEOUT as retryable transport under the existing bounded same-session/same-deadline renewal loop; definitive denials, malformed replies, expiry, provider/start/result methods and immutable channel files remain closed.",
+      "sha256": "6f01ece7b075bd6aa88a7f2aea85cee1d9bd93458ea10c79b8c0fffa9ea5ddb1"
     }
   ],
   "parent_provenance_sha256": "f963f3af24c7e9bf345dd9121eee2cad6f29707afb7966213f4fda3f33bfdb62"
