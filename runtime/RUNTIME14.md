@@ -1,0 +1,11 @@
+# Runtime 14 candidate
+
+Runtime 14 adds redacted renewal/foreground phase diagnostics. A transient renewal failure suspends new claims and permits bounded reconciliation of the same technical session. Only an exact valid Host acknowledgement restores access. Definitive denial, known expiry and shutdown remain closed. No provider effect, start or result is automatically replayed. The earlier equal-default-timer hypothesis was disproved: the sealed Kit 35 observer transport uses a 10-second cap.
+
+OAuth read requests snapshot the exact connection session, release its lock for provider I/O and MIME parsing, then revalidate the full row/revision and current authority/custody before dispatch, commit and disclosure. Background observation also revalidates its original checkpoint/cursor before publication. Effects, credential repair and IMAP locking retain their existing serialization. The separate credential-provider lock still serializes provider work.
+
+Gmail image/file reads may reuse immutable message MIME data in memory: at most 8 entries and 32 MiB, with a fixed maximum age of 5 minutes. Every hit checks current authority and message existence. Scope, connection, custody generation, provider locator and source metadata digest isolate entries; returned bytes are independent and cancellation cannot authorize disclosure. Eviction and shutdown clear retained buffers. Other providers retain full-source validation. Presentation plus repeated images uses two full MIME loads within those limits; each part still parses MIME outside the session lock.
+
+These are candidate behavior and offline regression results. Deployment, end-to-end correctness and actual browser latency need separate evidence. App 11 package bytes, Runtime Kit 35, dependency pins and mailbox schemas are unchanged.
+
+The maintained `scripts/runtime-candidate.py` creates source archives from clean, exact Git content through `scripts/package-source.py`, validates the Runtime 12 base and offline recipe, builds only with `--execute-root-only`, and exports the exact tagged image once. It never publishes or swaps a service. Outputs retain at least 512 MiB local reserve; failed exclusive outputs are preserved. Run `python scripts/runtime-candidate.test.py` from the repository root for the offline packaging guards.

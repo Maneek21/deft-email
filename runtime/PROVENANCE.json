@@ -498,9 +498,12 @@
       "target": "server.mjs",
       "mode": "independent_adapter",
       "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
-      "sha256": "0af763841171a4487ef4fb44c8a73a0c489c7c089c62612f1745a5d17053f687",
+      "sha256": "273cd7717f9a0c0632359c46210eb84d5b88ef5621d11b6825ccf2f5661bc9b5",
       "original_sha256": "69b839308e2d152cc6819edd39d4d4c5fc5aab3beb46ca73712a208951c1ef24",
-      "adaptation": "Public Kit35 explicitly reviewed until-revoked consent; finite request, claim and effect deadlines and current-authority checks remain enforced."
+      "adaptation": "Public Kit35 explicitly reviewed until-revoked consent; finite request, claim and effect deadlines and current-authority checks remain enforced.",
+      "runtime14_parent_sha256": "0af763841171a4487ef4fb44c8a73a0c489c7c089c62612f1745a5d17053f687",
+      "runtime_version": "0.4.0-preview.14",
+      "runtime14_adaptation": "Preserve shutdown ordering and clear retained data-only source snapshots before store close."
     },
     {
       "target": "http.mjs",
@@ -523,13 +526,15 @@
       "runtime11_parent_sha256": "0629397c4916f007ee0d171beb75e820662a9568d202652618cb24ce233bf7fd",
       "runtime11_adaptation": "Resolve external image default from the exact current account preference outside the raw source memo; absent means automatic, explicit ask and all source/proxy/current-authority checks remain.",
       "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
-      "sha256": "1dcf989be87641ee2d2bece461413ec4038ea2f942b5282d224daf54138bc2bc",
+      "sha256": "8061b0d4e0367f5f11d6107d3489052fb1d9822959d1750119812adba1a46774",
       "original_sha256": "b5e6f89d37859c2eab82afd9fdeb0cb681e0bb88b38ee7e1aa9627dfbe0b7e22",
-      "runtime_version": "0.4.0-preview.13",
+      "runtime_version": "0.4.0-preview.14",
       "runtime10_parent_sha256": "ac99073e28eb5478fd36f391f19bb9dfd910d1db3c2af9f4d5d2a20b798062ec",
       "adaptation": "App-owned note-presence summary plus pure saved-draft local checks inside the held session; fresh online entry, post-lock and final disclosure checks remain; no cache or mutation behavior change",
       "runtime13_parent_sha256": "26345d9c01981a53d04cb154eb50458fafbadace3a00bfe82fad4f1b15d49a65",
-      "runtime13_adaptation": "Within the same held session, non-form remote-image native custody reads and preferences read/list use pure local checks; IMAP image native checks and fresh online entry/post-lock/provider/DNS/redirect/disclosure plus final custody-generation fences remain. No approval cache, provider concurrency or mutation change."
+      "runtime13_adaptation": "Within the same held session, non-form remote-image native custody reads and preferences read/list use pure local checks; IMAP image native checks and fresh online entry/post-lock/provider/DNS/redirect/disclosure plus final custody-generation fences remain. No approval cache, provider concurrency or mutation change.",
+      "runtime14_parent_sha256": "1dcf989be87641ee2d2bece461413ec4038ea2f942b5282d224daf54138bc2bc",
+      "runtime14_adaptation": "Read-only OAuth requests snapshot the exact session row and revalidate before provider dispatch, locked mailbox commits and disclosure. MIME work stays outside the session lock; fresh authority/custody and metadata fences remain. Adds redacted stage timing only."
     },
     {
       "target": "send-runner.mjs",
@@ -609,9 +614,12 @@
       "target": "observation-runner.mjs",
       "mode": "independent_adapter",
       "reason": "Public Kit16 immutable resource plans and independently consented Organize runtime effects; whole-plan/per-item no-replay, exact custody/current authority and request-local observation checks; frozen provider51 unchanged",
-      "sha256": "fef712e4358a4adff3aaf11aa15f0edc6027a0224b51c2dc289ee2922ed42ac6",
+      "sha256": "7e15e835be40ee6be6b947e66af10b93052d7917b8d2fde29d5409028a2b67ea",
       "original_sha256": "f16d93fe98f12e2ba04e7c77c5996517951370466d3336dc6c13c563e26097f9",
-      "adaptation": "Public Kit35 explicitly reviewed until-revoked consent; finite request, claim and effect deadlines and current-authority checks remain enforced."
+      "adaptation": "Public Kit35 explicitly reviewed until-revoked consent; finite request, claim and effect deadlines and current-authority checks remain enforced.",
+      "runtime14_parent_sha256": "fef712e4358a4adff3aaf11aa15f0edc6027a0224b51c2dc289ee2922ed42ac6",
+      "runtime_version": "0.4.0-preview.14",
+      "runtime14_adaptation": "OAuth observation releases session/publication locks for provider reads, then revalidates exact session/custody/checkpoint/cursor before the original commit and publication. Durable Run no-replay and IMAP/effect locking remain."
     }
   ],
   "owned_adapters": [
@@ -632,7 +640,10 @@
         "vendor/providers/incoming-source-files.mjs",
         "vendor/providers/remote-image-proxy.mjs"
       ],
-      "sha256": "76b3a69ad18ae5aa8fd5b69674de583f5f3c35b195eb78ca10092e587decfa4d"
+      "sha256": "f933b27d0db182bf93515baf0d3d9dbc8fc4167b9a49b16caf7f38796e18c46f",
+      "runtime14_parent_sha256": "76b3a69ad18ae5aa8fd5b69674de583f5f3c35b195eb78ca10092e587decfa4d",
+      "runtime_version": "0.4.0-preview.14",
+      "runtime14_adaptation": "Gmail-only immutable message identity permits bounded in-memory raw MIME reuse with fresh existence/current-authority checks on every hit. Unsupported providers retain full source reads; exact source image/part references, proxy budgets and byte clearing remain."
     },
     {
       "target": "connection-reattach-runtime.mjs",
@@ -681,9 +692,12 @@
         "vendor/providers/custody-encrypted.mjs",
         "vendor/metadata-resource.mjs"
       ],
-      "sha256": "5760f9354b9e18626abfd99bc232314628fd320b2adc0b9ffe6412b03dba1ecc",
+      "sha256": "7e15e835be40ee6be6b947e66af10b93052d7917b8d2fde29d5409028a2b67ea",
       "hydration_parent_sha256": "59512d9b8729f8eed6b25dedd7d9675123ab382f6a774d593e191ede649aaf6d",
-      "hydration_reason": "Background Gmail inventory/pending/history chunks hydrate at most five metadata messages while preserving current-history interleaving, existing 25-item provider/public cursor binding and durable pending/after_pending. Sweep remains at its prior25-item size with possible longer latency. Foreground defaults, authority and no-replay fences remain unchanged."
+      "hydration_reason": "Background Gmail inventory/pending/history chunks hydrate at most five metadata messages while preserving current-history interleaving, existing 25-item provider/public cursor binding and durable pending/after_pending. Sweep remains at its prior25-item size with possible longer latency. Foreground defaults, authority and no-replay fences remain unchanged.",
+      "runtime14_parent_sha256": "5760f9354b9e18626abfd99bc232314628fd320b2adc0b9ffe6412b03dba1ecc",
+      "runtime_version": "0.4.0-preview.14",
+      "runtime14_adaptation": "OAuth observation releases session/publication locks for provider reads, then revalidates exact session/custody/checkpoint/cursor before the original commit and publication. Durable Run no-replay and IMAP/effect locking remain."
     },
     {
       "target": "data-runtime.mjs",
@@ -691,13 +705,15 @@
       "runtime11_parent_sha256": "0629397c4916f007ee0d171beb75e820662a9568d202652618cb24ce233bf7fd",
       "runtime11_adaptation": "Resolve external image default from the exact current account preference outside the raw source memo; absent means automatic, explicit ask and all source/proxy/current-authority checks remain.",
       "reason": "Bounded data-only60s foreground memo and durable membership generation invalidation; operation-local pure rechecks with fresh entry/provider/token/commit/disclosure online authority, unchanged session/custody/mutation locks and frozen vendors",
-      "sha256": "1dcf989be87641ee2d2bece461413ec4038ea2f942b5282d224daf54138bc2bc",
+      "sha256": "8061b0d4e0367f5f11d6107d3489052fb1d9822959d1750119812adba1a46774",
       "original_sha256": "b5e6f89d37859c2eab82afd9fdeb0cb681e0bb88b38ee7e1aa9627dfbe0b7e22",
-      "runtime_version": "0.4.0-preview.13",
+      "runtime_version": "0.4.0-preview.14",
       "runtime10_parent_sha256": "ac99073e28eb5478fd36f391f19bb9dfd910d1db3c2af9f4d5d2a20b798062ec",
       "adaptation": "App-owned note-presence summary plus pure saved-draft local checks inside the held session; fresh online entry, post-lock and final disclosure checks remain; no cache or mutation behavior change",
       "runtime13_parent_sha256": "26345d9c01981a53d04cb154eb50458fafbadace3a00bfe82fad4f1b15d49a65",
-      "runtime13_adaptation": "Within the same held session, non-form remote-image native custody reads and preferences read/list use pure local checks; IMAP image native checks and fresh online entry/post-lock/provider/DNS/redirect/disclosure plus final custody-generation fences remain. No approval cache, provider concurrency or mutation change."
+      "runtime13_adaptation": "Within the same held session, non-form remote-image native custody reads and preferences read/list use pure local checks; IMAP image native checks and fresh online entry/post-lock/provider/DNS/redirect/disclosure plus final custody-generation fences remain. No approval cache, provider concurrency or mutation change.",
+      "runtime14_parent_sha256": "1dcf989be87641ee2d2bece461413ec4038ea2f942b5282d224daf54138bc2bc",
+      "runtime14_adaptation": "Read-only OAuth requests snapshot the exact session row and revalidate before provider dispatch, locked mailbox commits and disclosure. MIME work stays outside the session lock; fresh authority/custody and metadata fences remain. Adds redacted stage timing only."
     },
     {
       "target": "mailbox-store.mjs",
@@ -718,10 +734,44 @@
     {
       "target": "runtime-channel-renewal.mjs",
       "mode": "independent_adapter",
-      "runtime_version": "0.4.0-preview.13",
+      "runtime_version": "0.4.0-preview.14",
       "runtime12_parent_sha256": "7c1fefec4eee5d6511fe099d9f983d1e7d63d9fac717dfb89dd6bcb2d6e6bb17",
       "reason": "Classify only the actual public SDK observer status0 APP_RESOURCE_SYNC_TIMEOUT as retryable transport under the existing bounded same-session/same-deadline renewal loop; definitive denials, malformed replies, expiry, provider/start/result methods and immutable channel files remain closed.",
-      "sha256": "6f01ece7b075bd6aa88a7f2aea85cee1d9bd93458ea10c79b8c0fffa9ea5ddb1"
+      "sha256": "5b1024206e36c6d171cf2fa83c63ff7dc652dc0a988324f8b332c7ea68296bb2",
+      "runtime14_parent_sha256": "6f01ece7b075bd6aa88a7f2aea85cee1d9bd93458ea10c79b8c0fffa9ea5ddb1",
+      "runtime14_adaptation": "Bounded transient recovery suspends claims until an exact valid Host ACK; known expiry, definitive denial and shutdown remain terminal. Startup reconciliation is bounded and never replays provider/start/result effects."
+    },
+    {
+      "target": "imap-server.mjs",
+      "mode": "independent_adapter",
+      "runtime_version": "0.4.0-preview.14",
+      "reason": "Preserve shutdown ordering and clear retained data-only source snapshots before store close.",
+      "sha256": "668fd580d40efab3c4b8d8fa9b80fead4415bd18154fcf19621c7fe2df67538a",
+      "runtime14_adaptation": "Preserve shutdown ordering and clear retained data-only source snapshots before store close."
+    },
+    {
+      "target": "foreground-diagnostics.mjs",
+      "mode": "independent_adapter",
+      "runtime_version": "0.4.0-preview.14",
+      "reason": "Closed redacted per-request foreground timing phases and allowlisted errors; no content, provider URLs, credential bytes or arbitrary exception text.",
+      "sha256": "9f84ed95440be97d77d6369671433ee0b7547700858c5a42d861de4f39b785c4",
+      "runtime14_adaptation": "Closed redacted per-request foreground timing phases and allowlisted errors; no content, provider URLs, credential bytes or arbitrary exception text."
+    },
+    {
+      "target": "read-session-snapshot.mjs",
+      "mode": "independent_adapter",
+      "runtime_version": "0.4.0-preview.14",
+      "reason": "Per-operation exact full-row/revision read snapshots with short currentness locks and original locked commit ordering; not an authority cache or cross-request helper.",
+      "sha256": "4d4ec3a6c33a2e99f01112c5767f592ad9aeaaaea1d0585941435be55f2a8a88",
+      "runtime14_adaptation": "Per-operation exact full-row/revision read snapshots with short currentness locks and original locked commit ordering; not an authority cache or cross-request helper."
+    },
+    {
+      "target": "source-snapshot-cache.mjs",
+      "mode": "independent_adapter",
+      "runtime_version": "0.4.0-preview.14",
+      "reason": "Data-only cache bounded to8 entries/32MiB/five-minute fixed age by default, with isolated copies, per-consumer authority/existence validation, cancellation fences and zeroing on eviction/close.",
+      "sha256": "4e0885474ea108dd44d95a75b0297bbeb38c6e4311234562885cac337be22da8",
+      "runtime14_adaptation": "Data-only cache bounded to8 entries/32MiB/five-minute fixed age by default, with isolated copies, per-consumer authority/existence validation, cancellation fences and zeroing on eviction/close."
     }
   ],
   "parent_provenance_sha256": "f963f3af24c7e9bf345dd9121eee2cad6f29707afb7966213f4fda3f33bfdb62"

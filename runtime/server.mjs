@@ -84,7 +84,7 @@ export async function startRuntime(config, options = {}) {
     const stopped=new AbortController();
     const worker=(runner,waitMs,maxWaitMs=waitMs)=>runPollingWorker(runner,{signal:stopped.signal,waitMs,maxWaitMs});
     const workers=[...channel_renewals.filter(({kind})=>kind==='observation'?options.start_observation_workers!==false:options.start_send_workers!==false).map(({renewal})=>renewal.run(stopped.signal)),...(mirror_coordinator&&options.start_mirror_worker!==false?[worker(mirror_coordinator,5000)]:[]),...(local_job_runner&&options.start_local_job_worker!==false?[worker(local_job_runner,5000)]:[]),...(options.start_send_workers===false?[]:send_runners.map(runner=>worker(runner,500,5000))),...(options.start_observation_workers===false||!observation_runners.length?[]:[worker(createResourceObservationPoller(observation_runners),5000)])];
-    return {server, store, data_runtime,integration_tool_runtime, mirror_coordinator,send_runners, observation_runners, local_job_runtime,local_job_runner, async close() {stopped.abort();for(const {renewal}of channel_renewals)renewal.close();await Promise.all(workers);await new Promise(done => server.close(done)); await store.close(); encryption_key.fill(0); }};
+    return {server, store, data_runtime,integration_tool_runtime, mirror_coordinator,send_runners, observation_runners, local_job_runtime,local_job_runner, async close() {stopped.abort();for(const {renewal}of channel_renewals)renewal.close();await Promise.all(workers);await new Promise(done => server.close(done)); data_runtime?.close?.();await store.close(); encryption_key.fill(0); }};
   } catch (error) { await store.close(); encryption_key.fill(0); throw error; }
 }
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

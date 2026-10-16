@@ -79,14 +79,15 @@ test('invalid metadata and missing client renew deny opt-in',()=>{
  assert.throws(()=>createRuntimeChannelRenewal({channel:f.channel,runtime_client:{claim(){}},now:()=>0}));
 });
 
-test('stale initial expiry reconciles once against a still-current Host session; expired or uncertain Host remains dormant',async()=>{
+test('stale initial expiry reconciles only exact current Host authority; uncertain startup stays claim-blocked until its budget expires',async()=>{
  for(const mode of ['host_current','host_expired','unknown','ceiling_expired']){
   let calls=0,claims=0;
   const channel={channel_url:'https://fixture.invalid',credential:{session_id:'same',session_token:'unchanged'},registration:{},technical_renewal:{expires_at:iso(900000),renewable_until:iso(3600000)}};
   const client={claim:async()=>{claims++;return null;},renew:async(body)=>{calls++;assert.equal(body.expected_expires_at,iso(900000));if(mode==='host_expired')throw Object.assign(new Error('expired'),{status:403});if(mode==='unknown')throw new TypeError('fetch failed');return {session_id:'same',expires_at:iso(3600000),renewable_until:iso(3600000)};}};
-  const life=createRuntimeChannelRenewal({channel,runtime_client:client,now:()=>mode==='ceiling_expired'?3600001:960000});
+  let clock=mode==='ceiling_expired'?3600001:960000;
+  const life=createRuntimeChannelRenewal({channel,runtime_client:client,now:()=>clock,wait:async ms=>{clock+=ms;}});
   assert.equal(await life.client.claim(),null);assert.equal(claims,0);
-  await life.run(signal());assert.equal(calls,mode==='ceiling_expired'?0:1);
+  await life.run(signal());assert.equal(calls===0,mode==='ceiling_expired');if(mode==='host_expired')assert.equal(calls,1);if(mode==='unknown')assert.ok(calls>3);
   await life.client.claim();assert.equal(claims,mode==='host_current'?1:0);
   assert.equal(channel.credential.session_token,'unchanged');
  }
@@ -112,8 +113,24 @@ test('transport retries are bounded for SDK timeout exhaustion, but denial malfo
  for(const error of [timeout,new ResourceSyncClientError(403,'APP_RESOURCE_SYNC_DENIED'),new ResourceSyncClientError(200,'APP_RESOURCE_SYNC_INVALID_RESPONSE'),new ResourceSyncClientError(0,'APP_RESOURCE_SYNC_ABORTED'),new ResourceSyncClientError(0,'UNRECOGNIZED')]){
   const f=fixture({renew:async()=>{throw error;}});f.setNow(820000);
   assert.equal(await f.lifecycle.renew(signal()),false);assert.equal(f.renewals,error===timeout?3:1);
-  assert.equal(await f.lifecycle.renew(signal()),false);assert.equal(await f.lifecycle.client.claim(),null);
+  assert.equal(await f.lifecycle.renew(signal()),false);assert.equal(f.renewals,error===timeout?6:1);assert.equal(await f.lifecycle.client.claim(),null);
  }
  let expired;expired=fixture({renew:async()=>{expired.setNow(900001);throw timeout;}});expired.setNow(820000);
  assert.equal(await expired.lifecycle.renew(signal()),false);assert.equal(expired.renewals,1);assert.equal(await expired.lifecycle.client.claim(),null);
+});
+
+test('renewal diagnostics are bounded and never disclose credentials arbitrary errors or reply contents',async()=>{
+ const events=[],secret='private-token-and-body-never-log',at=n=>iso(1000000+n),session_id='752d6bb3-a77d-4c34-93fa-ae62b398bc2e';
+ const channel={channel_url:'https://fixture.invalid',credential:{session_id,session_token:secret},registration:{},technical_renewal:{expires_at:at(900000),renewable_until:at(3600000)}};
+ const life=createRuntimeChannelRenewal({channel,runtime_client:{claim:async()=>null,renew:async()=>{throw Object.assign(new Error(secret),{code:secret,status:503,body:secret});}},now:()=>1820000,wait:async()=>{},onDiagnostic:event=>events.push(event)});
+ assert.equal(await life.renew(signal()),false);
+ assert.deepEqual(events.map(e=>[e.phase,e.reason]),[['renew','started'],['retry','http_unavailable'],['renew','started'],['retry','http_unavailable'],['renew','started'],['unavailable','http_unavailable']]);
+ assert.equal(JSON.stringify(events).includes(secret),false);
+ for(const event of events){assert.deepEqual(Object.keys(event).sort(),['event','phase','reason','attempt','session_id','remaining_ms'].sort());assert.equal(event.session_id,session_id);assert.ok(event.attempt>=1&&event.attempt<=3);assert.ok(event.remaining_ms>=0&&event.remaining_ms<=900000);}
+});
+
+test('throwing diagnostic callbacks cannot change renewal authorization or unchanged channel bytes',async()=>{
+ const f=fixture(),before=JSON.stringify(f.channel);
+ const life=createRuntimeChannelRenewal({channel:f.channel,runtime_client:f.client,now:()=>820000,wait:async()=>{},onDiagnostic:()=>{throw Error('sink unavailable');}});
+ assert.equal(await life.renew(signal()),true);assert.equal(JSON.stringify(f.channel),before);life.close();assert.equal(await life.client.claim(),null);
 });
