@@ -22,7 +22,7 @@ The App-only follow-up allows blank recipient fields during draft authoring. It 
 
 ## Current reviewed source candidate
 
-App `1.9.0-preview.9` uses sealed Kit37 SHA256 `9cc83a3ea8d1ac5593b23fddaf34c74a842840bb70d1c09acdc59d800197a024`; Runtime `0.4.0-preview.11` retains sealed Kit35 SHA256 `82c2d5bff2776e423b58647fad0f4a6a6430535f4e60c8146fed737d83f33ad5`. Require generic Host schema120 and the current integration-menu contract. Exact-message Send and optional-note retention remain unchanged. The historical results above are not relabelled as current acceptance. Local reader follow-up checks and current packed-package checks must be paired with exact-head CI, source availability and installed browser/provider evidence. See [limitations](limitations.md).
+App `1.9.0-preview.9` uses sealed Kit37 SHA256 `f4268e5c7d1cd0d880f25286ee5809f4e7c455a616cd9ec3a5d642c982d4711e`; Runtime `0.4.0-preview.11` retains sealed Kit35 SHA256 `82c2d5bff2776e423b58647fad0f4a6a6430535f4e60c8146fed737d83f33ad5`. Require generic Host schema120 and the current integration-menu contract. Exact-message Send and optional-note retention remain unchanged. The historical results above are not relabelled as current acceptance. Local reader follow-up checks and current packed-package checks must be paired with exact-head CI, source availability and installed browser/provider evidence. See [limitations](limitations.md).
 
 ### Reader follow-up checks
 

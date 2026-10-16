@@ -11,7 +11,7 @@ Schema 117 historically rejected `record_stores[].supplemental_effects` with `AP
 | Historical matched Host source | `25492e34489c0b61144d1ff0e70cbf480a70e27c` | [Complete source offer](https://demo.deft.ing/downloads/deft-host-25492e34-source-offer.html), including retained overlays |
 | Current Host review | [Deft PR357](https://github.com/Maneek21/Deft/pull/357) | Require final exact-head required checks, build/source offer and installed proof |
 | Current Email source | [Email PR1](https://github.com/Maneek21/deft-email/pull/1), preview.9 / Runtime preview.11 | Build and installed receipts must identify their exact source |
-| Current App Kit | `0.1.0-alpha.37` | SHA256 `9cc83a3ea8d1ac5593b23fddaf34c74a842840bb70d1c09acdc59d800197a024`; sealed bytes |
+| Current App Kit | `0.1.0-alpha.37` | SHA256 `f4268e5c7d1cd0d880f25286ee5809f4e7c455a616cd9ec3a5d642c982d4711e`; sealed bytes |
 | Current Runtime Kit | `0.1.0-alpha.35` | SHA256 `82c2d5bff2776e423b58647fad0f4a6a6430535f4e60c8146fed737d83f33ad5`; unchanged sealed bytes |
 | Historical Kit34 | `0.1.0-alpha.34` | SHA256 `d5b0c498025684e4eae9fafe950846794b39874fac1f3277914e7e3c61bd93ef`; historical sealed bytes unchanged |
 | Historical Kit33 | `0.1.0-alpha.33` | SHA256 `c022a3e215766d9730367002f210013ec14b46e01ee6fdf71ed25ca754cb9037`; historical sealed bytes unchanged |
