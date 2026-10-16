@@ -21,6 +21,6 @@ test('actual public data contract reuses form custody for refresh/search/EML/fil
  const cid=presentation.presentation.images.find(row=>row.kind==='cid'),image=await run('resource_read_image',{...ref,image_ref:cid.image_ref,external_images:'blocked'});assert.deepEqual(Buffer.from(image.bytes),dataFixtureMessage().png);
  const empty={mode:'compose',to:'recipient@example.test',cc:'',bcc:'',subject:'UNSENT IMAP fixture',body:'x'.repeat(200000),body_html:'<p>'+'x'.repeat(200000)+'</p>',reply_record_id:'',attachments:[]},draftID=randomUUID(),created=await run('record_create',{store_key:'drafts',record_id:draftID,value:empty});assert.equal(created.record.value.body.length,200000);const saved=await run('record_save',{store_key:'drafts',record_id:draftID,expected_revision:created.record.revision,expected_content_digest:created.record.content_digest,value:{...empty,subject:'UNSENT saved'}});assert.equal(saved.record.revision,2);
  const foreign=request('record_read',{store_key:'drafts',record_id:draftID});foreign.connection.account_ref=randomUUID();const before=calls;await assert.rejects(runtime.request(foreign),{code:'EMAIL_IMAP_ACCESS_DENIED'});assert.equal(calls,before);
- allowed=false;await assert.rejects(run('resource_read_source',ref));assert.equal(calls,before);
+ allowed=false;await assert.rejects(run('resource_read_image',{...ref,image_ref:cid.image_ref,external_images:'blocked'}));await assert.rejects(run('resource_read_source',ref));assert.equal(calls,before);
  }finally{await f.close();}
 });

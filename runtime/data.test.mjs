@@ -88,13 +88,16 @@ test('actual HTTP full rich draft and exact25MiB binary frame preserve budgets a
 });
 
 test('actual data final-disclosure revocation clears binary image after one scoped MIME fetch',async t=>{
- const message=dataFixtureMessage('fixture@example.test');let rawCalls=0,imageBytes,checks=0,denyAt=Infinity;
+ const message=dataFixtureMessage('fixture@example.test');let rawCalls=0,imageBytes,checks=0,denyAt=Infinity,denyDns=false,dnsRevoked=false,advanceFinal=false,imageRequests=0;
  const provider=async(url,options)=>{const parsed=new URL(url);if(parsed.pathname.endsWith('/messages'))return Response.json({messages:[{id:message.metadata.id}]});if(parsed.pathname.endsWith('/messages/'+message.metadata.id)){if(parsed.searchParams.get('format')==='raw'){rawCalls++;return Response.json({id:message.metadata.id,threadId:message.metadata.threadId,raw:message.mime.toString('base64url')});}return Response.json(message.metadata);}return providerFixture(url,options);};
- const f=await fixture(t,provider,{onAuthority:async input=>{if(input.operation==='resource_read_image'&&++checks===denyAt)throw Error('synthetic final disclosure revoked');},imageDependencies:{async lookup(){return [{address:'8.8.8.8',family:4}];},async request(){imageBytes=Buffer.from(message.png);return {bytes:imageBytes,media_type:'image/png'};}}});
+ const f=await fixture(t,provider,{onAuthority:async input=>{if(input.operation==='resource_read_image'){checks++;if(checks===denyAt||dnsRevoked)throw Error('synthetic final disclosure revoked');if(advanceFinal&&checks===14)await f.runtime.custody.withAccount(f.binding,async tx=>{const row=tx.read();await tx.write({health:row.health,secret:row.secret,advance_setup:true});});}},imageDependencies:{async lookup(){if(denyDns)dnsRevoked=true;return [{address:'8.8.8.8',family:4}];},async request(){imageRequests++;imageBytes=Buffer.from(message.png);return {bytes:imageBytes,media_type:'image/png'};}}});
  const list=await f.run(f.request('resource_list',{store_key:'drafts',resource_key:'inbox',cursor:null,limit:25,query:'in:inbox'})),record=list.items[0],source={store_key:'drafts',resource_key:'inbox',record_id:record.record_id,content_digest:record.content_digest};
  const view=await f.run(f.request('resource_read_presentation',source)),image=view.presentation.images.find(value=>value.kind==='remote');assert.ok(image);
- const input={...source,image_ref:image.image_ref,external_images:'allowed'};checks=0;const before=rawCalls,result=await f.run(f.request('resource_read_image',input));assert.equal(rawCalls,before+1);assert.deepEqual(Buffer.from(result.bytes),message.png);denyAt=checks;result.bytes.fill(0);checks=0;
+ const input={...source,image_ref:image.image_ref,external_images:'allowed'};checks=0;const before=rawCalls,result=await f.run(f.request('resource_read_image',input));assert.equal(rawCalls,before+1);assert.deepEqual(Buffer.from(result.bytes),message.png);assert.equal(checks,14,'only explicit image network boundaries and outer fences authorize online');denyAt=checks;result.bytes.fill(0);checks=0;
  const currentRaw=rawCalls;await assert.rejects(f.run(f.request('resource_read_image',input)));assert.equal(rawCalls,currentRaw+1);assert.equal(checks,denyAt);assert.ok(imageBytes.every(value=>value===0));
+ const dispatched=rawCalls;checks=0;denyAt=3;await assert.rejects(f.run(f.request('resource_read_image',input)));assert.equal(rawCalls,dispatched,'fresh pre-provider denial must prevent MIME HTTP dispatch');
+ denyAt=Infinity;checks=0;denyDns=true;const imagesBefore=imageRequests;await assert.rejects(f.run(f.request('resource_read_image',input)));assert.equal(imageRequests,imagesBefore,'revocation during DNS must prevent image HTTP dispatch');
+ denyDns=false;dnsRevoked=false;checks=0;advanceFinal=true;await assert.rejects(f.run(f.request('resource_read_image',input)),{code:'EMAIL_DATA_CONNECTION_DENIED'});assert.ok(imageBytes.every(value=>value===0),'custody generation change at final disclosure must clear image bytes');
 });
 
 test('cache-only data reads retain current custody health checks without provider IO',async t=>{
@@ -154,4 +157,23 @@ test('inflight data authority actual cold ten-message query shares concurrent au
  const f=await fixture(t,provider,{onAuthority:async()=>{callbacks++;await new Promise(done=>setTimeout(done,20));}});
  const input={store_key:'drafts',resource_key:'inbox',cursor:null,limit:10,query:'in:inbox'};const result=await f.run(f.request('resource_list',input));assert.equal(result.items.length,10);assert.equal(providers,11);assert.equal(callbacks,8);
  callbacks=0;providers=0;const revoked=await fixture(t,provider,{onAuthority:async()=>{callbacks++;await new Promise(done=>setTimeout(done,20));if(callbacks===8)throw Error('revoked before final disclosure');}});await assert.rejects(revoked.run(revoked.request('resource_list',input)));assert.equal(providers,11);assert.equal(callbacks,8);
+});
+
+test('local settings reads retain fresh entry lock and disclosure fences',async t=>{
+ let calls=0,denyFinal=false;const f=await fixture(t,providerFixture,{persistent:true,onAuthority:async()=>{calls++;if(denyFinal&&calls===3)throw Object.assign(Error('revoked before disclosure'),{code:'EMAIL_DATA_AUTHORITY_DENIED'});}}),id=randomUUID();
+ const created=await f.run(f.request('record_create',{store_key:'preferences',record_id:id,value:{external_images:'ask'}}));
+ for(const [operation,input] of [['record_list',{store_key:'preferences',cursor:null,limit:1}],['record_read',{store_key:'preferences',record_id:id}]]){
+  calls=0;const before=f.calls,result=await f.run(f.request(operation,input));assert.equal(result.outcome,'completed');assert.equal(calls,3);assert.equal(f.calls,before);
+  calls=0;denyFinal=true;await assert.rejects(f.run(f.request(operation,input)),{code:'EMAIL_DATA_AUTHORITY_DENIED'});assert.equal(calls,3);denyFinal=false;
+ }
+ assert.equal(created.record.value.external_images,'ask');
+});
+
+test('local preferences disclosure still rejects custody change and abort',async t=>{
+ for(const mode of ['generation','health','abort']){
+  let calls=0,armed=false,f;const controller=new AbortController();
+  f=await fixture(t,providerFixture,{onAuthority:async()=>{calls++;if(armed&&calls===3){if(mode==='abort')controller.abort();else await f.runtime.custody.withAccount(f.binding,async tx=>{const row=tx.read();await tx.write({health:mode==='health'?'reauth_required':row.health,secret:row.secret,advance_setup:mode==='generation'});});}}});
+  await f.run(f.request('record_create',{store_key:'preferences',record_id:randomUUID(),value:{external_images:'ask'}}));
+  calls=0;armed=true;const before=f.calls;await assert.rejects(f.run(f.request('record_list',{store_key:'preferences',cursor:null,limit:1}),controller.signal));assert.equal(calls,3);assert.equal(f.calls,before);
+ }
 });
