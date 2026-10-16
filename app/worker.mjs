@@ -16,18 +16,33 @@ self.onmessage=event=>{
  let importedRows=[],importedCursor=null,importedChoice=null,importedAccount=null;
  let ruleRows=[],ruleOrder=null,ruleChoice=null,ruleEditor=null,rulePreview=[],ruleChecked=new Map(),rulePending=null,ruleAccount=null;
  let accountTargets=[],accountChoice=null,selectedAccountTarget=null,accountPages=new Map();
- let searchHelpOpen=false,keyboardEnabled=true,providerHelpOpen=false,readerToolsOpen=false;
+ let searchHelpOpen=false,keyboardEnabled=true,providerHelpOpen=false;
  let items=[],cursor=null,selected=null,mode='reader',folder='inbox',query='',busy=false,status='',draft=null,draftRows=[],generation=0;
  let pane='list',searchOpen=false,observed=null,complete=false,pendingCreate=null,appliedQuery='',conversation=null,draftCursor=null,historyRows=[],historyOpen=false,minimizedDraft=null;
  let preference=null,initialDraftId=null,sendNotice='',inspectionRun=null;let settingStore='templates',settingRows=[],settingCursor=null,setting=null,pendingSetting=null,settingIdentities=[];
  let originalRule=null,originalOrganize=null,undoSources=[],pendingOrganizeBatch=null,batchUndo=[];
  let folderRows=[],folderCursor=null,folderChoice=null,folderPurpose=null,folderName='',folderPreferences=[],folderPreferencePending=null,folderFavoritesOnly=false,folderAccountTarget=null;
- let selectionMode=false,checked=new Map(),organizeOpen=false,actionPending=false,pendingActionRun=null,pendingLabel='';
+ let selectionMode=false,checked=new Map(),actionPending=false,pendingActionRun=null,pendingLabel='';
  const organizeOperations=Object.freeze({archive:'Archive',trash:'Move to Trash',mark_read:'Mark read',mark_unread:'Mark unread',star:'Star',unstar:'Unstar',spam:'Mark as spam',not_spam:'Not spam',restore:'Restore',move:'Move to folder',labels:'Change labels'});
  const excerpt=(value,max)=>{const text=String(value??''),encoder=new TextEncoder();if(encoder.encode(text).length<=max)return text;let result='',bytes=0;for(const char of text){const size=encoder.encode(char).length;if(bytes+size>max-3)break;result+=char;bytes+=size;}return result+'…';};
  const text=(id,value,tone='default',maxBytes=2048)=>({kind:'text',id,text:excerpt(value,maxBytes),tone});
  const button=(id,label,variant='ghost',extra={})=>({kind:'button',id,label:excerpt(label,128),variant,...extra,...(extra.description===undefined?{}:{description:excerpt(extra.description,96)}),...(extra.eyebrow===undefined?{}:{eyebrow:excerpt(extra.eyebrow,80)}),...(extra.meta===undefined?{}:{meta:excerpt(extra.meta,32)})});
  const stack=(id,children,extra={})=>({kind:'stack',id,children,...extra});
+ const menu=(id,label,items,extra={})=>({kind:'menu',id,label,items,...extra});
+ const actionIcon={archive:'archive',trash:'trash',mark_read:'read',mark_unread:'unread',star:'star',unstar:'star',move:'folder',labels:'label'};
+ const organizeChoices=rows=>{
+  const provider=emailRowsProvider(rows),known=field=>rows.length>0&&rows.every(row=>typeof row.data?.[field]==='boolean'),all=(field,value)=>rows.every(row=>row.data?.[field]===value),scoped=!appliedQuery.trim();
+  return Object.entries(organizeOperations).filter(([operation])=>{
+   if(!(provider==='gmail'||provider==='microsoft'&&operation!=='labels'||provider==='imap_smtp'&&['archive','trash','mark_read','mark_unread','star','unstar'].includes(operation)))return false;
+   if(operation==='restore')return scoped&&folder==='trash';
+   if(operation==='not_spam')return scoped&&folder==='spam';
+   if(operation==='trash'&&scoped&&folder==='trash'||operation==='spam'&&scoped&&folder==='spam')return false;
+   if(operation==='archive'&&known('in_archive')&&known('in_inbox')&&all('in_archive',true)&&all('in_inbox',false))return false;
+   if(operation==='mark_read'&&known('seen')&&all('seen',true)||operation==='mark_unread'&&known('seen')&&all('seen',false))return false;
+   if(operation==='star'&&known('flagged')&&all('flagged',true)||operation==='unstar'&&known('flagged')&&all('flagged',false))return false;
+   return true;
+  }).map(([key,label])=>({id:'organize_'+key,label:rows.length>1&&['mark_read','mark_unread'].includes(key)?(key==='mark_read'?'Mark selected read':'Mark selected unread'):label,...(actionIcon[key]?{icon:actionIcon[key]}:{}),...(key==='trash'?{danger:true}:{}),disabled:busy||actionPending||!emailOrganizeAvailable(rows)}));
+ };
  const rowGroups=(id,children)=>children.length<=50?children:Array.from({length:Math.ceil(children.length/50)},(_,index)=>stack(`${id}_${index}`,children.slice(index*50,index*50+50),{layout:'list'}));
  const scalar=(item,key)=>typeof item?.data?.[key]==='string'?item.data[key]:'';
  const shortDate=value=>{const date=new Date(value),today=new Date();if(!value||!Number.isFinite(date.getTime()))return '';const sameDay=date.getFullYear()===today.getFullYear()&&date.getMonth()===today.getMonth()&&date.getDate()===today.getDate();return new Intl.DateTimeFormat('en',{...(sameDay?{hour:'numeric',minute:'2-digit'}:{month:'short',day:'numeric',...(date.getFullYear()!==today.getFullYear()?{year:'numeric'}:{})})}).format(date);};
@@ -89,12 +104,15 @@ self.onmessage=event=>{
    ...(historyRows.length?[button('toggle_history',`Submitted messages (${historyRows.length})`,'ghost',{selected:historyOpen}),...(historyOpen?rowGroups('history_rows',historyRows.map(row=>button(rowId('history',row),row.summary?.subject||'Submitted message','list',{description:'Read only · '+(row.summary?.send_state==='accepted'?'Provider accepted':'Check delivery status'),meta:shortDate(row.updated_at),disabled:busy}))):[])]:[]),
   ],{layout:'list',surface:'document'});}
   else{
-   const documentNode=selected?emailRecordDocument(selected):null;if(documentNode&&!readerToolsOpen){documentNode.printable=false;delete documentNode.print_control_id;}
-   const list=stack('message_list',[stack('mailbox_header',[text('folder_title',appliedQuery?'Search results':folders[folder].label,'heading'),stack('mailbox_header_actions',[toolbar.children[2],toolbar.children[1],button('toggle_selection',selectionMode?'Exit selection':'Select messages','ghost',{icon:'select',selected:selectionMode,disabled:busy}),toolbar.children[0]],{layout:'horizontal'})],{layout:'toolbar'}),...(search?[search,...(searchHelpOpen?[text('search_syntax',emailSearchHelp,'caption'),text('keyboard_help','Keyboard: C compose, / search, J/K move between messages, Enter open, R reply. Shortcuts pause while typing or using dialogs.','caption')]:[])]:[]),
-    ...(selectionMode?[stack('selection_toolbar',[text('selection_count',`${checked.size} selected`,'caption'),button('select_loaded','Select loaded (up to 100)','ghost',{disabled:busy||!items.length}),button('clear_selection','Clear','ghost',{disabled:busy||!checked.size}),button('selection_actions','Actions','ghost',{icon:'more',selected:organizeOpen,disabled:busy||!checked.size||actionPending||!emailOrganizeAvailable(items.filter(item=>checked.get(item.record_id)===item.content_digest))})],{layout:'toolbar'}),...(items.length>25?[text('selection_limit','Choose up to 100 loaded messages. One review runs exact groups of up to 25 in order.','caption')]:[])]:[]),
-    ...((undoSources.length||batchUndo.length)?[button('undo_mailbox_action','Undo last completed change','ghost',{disabled:busy||actionPending})]:[]),
+   const documentNode=selected?emailRecordDocument(selected):null;
+   const selectedRows=items.filter(item=>checked.get(item.record_id)===item.content_digest),bulkChoices=organizeChoices(selectedRows);
+   const readerChoices=selected&&!selectionMode?organizeChoices([selected]):[],readerRead=selected&&typeof selected.data?.seen==='boolean'?readerChoices.find(item=>item.id===(selected.data.seen?'organize_mark_unread':'organize_mark_read')):null;
+   const primaryReader=readerChoices.filter(item=>item.id==='organize_archive'||item===readerRead),moreReader=readerChoices.filter(item=>!primaryReader.includes(item));
+   const primaryBulk=bulkChoices.filter(item=>['organize_archive','organize_trash'].includes(item.id)),moreBulk=bulkChoices.filter(item=>!primaryBulk.includes(item));
+   const mailboxHeader=selectionMode?stack('mailbox_header',[stack('selection_summary',[menu('selection_menu','Selection',[{id:'select_loaded',label:'Select loaded messages (up to 100)',disabled:busy||!items.length},{id:'clear_selection',label:'Clear selection',disabled:busy||!checked.size}],{icon:items.length&&checked.size===items.length?'check':'select',disabled:busy}),text('selection_count',`${checked.size} selected`,'caption')],{layout:'horizontal'}),stack('selection_actions',[...primaryBulk.map(({danger,...item})=>button(item.id,item.label,'ghost',item)),...(moreBulk.length?[menu('bulk_more','More actions',moreBulk,{icon:'more',disabled:busy||actionPending||!checked.size})]:[]),button('toggle_selection','Exit selection','ghost',{icon:'close',disabled:busy})],{layout:'horizontal'})],{layout:'toolbar'}):stack('mailbox_header',[text('folder_title',appliedQuery?'Search results':folders[folder].label,'heading'),stack('mailbox_header_actions',[toolbar.children[2],toolbar.children[1],button('toggle_selection','Select messages','ghost',{icon:'select',disabled:busy}),toolbar.children[0]],{layout:'horizontal'})],{layout:'toolbar'});
+   const list=stack('message_list',[mailboxHeader,...(search?[search,...(searchHelpOpen?[text('search_syntax',emailSearchHelp,'caption'),text('keyboard_help','Keyboard: C compose, / search, J/K move between messages, Enter open, R reply. Shortcuts pause while typing or using dialogs.','caption')]:[])]:[]),
+     ...((undoSources.length||batchUndo.length)?[button('undo_mailbox_action','Undo last completed change','ghost',{disabled:busy||actionPending})]:[]),
     ...((pendingActionRun||pendingOrganizeBatch)?[button('check_mailbox_action','Check action status','ghost',{disabled:busy})]:[]),
-    ...(organizeOpen&&selectionMode?[stack('organize_menu',Object.entries(organizeOperations).filter(([operation])=>{const provider=emailRowsProvider(selectionMode?items.filter(item=>checked.get(item.record_id)===item.content_digest):selected?[selected]:[]);return provider==='gmail'||provider==='microsoft'&&operation!=='labels'||provider==='imap_smtp'&&['archive','trash','mark_read','mark_unread','star','unstar'].includes(operation);}).map(([key,title])=>button('organize_'+key,title,'ghost',{disabled:busy||actionPending||!checked.size||!emailOrganizeAvailable(items.filter(item=>checked.get(item.record_id)===item.content_digest))})),{layout:'horizontal'})]:[]),
     ...rowGroups('mail_rows',items.map(item=>button(rowId('mail',item),label(item),'list',{selected:selectionMode?checked.has(item.record_id):selected?.record_id===item.record_id,
      ...(selectionMode?{icon:checked.has(item.record_id)?'check':'select'}:{}),eyebrow:scalar(item,'sender')||scalar(item,'from'),description:[accountChoice==='all'&&accountTargets.length>1?item.account_label:'',scalar(item,'preview')||scalar(item,'snippet')].filter(Boolean).join(' · '),meta:shortDate(scalar(item,'date')),disabled:busy||selectionMode&&!checked.has(item.record_id)&&checked.size>=100}))),
     ...(!items.length?[text('mail_empty',busy?'Loading mail…':'No messages on this page.','muted')]:[]),
@@ -102,16 +120,9 @@ self.onmessage=event=>{
     ...(observed?[text('mail_freshness',`${complete?'Mailbox page complete':'More mail may be available'} · as of ${observed}`,'caption')]:[]),
    ],{layout:'list',surface:'sidebar',...(pane==='reader'?{mobile:'hidden'}:{})});
    const detail=selected?stack('reader_panel',[
-    stack('reader_heading',[stack('reader_back',[button('back','Back','ghost',{icon:'back'})],{layout:'horizontal',mobile:'only'}),text('mail_subject',label(selected),'heading',1024)],{layout:'toolbar'}),
-    stack('reader_metadata',[text('mail_sender',scalar(selected,'sender')||scalar(selected,'from'),'body',512),text('mail_date',[selected.account_label,shortDate(scalar(selected,'date'))].filter(Boolean).join(' · '),'caption')],{layout:'horizontal'}),
+    stack('reader_heading',[stack('reader_back',[button('back','Back','ghost',{icon:'back'})],{layout:'horizontal',mobile:'only'}),text('mail_subject',label(selected),'heading',1024),stack('reader_actions',[...primaryReader.map(({danger,...item})=>button(item.id,item.label,'ghost',item)),menu('reader_more','More message actions',[{id:'reply_all',label:'Reply all',icon:'reply',disabled:busy},{id:'forward',label:'Forward',disabled:busy},{id:'conversation',label:conversation?'Close conversation':'Conversation',disabled:busy},{id:'print_message',label:'Print',icon:'print',disabled:busy},...moreReader],{icon:'more',disabled:busy})],{layout:'horizontal'})],{layout:'toolbar'}),
+    stack('reader_metadata',[text('mail_sender',scalar(selected,'sender')||scalar(selected,'from'),'body',512),text('mail_date',[selected.account_label,shortDate(scalar(selected,'date'))].filter(Boolean).join(' · '),'caption'),button('reply','Reply','secondary',{icon:'reply',disabled:busy})],{layout:'horizontal'}),
     ...(emailProviderSupport(scalar(selected,'provider'))?.organize===false?[text('provider_operation_notice','Organize is unavailable for this account.','caption')]:[]),
-    stack('reader_actions',[button('reply','Reply','secondary',{icon:'reply',disabled:busy}),button('reader_actions_menu','More message actions','ghost',{icon:'more',selected:readerToolsOpen,disabled:busy})],{layout:'horizontal'}),
-    ...(readerToolsOpen?[stack('reader_tools',[
-     button('reply_all','Reply all','ghost',{disabled:busy}),button('forward','Forward','ghost',{disabled:busy}),
-     button('conversation','Conversation','ghost',{selected:!!conversation,disabled:busy}),button('print_message','Print','ghost'),
-     button('reader_organize','Organize','ghost',{selected:organizeOpen,disabled:busy||selectionMode||actionPending||!emailOrganizeAvailable([selected])}),
-    ],{layout:'horizontal'})]:[]),
-    ...(organizeOpen&&readerToolsOpen&&!selectionMode?[stack('organize_menu',Object.entries(organizeOperations).filter(([operation])=>{const provider=emailRowsProvider([selected]);return provider==='gmail'||provider==='microsoft'&&operation!=='labels'||provider==='imap_smtp'&&['archive','trash','mark_read','mark_unread','star','unstar'].includes(operation);}).map(([key,title])=>button('organize_'+key,title,'ghost',{disabled:busy||actionPending||!emailOrganizeAvailable([selected])})),{layout:'horizontal'})]:[]),
     ...(conversation?[stack('conversation_panel',[
      text('conversation_count',`${conversation.items.length} messages loaded`,'caption'),
      ...conversationPage().map(item=>button(rowId('conversation_mail',item),label(item),'list',{selected:selected.record_id===item.record_id,eyebrow:scalar(item,'sender'),meta:shortDate(scalar(item,'date')),disabled:busy})),
@@ -122,13 +133,13 @@ self.onmessage=event=>{
    ],{surface:'document',...(pane==='list'?{mobile:'hidden'}:{})}):stack('reader_panel',[text('reader_empty','Choose a message to read.','muted')],{surface:'document',mobile:'hidden'});
    content=stack('mail_workspace',[list,detail],{layout:'split'});
   }
-  const keyboard=keyboardEnabled&&mode==='reader'&&!busy&&!selectionMode&&!organizeOpen&&!actionPending?{schema_version:'deft.experience_keyboard.v1',bindings:[
+  const keyboard=keyboardEnabled&&mode==='reader'&&!busy&&!selectionMode&&!actionPending?{schema_version:'deft.experience_keyboard.v1',bindings:[
    {key:'c',target_id:'compose',behavior:'activate',focus_after:'draft_form'},
    searchOpen?{key:'/',target_id:'query',behavior:'focus'}:{key:'/',target_id:'toggle_search',behavior:'activate',focus_after:'query'},
    ...(selected?[{key:'r',target_id:'reply',behavior:'activate',focus_after:'draft_form'}]:[])],
    ...(items.length?{navigation:{previous_key:'k',next_key:'j',list_id:'message_list'}}:{})}:undefined;
-  sdk.render({schema_version:'deft.experience_view.v2',capabilities:['record_form_seed.v1','repeated_fields.v1','record_mirror.v1','keyboard_controls.v1','local_job.v1','record_document.v1','record_document_policy.v1','record_form.v3','record_form.v2','record_initial_change.v1','record_change_parameters.v1','record_form_presentation.v1'],...(keyboard?{keyboard}:{}),
-   root:stack('email_root',[...(mode==='reader'?[stack('account_catalog',[button('account_all','All accounts','ghost',{selected:accountChoice==='all',disabled:busy||!canChangeAccount()}),...accountTargets.map((target,index)=>button('account_pick_'+index,target.label,'ghost',{selected:accountChoice===target.key,disabled:busy||!canChangeAccount()}))],{layout:'horizontal'}),...(composeAccountMismatch&&!minimizedDraft?[text('compose_account_notice',`Compose uses ${composeAccountLabel}. Switch it in Email settings → Accounts.`,'caption')]:[])]:[]),...(pendingLabel?[text('mail_progress',pendingLabel,'caption')]:[]),...(status?[text('status',status,'caption')]:[]),content,...(minimizedDraft?[{...emailRecordForm(minimizedDraft,{disabled:true}),presentation:'minimized'},stack('minimized_draft',[button('restore_draft','Resume saved draft','secondary',{description:minimizedDraft.summary?.subject||'Draft',disabled:busy||!canClose()}),button('dismiss_minimized','Keep in Drafts','ghost',{disabled:busy})],{layout:'toolbar'})]:[])],{layout:'workspace'}),navigation:navigation()});
+  sdk.render({schema_version:'deft.experience_view.v2',capabilities:['menu.v1','record_form_seed.v1','repeated_fields.v1','record_mirror.v1','keyboard_controls.v1','local_job.v1','record_document.v1','record_document_policy.v1','record_form.v3','record_form.v2','record_initial_change.v1','record_change_parameters.v1','record_form_presentation.v1'],...(keyboard?{keyboard}:{}),
+   root:stack('email_root',[...(mode==='reader'?[...(accountTargets.length>1?[stack('account_catalog',[button('account_all','All accounts','ghost',{selected:accountChoice==='all',disabled:busy||!canChangeAccount()}),...accountTargets.map((target,index)=>button('account_pick_'+index,target.label,'ghost',{selected:accountChoice===target.key,disabled:busy||!canChangeAccount()}))],{layout:'horizontal'})]:[]),...(composeAccountMismatch&&!minimizedDraft?[text('compose_account_notice',`Compose uses ${composeAccountLabel}. Switch it in Email settings → Accounts.`,'caption')]:[])]:[]),...(pendingLabel?[text('mail_progress',pendingLabel,'caption')]:[]),...(status?[text('status',status,'caption')]:[]),content,...(minimizedDraft?[{...emailRecordForm(minimizedDraft,{disabled:true}),presentation:'minimized'},stack('minimized_draft',[button('restore_draft','Resume saved draft','secondary',{description:minimizedDraft.summary?.subject||'Draft',disabled:busy||!canClose()}),button('dismiss_minimized','Keep in Drafts','ghost',{disabled:busy})],{layout:'toolbar'})]:[])],{layout:'workspace'}),navigation:navigation()});
  }
  async function mailbox({append=false,refresh=false,nextFolder=folder,nextQuery=appliedQuery,resetSelection=false}={}){
   const request=++generation;
@@ -154,7 +165,7 @@ self.onmessage=event=>{
   checked=new Map([...checked].filter(([id,digest])=>items.some(item=>item.record_id===id&&item.content_digest===digest)));
   cursor=result.next_cursor??null;observed=result.freshness?.observed_at??null;complete=result.freshness?.complete===true;
   folder=nextFolder;appliedQuery=nextQuery.trim();
-  if(resetSelection){selected=null;readerToolsOpen=false;pane='list';query=nextQuery;conversation=null;checked.clear();selectionMode=false;organizeOpen=false;}
+  if(resetSelection){selected=null;pane='list';query=nextQuery;conversation=null;checked.clear();selectionMode=false;}
   else if(selected){const fresh=items.find(item=>item.record_id===selected.record_id);selected=fresh??null;}
   conversation=null;mode='reader';draft=null;setting=null;settingIdentities=[];status=notices.join(' · ');
  }
@@ -222,7 +233,7 @@ self.onmessage=event=>{
   let result;
   try{result=await sdk.request('dialog','review_resource_action',{store_key:'drafts',resource_key:'inbox',action_key:'organize_messages',operation_key:operation,sources,...nominations});}
   catch{actionPending=true;status='The action could not be confirmed. Check Activity before trying again.';return;}
-  organizeOpen=false;mode='reader';folderPurpose=null;
+  mode='reader';folderPurpose=null;
   if(result?.cancelled===true)return;
   if(result?.run&&typeof result.run.id==='string'){
    undoSources=[];originalOrganize=operation!=='undo'&&['archive','trash','spam','not_spam','restore','move','labels','mark_read','mark_unread','star','unstar'].includes(operation)&&result.prepared_ref?{run_id:result.run.id,operation,sources,prepared_ref:result.prepared_ref}:null;
@@ -232,7 +243,7 @@ self.onmessage=event=>{
  }
  async function organizeBatch(children){
   let result;try{result=await sdk.request('dialog','review_resource_action_batch',{children});}catch{actionPending=true;status='The selected action outcome is not confirmed. Check Activity before another change.';return;}
-  organizeOpen=false;mode='reader';folderPurpose=null;if(result?.cancelled)return;
+  mode='reader';folderPurpose=null;if(result?.cancelled)return;
   if(result?.batch?.id&&Array.isArray(result.items)&&result.items.length===children.length&&Array.isArray(result.prepared_refs)&&result.prepared_refs.length===children.length){
    undoSources=[];batchUndo=[];originalOrganize=null;pendingOrganizeBatch={id:result.batch.id,items:result.items.map((item,ordinal)=>({run_id:item.run_id,operation:children[ordinal].operation_key,sources:children[ordinal].sources,prepared_ref:result.prepared_refs[ordinal]}))};actionPending=true;status='Selected action submitted in exact groups. Check original group status.';
   }else if(result?.unknown){actionPending=true;status='Selected action may have been submitted. Check Activity; no group will be resubmitted here.';}
@@ -280,8 +291,8 @@ self.onmessage=event=>{
    if(event.node_id==='draft_form'&&(draft||minimizedDraft)){try{if(draft)draft=emailRecordEvent(draft,event);else minimizedDraft=emailRecordEvent(minimizedDraft,event);render();}catch{status='Draft state could not be verified. Reopen the saved draft.';render();}}return;
   }
   if(event.kind!=='click'||busy)return;
+  if(actionPending&&event.node_id.startsWith('organize_'))return;
   if(folderPreferencePending&&(event.node_id==='folder_favorite'||event.node_id.startsWith('folder_color_'))){status='Preference outcome is unconfirmed. Check the saved preference before another edit.';render();return;}
-  if(actionPending&&(event.node_id.startsWith('organize_')||event.node_id==='selection_actions'||event.node_id==='reader_actions_menu'))return;
   if((mode==='compose'||mode==='setting')&&!canClose()){status='Save the draft or reopen its saved version before leaving.';render();return;}
   busy=true;pendingLabel=event.node_id==='refresh'?'Refreshing…':event.node_id==='search'?'Searching…':event.node_id==='compose'||event.node_id==='restore_draft'||/^draft_[a-f0-9]{32}$/.test(event.node_id)?'Opening draft…':event.node_id==='drafts'||event.node_id==='drafts_more'?'Loading drafts…':event.node_id==='more'||/^folder_(inbox|sent|archive|starred|spam|trash)$/.test(event.node_id)||event.node_id==='account_all'||event.node_id.startsWith('account_pick_')?'Loading messages…':event.node_id.startsWith('check_')?'Checking original status…':'';status='';render();
   try{
@@ -333,17 +344,14 @@ self.onmessage=event=>{
    else if(event.node_id==='new_setting'&&mode==='settings'){if(settingStore!=='signatures')await createSetting();else{const existing=await signatureAddresses(),identities=verifiedSettingIdentities(await sdk.request('app_data','signatures',{operation:'connection_metadata',input:{store_key:'signatures'}}));settingIdentities=identities.filter(identity=>!existing.has(identity.address.toLowerCase())).map(identity=>({...identity,id:newRecordId().replaceAll('-','')}));status=settingIdentities.length?'Choose the From address for this signature.':'No additional verified From addresses are available.';}}
    else if(/^signature_identity_[a-f0-9]{32}$/.test(event.node_id)&&mode==='settings'){const identity=settingIdentities.find(item=>'signature_identity_'+item.id===event.node_id);if(!identity)throw Error('Identity choice changed');await createSetting(identity.address);}
    else if(/^setting_(templates|signatures|preferences|smtp_preferences)_[a-f0-9]{32}$/.test(event.node_id)&&mode==='settings'){const item=settingRows.find(row=>rowId('setting_'+settingStore,row)===event.node_id);if(!item)throw Error('Saved content unavailable');const meta=settingMeta(settingStore,await sdk.readRecordMeta(settingStore,item.record_id));if(meta.record_id!==item.record_id||meta.status!=='draft')throw Error('Saved content changed');setting={...meta,summary:{...item.summary,...meta.summary}};mode='setting';}
-   else if(event.node_id==='account_all'||event.node_id.startsWith('account_pick_')){if(!canChangeAccount())return;const choice=event.node_id==='account_all'?'all':accountTargets[Number(event.node_id.slice(13))]?.key;if(!choice)throw Error('Account selection unavailable');if(choice===accountChoice)return;accountChoice=choice;items=[];selected=null;conversation=null;cursor=null;observed=null;complete=false;pane='list';checked.clear();selectionMode=false;organizeOpen=false;draft=null;minimizedDraft=null;draftRows=[];historyRows=[];initialDraftId=null;mode='reader';importedRows=[];importedCursor=null;importedChoice=null;importedAccount=null;undoSources=[];batchUndo=[];originalOrganize=null;originalRule=null;ruleRows=[];ruleOrder=null;ruleChoice=null;ruleEditor=null;rulePreview=[];ruleChecked.clear();ruleAccount=null;folderRows=[];folderCursor=null;folderChoice=null;folderPurpose=null;folderName='';folderPreferences=[];folderAccountTarget=null;sendNotice='';inspectionRun=null;accountPages.clear();render();await mailbox({resetSelection:true});}
+   else if(event.node_id==='account_all'||event.node_id.startsWith('account_pick_')){if(!canChangeAccount())return;const choice=event.node_id==='account_all'?'all':accountTargets[Number(event.node_id.slice(13))]?.key;if(!choice)throw Error('Account selection unavailable');if(choice===accountChoice)return;accountChoice=choice;items=[];selected=null;conversation=null;cursor=null;observed=null;complete=false;pane='list';checked.clear();selectionMode=false;draft=null;minimizedDraft=null;draftRows=[];historyRows=[];initialDraftId=null;mode='reader';importedRows=[];importedCursor=null;importedChoice=null;importedAccount=null;undoSources=[];batchUndo=[];originalOrganize=null;originalRule=null;ruleRows=[];ruleOrder=null;ruleChoice=null;ruleEditor=null;rulePreview=[];ruleChecked.clear();ruleAccount=null;folderRows=[];folderCursor=null;folderChoice=null;folderPurpose=null;folderName='';folderPreferences=[];folderAccountTarget=null;sendNotice='';inspectionRun=null;accountPages.clear();render();await mailbox({resetSelection:true});}
    else if(event.node_id==='compose'){setting=null;if(minimizedDraft)await restoreDraft();else await compose();}
    else if(event.node_id==='undo_mailbox_action'&&batchUndo.length){const owned=batchUndo;batchUndo=[];await organizeBatch(owned.map(original=>({store_key:'drafts',resource_key:'inbox',action_key:'organize_messages',operation_key:'undo',sources:original.sources,undo:original.prepared_ref})));}
    else if(event.node_id==='undo_mailbox_action'&&originalOrganize&&undoSources.length){const owned=originalOrganize,refs=undoSources;undoSources=[];await organize('undo',{undo:owned.prepared_ref},refs);}
    else if(event.node_id==='check_mailbox_action')await checkMailboxAction();
-   else if(event.node_id==='toggle_selection'&&mode==='reader'){selectionMode=!selectionMode;checked.clear();organizeOpen=false;}
+   else if(event.node_id==='toggle_selection'&&mode==='reader'){selectionMode=!selectionMode;checked.clear();}
    else if(event.node_id==='select_loaded'&&selectionMode){checked=new Map(items.slice(0,100).map(item=>[item.record_id,item.content_digest]));}
-   else if(event.node_id==='clear_selection'){checked.clear();organizeOpen=false;}
-   else if(event.node_id==='selection_actions'&&selectionMode&&checked.size&&!actionPending)organizeOpen=!organizeOpen;
-   else if(event.node_id==='reader_actions_menu'&&selected){readerToolsOpen=!readerToolsOpen;if(!readerToolsOpen)organizeOpen=false;}
-   else if(event.node_id==='reader_organize'&&selected&&!selectionMode&&!actionPending)organizeOpen=!organizeOpen;
+   else if(event.node_id==='clear_selection'){checked.clear();}
    else if(event.node_id.startsWith('organize_'))await organize(event.node_id.slice(9));
    else if(['reply','reply_all','forward'].includes(event.node_id)&&selected){if(minimizedDraft){status='Resume your open draft or keep it in Drafts before composing another message.';}else await compose(event.node_id);}
    else if(event.node_id==='minimize_draft'&&mode==='compose'&&draft?.state==='saved'&&!minimizedDraft){initialDraftId=null;minimizedDraft={...draft};draft=null;mode='reader';pane=selected?'reader':'list';}
@@ -363,7 +371,7 @@ self.onmessage=event=>{
     minimizedDraft=null;const item=draftRows.find(row=>rowId('draft',row)===event.node_id);if(!item)throw Error('Draft unavailable');
     const meta=await sdk.readRecordMeta('drafts',item.record_id);if(!['draft','submitted'].includes(meta.status))throw Error('Draft unavailable');
     draft={...meta,record_id:item.record_id,summary:item.summary,mode:item.summary?.mode??'compose',state:meta.status==='submitted'?'submitted':'saved',dirty:false,valid:meta.status==='draft'};mode=meta.status==='submitted'?'history':'compose';pane='reader';
-   }else if(/^mail_[a-f0-9]{32}$/.test(event.node_id)){const item=items.find(row=>rowId('mail',row)===event.node_id);if(item){if(selectionMode){if(checked.has(item.record_id))checked.delete(item.record_id);else if(checked.size<100)checked.set(item.record_id,item.content_digest);}else{selected=item;readerToolsOpen=false;organizeOpen=false;pane='reader';conversation=null;}}}
+   }else if(/^mail_[a-f0-9]{32}$/.test(event.node_id)){const item=items.find(row=>rowId('mail',row)===event.node_id);if(item){if(selectionMode){if(checked.has(item.record_id))checked.delete(item.record_id);else if(checked.size<100)checked.set(item.record_id,item.content_digest);}else{selected=item;pane='reader';conversation=null;}}}
    else if(event.node_id.startsWith('folder_')&&Object.hasOwn(folders,event.node_id.slice(7)))await mailbox({nextFolder:event.node_id.slice(7),nextQuery:'',resetSelection:true});
    else if(event.node_id==='refresh'){if(mode==='snooze'||mode==='follow_up'){}else if(mode==='settings'||mode==='setting')await settings();else if(mode==='drafts'||mode==='history')await drafts();else await mailbox({refresh:true});}
    else if(event.node_id==='more')await mailbox({append:true});

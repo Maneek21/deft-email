@@ -8,20 +8,20 @@ import {DeftExperienceRecordFormV3NodeSchema} from '@deft/app-kit';
 const id='11111111-1111-4111-8111-111111111111',digest='sha256:'+'a'.repeat(64);
 const mail={record_id:id,content_digest:digest,label:'Preview message',data:{provider:'gmail',subject:'Preview message',sender:'Sender <sender@example.test>',date:'2026-10-13T10:00:00Z',preview:'A controlled preview message.'}};
 const row={record_id:id,revision:2,content_digest:digest,status:'draft',summary:{subject:'Saved preview draft',to:'recipient@example.test'}};
-async function start({refresh=async()=>({outcome:'completed'}),targets=[{key:'primary',label:'Primary account'}],selectedTarget=targets[0]?.key,messages=[mail],listMailbox,listSaved,request}={}){
+async function start({refresh=async()=>({outcome:'completed'}),targets=[{key:'primary',label:'Primary account'}],selectedTarget=targets[0]?.key,messages=[mail],listMailbox,listSaved,createSaved,request}={}){
  const views=[],listedTargets=[],listedStores=[];let handler;
  const sdk={render:view=>{const ids=new Set();for(const node of nodes(view)){assert.ok(!ids.has(node.id),`Duplicate node ${node.id}`);ids.add(node.id);}views.push(view);},onEvent:event=>handler=event,
   listAccountTargets:async()=>({targets,selected_target_key:selectedTarget}),
   listDataResources:async(_store,_resource,_cursor,_query,target)=>{listedTargets.push(target);return listMailbox?listMailbox(target):{outcome:'completed',items:messages,next_cursor:null,freshness:{complete:true,observed_at:'2026-10-13T10:00:00Z'}};},refreshDataResource:refresh,
   listRecords:async store=>{listedStores.push(store);return listSaved?listSaved(store):{outcome:'completed',items:store==='drafts'?[row]:[],next_cursor:null};},readRecordMeta:async()=>row,
-  createRecord:async(_store,record_id)=>({outcome:'completed',record:{...row,record_id}}),request};
+  createRecord:async(store,record_id,value,refs)=>createSaved?createSaved(store,record_id,value,refs):({outcome:'completed',record:{...row,record_id}}),request};
  const source=await readFile(new URL('./worker.mjs',import.meta.url),'utf8'),bindings={};
  for(const match of source.matchAll(/^import \{[^}]+\} from '(\.\/[^']+)';/gm))Object.assign(bindings,await import(match[1]));
  const self={};vm.runInNewContext(source.replace(/^import .*;\r?\n/gm,''),{self,...bindings,createDeftExperienceSdk:()=>sdk,crypto:webcrypto,TextEncoder,Date,Map,setTimeout,clearTimeout});
  self.onmessage({data:{kind:'start',port:{},session_id:id}});await new Promise(resolve=>setTimeout(resolve,5));
  return {views,listedTargets,listedStores,nodes:()=>nodes(views.at(-1)),click:node_id=>handler({kind:'click',node_id}),input:event=>handler({kind:'input',...event})};
 }
-function nodes(view){const result=[];const walk=node=>{result.push(node);node.children?.forEach(walk);};walk(view.root);view.navigation?.forEach(walk);return result;}
+function nodes(view){const result=[];const walk=node=>{result.push(node);node.children?.forEach(walk);node.items?.forEach(walk);};walk(view.root);view.navigation?.forEach(walk);return result;}
 const node=(ui,id)=>ui.nodes().find(item=>item.id===id);
 
 test('Email opens the current account with Compose ready; all-account fanout is explicit',async()=>{
@@ -57,7 +57,7 @@ test('actual Compose view selects its packed Kit v3 form capability before Host 
  const ui=await start();await ui.click('compose');const view=ui.views.at(-1),form=node(ui,'draft_form');
  assert.ok(view.capabilities.includes('record_form.v3'),'Host budgets use selected view capabilities, not manifest capabilities');
  assert.ok(!view.capabilities.includes('record_form.v1'),'all active draft forms use v3; settings keep v2');
- assert.ok(view.capabilities.length<=12);assert.equal(new Set(view.capabilities).size,view.capabilities.length);
+ assert.ok(view.capabilities.length<=13);assert.equal(new Set(view.capabilities).size,view.capabilities.length);
  const parsed=DeftExperienceRecordFormV3NodeSchema.safeParse(form);assert.equal(parsed.success,true,parsed.success?'':JSON.stringify(parsed.error.issues));
  assert.equal(form.seed.schema_version,'deft.record_form_seed.v1');assert.equal(form.seed.value.to,'');
  assert.equal(form.expected_revision,0);assert.equal(form.disabled,false);
@@ -148,10 +148,12 @@ test('daily navigation keeps settings out of the mailbox and opening its hub doe
  await ui.click('saved_content');assert.ok(node(ui,'settings_templates'));assert.equal(node(ui,'provider_setup_help'),undefined);await ui.click('settings_back');assert.ok(node(ui,'email_settings_title'));await ui.click('settings_mailbox');assert.ok(node(ui,'message_list'));
 });
 
-test('reader discloses secondary actions without hiding Reply or the original message',async()=>{
- const ui=await start();await ui.click('mail_'+id.replaceAll('-',''));assert.ok(node(ui,'reply'));assert.equal(node(ui,'forward'),undefined);assert.equal(node(ui,'print_message'),undefined);assert.equal(node(ui,'mail_body').print_control_id,undefined);assert.equal(node(ui,'mail_body').printable,false);
- await ui.click('reader_actions_menu');assert.ok(node(ui,'reply_all'));assert.ok(node(ui,'forward'));assert.ok(node(ui,'print_message'));assert.equal(node(ui,'mail_body').print_control_id,'print_message');assert.ok(node(ui,'mail_body'));assert.equal(node(ui,'organize_archive'),undefined);
- await ui.click('reader_organize');assert.ok(node(ui,'organize_archive'));await ui.click('reader_actions_menu');assert.equal(node(ui,'reader_tools'),undefined);assert.equal(node(ui,'organize_archive'),undefined);assert.ok(node(ui,'mail_body'));
+test('reader keeps one native menu and the exact Host print binding without inline action stacks',async()=>{
+ const ui=await start();await ui.click('mail_'+id.replaceAll('-',''));
+ assert.ok(node(ui,'reply'));assert.equal(node(ui,'reader_more').kind,'menu');assert.ok(node(ui,'reply_all'));assert.ok(node(ui,'forward'));
+ assert.equal(node(ui,'print_message').icon,'print');assert.equal(node(ui,'mail_body').print_control_id,'print_message');assert.equal(node(ui,'mail_body').printable,true);
+ assert.ok(node(ui,'organize_archive'));assert.equal(node(ui,'reader_tools'),undefined);assert.equal(node(ui,'organize_menu'),undefined);assert.ok(node(ui,'mail_body'));
+ await ui.click('toggle_selection');assert.ok(node(ui,'reply'));assert.ok(node(ui,'reader_more'));assert.ok(node(ui,'mail_body'));
 });
 
 test('compose and draft list have one contextual header without disabled mailbox search',async()=>{
@@ -165,4 +167,55 @@ test('a slow foreground refresh shows one progress notice while keeping the orig
  let finish;const ui=await start({refresh:()=>new Promise(resolve=>finish=resolve)});await ui.click('mail_'+id.replaceAll('-',''));const pending=ui.click('refresh');
  assert.equal(node(ui,'mail_progress').text,'Refreshing…');assert.equal(node(ui,'refresh').disabled,true);assert.equal(node(ui,'mail_subject').text,mail.data.subject);
  finish({outcome:'completed'});await pending;assert.equal(node(ui,'mail_progress'),undefined);assert.equal(node(ui,'refresh').disabled,false);assert.equal(node(ui,'mail_subject').text,mail.data.subject);
+});
+
+test('selection replaces the mailbox header and uses menus instead of an inline action grid',async()=>{
+ const ui=await start();const parent=node(ui,'message_list');assert.equal(node(ui,'mailbox_header').layout,'toolbar');assert.equal(parent.children.filter(item=>item.layout==='toolbar').length,1);
+ assert.equal(node(ui,'account_catalog'),undefined,'a single account needs no second filter row');
+ await ui.click('toggle_selection');assert.equal(node(ui,'folder_title'),undefined);assert.equal(node(ui,'mailbox_header').layout,'toolbar');assert.equal(node(ui,'message_list').children.filter(item=>item.layout==='toolbar').length,1);
+ assert.equal(node(ui,'selection_menu').kind,'menu');assert.equal(node(ui,'select_loaded').label,'Select loaded messages (up to 100)');assert.equal(node(ui,'select_loaded').disabled,false);
+ await ui.click('select_loaded');assert.equal(node(ui,'selection_count').text,'1 selected');assert.equal(node(ui,'selection_menu').icon,'check');assert.equal(node(ui,'organize_menu'),undefined);assert.equal(node(ui,'selection_toolbar'),undefined);
+ assert.equal(node(ui,'organize_restore'),undefined);assert.equal(node(ui,'organize_not_spam'),undefined);assert.equal(node(ui,'bulk_more').kind,'menu');assert.ok(node(ui,'selection_actions').children.length<=4,'four coarse targets fit without wrapping');
+ await ui.click('clear_selection');assert.equal(node(ui,'selection_count').text,'0 selected');assert.equal(node(ui,'clear_selection').disabled,true);
+ await ui.click('toggle_selection');assert.equal(node(ui,'selection_menu'),undefined);assert.equal(node(ui,'folder_title').text,'Inbox');assert.equal(node(ui,'mail_'+id.replaceAll('-','')).icon,undefined);
+});
+
+test('bulk read and star choices use known metadata and keep mixed-state alternatives explicit',async()=>{
+ for(const [seen,flagged,expected,absent]of [[true,true,['organize_mark_unread','organize_unstar'],['organize_mark_read','organize_star']],[false,false,['organize_mark_read','organize_star'],['organize_mark_unread','organize_unstar']]]){
+  const ui=await start({messages:[{...mail,data:{...mail.data,seen,flagged}}]});await ui.click('toggle_selection');await ui.click('select_loaded');
+  for(const key of expected)assert.ok(node(ui,key));for(const key of absent)assert.equal(node(ui,key),undefined);
+ }
+ const mixed=await start({messages:[{...mail,data:{...mail.data,seen:true,flagged:true}},{...mail,record_id:'22222222-2222-4222-8222-222222222222',data:{...mail.data,seen:false,flagged:false}}]});await mixed.click('toggle_selection');await mixed.click('select_loaded');
+ assert.equal(node(mixed,'organize_mark_read').label,'Mark selected read');assert.equal(node(mixed,'organize_mark_unread').label,'Mark selected unread');assert.ok(node(mixed,'organize_star'));assert.ok(node(mixed,'organize_unstar'));
+ assert.ok(node(mixed,'bulk_more').items.some(item=>item.id==='organize_mark_read'));assert.ok(node(mixed,'bulk_more').items.some(item=>item.id==='organize_mark_unread'));
+});
+
+test('contextual folder choices do not offer restoring or unspamming an Inbox message',async()=>{
+ const ui=await start();await ui.click('mail_'+id.replaceAll('-',''));assert.equal(node(ui,'organize_restore'),undefined);assert.equal(node(ui,'organize_not_spam'),undefined);
+ await ui.click('folder_trash');await ui.click('mail_'+id.replaceAll('-',''));assert.ok(node(ui,'organize_restore'));assert.equal(node(ui,'organize_trash'),undefined);
+ await ui.click('folder_spam');await ui.click('mail_'+id.replaceAll('-',''));assert.ok(node(ui,'organize_not_spam'));assert.equal(node(ui,'organize_spam'),undefined);
+});
+
+test('compact actions still submit exact current sources for human review and block a second unknown dispatch',async()=>{
+ const calls=[];const ui=await start({request:async(...args)=>{calls.push(args);throw Error('lost review response');}});await ui.click('mail_'+id.replaceAll('-',''));
+ await ui.click('organize_archive');assert.equal(calls.length,1);assert.equal(calls[0][0],'dialog');assert.equal(calls[0][1],'review_resource_action');assert.equal(calls[0][2].operation_key,'archive');assert.deepEqual(JSON.parse(JSON.stringify(calls[0][2].sources)),[{resource_key:'inbox',record_id:id,content_digest:digest}]);
+ assert.equal(node(ui,'organize_archive').disabled,true);assert.match(node(ui,'status').text,/could not be confirmed/);await ui.click('organize_archive');assert.equal(calls.length,1);
+});
+
+test('reader menu Reply all and Forward preserve exact-source draft creation without a Send',async()=>{
+ for(const action of ['reply_all','forward']){
+  const creates=[],requests=[],ui=await start({createSaved:async(store,record_id,value,refs)=>{creates.push({store,value,refs});return {outcome:'completed',record:{...row,record_id}};},request:async(...args)=>requests.push(args)});
+  await ui.click('mail_'+id.replaceAll('-',''));assert.ok(node(ui,'reader_more').items.some(item=>item.id===action));await ui.click(action);
+  assert.equal(creates.length,1);assert.equal(creates[0].store,'drafts');assert.equal(creates[0].value.mode,action);assert.deepEqual(JSON.parse(JSON.stringify(creates[0].refs)),[{resource_key:'inbox',record_id:id,content_digest:digest}]);assert.ok(node(ui,'draft_form'));assert.equal(requests.length,0);
+ }
+});
+
+test('reader menu Conversation dispatches only the bounded selected-message query',async()=>{
+ const calls=[],ui=await start({request:async(...args)=>{calls.push(args);return {outcome:'completed',items:[mail],next_cursor:null};}});await ui.click('mail_'+id.replaceAll('-',''));await ui.click('conversation');
+ assert.equal(calls.length,1);assert.equal(calls[0][0],'app_data');assert.equal(calls[0][1],'drafts');assert.equal(calls[0][2].operation,'resource_list');assert.equal(calls[0][2].input.anchor_record_id,id);assert.equal(calls[0][2].input.limit,10);assert.equal(node(ui,'conversation_count').text,'1 messages loaded');
+});
+
+test('loaded selection stays bounded and unavailable provider operations never dispatch a review',async()=>{
+ const messages=Array.from({length:105},(_,i)=>({...mail,record_id:`11111111-1111-4111-8111-${String(i+1).padStart(12,'0')}`})),ui=await start({messages});await ui.click('toggle_selection');await ui.click('select_loaded');assert.equal(node(ui,'selection_count').text,'100 selected');
+ const calls=[],unsupported=await start({messages:[{...mail,data:{...mail.data,provider:'unsupported'}}],request:async(...args)=>calls.push(args)});await unsupported.click('mail_'+id.replaceAll('-',''));assert.equal(node(unsupported,'organize_archive'),undefined);await unsupported.click('organize_archive');assert.equal(calls.length,0);assert.match(node(unsupported,'status').text,/Organize is unavailable/);
 });
