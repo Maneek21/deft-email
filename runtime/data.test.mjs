@@ -125,3 +125,13 @@ test('until-revoked account retains draft across restart and still denies revoke
  const foreign=structuredClone(read);foreign.request_id=randomUUID();foreign.scope.owner_user_id=randomUUID();
  await assert.rejects(f.run(foreign));const before=f.calls;f.deny();await assert.rejects(f.run({...read,request_id:randomUUID()}));assert.equal(f.calls,before);
 });
+
+test('saved draft reads keep fresh outer authority without nested network round trips',async t=>{
+ let calls=0,denyFinal=false;const f=await fixture(t,providerFixture,{persistent:true,onAuthority:async()=>{calls++;if(denyFinal&&calls===3)throw Object.assign(Error('revoked before disclosure'),{code:'EMAIL_DATA_AUTHORITY_DENIED'});}}),id=randomUUID();
+ const created=await f.run(f.request('record_create',{store_key:'drafts',record_id:id,value:empty}));
+ for(const [operation,input]of [['record_list',{store_key:'drafts',cursor:null,limit:25}],['record_read',{store_key:'drafts',record_id:id}]]){
+  calls=0;const providers=f.calls,result=await f.run(f.request(operation,input));assert.equal(result.outcome,'completed');assert.equal(calls,3,'entry, after session-lock wait and final disclosure must be freshly authorized');assert.equal(f.calls,providers,'saved reads must not contact the provider');
+  calls=0;denyFinal=true;await assert.rejects(f.run(f.request(operation,input)),{code:'EMAIL_DATA_AUTHORITY_DENIED'});assert.equal(calls,3);denyFinal=false;
+ }
+ assert.equal((await f.run(f.request('record_read',{store_key:'drafts',record_id:id}))).record.content_digest,created.record.content_digest);
+});

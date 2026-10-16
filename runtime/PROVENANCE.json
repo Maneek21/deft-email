@@ -514,9 +514,11 @@
       "target": "data-runtime.mjs",
       "mode": "independent_adapter",
       "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
-      "sha256": "ac99073e28eb5478fd36f391f19bb9dfd910d1db3c2af9f4d5d2a20b798062ec",
+      "sha256": "0629397c4916f007ee0d171beb75e820662a9568d202652618cb24ce233bf7fd",
       "original_sha256": "b5e6f89d37859c2eab82afd9fdeb0cb681e0bb88b38ee7e1aa9627dfbe0b7e22",
-      "adaptation": "App-owned note-presence summary; no on-read mutation or digest projection"
+      "runtime_version": "0.4.0-preview.10",
+      "runtime10_parent_sha256": "ac99073e28eb5478fd36f391f19bb9dfd910d1db3c2af9f4d5d2a20b798062ec",
+      "adaptation": "App-owned note-presence summary plus pure saved-draft local checks inside the held session; fresh online entry, post-lock and final disclosure checks remain; no cache or mutation behavior change"
     },
     {
       "target": "send-runner.mjs",
@@ -672,9 +674,11 @@
       "target": "data-runtime.mjs",
       "mode": "independent_adapter",
       "reason": "Bounded data-only60s foreground memo and durable membership generation invalidation; operation-local pure rechecks with fresh entry/provider/token/commit/disclosure online authority, unchanged session/custody/mutation locks and frozen vendors",
-      "sha256": "ac99073e28eb5478fd36f391f19bb9dfd910d1db3c2af9f4d5d2a20b798062ec",
+      "sha256": "0629397c4916f007ee0d171beb75e820662a9568d202652618cb24ce233bf7fd",
       "original_sha256": "b5e6f89d37859c2eab82afd9fdeb0cb681e0bb88b38ee7e1aa9627dfbe0b7e22",
-      "adaptation": "App-owned note-presence summary; no on-read mutation or digest projection"
+      "runtime_version": "0.4.0-preview.10",
+      "runtime10_parent_sha256": "ac99073e28eb5478fd36f391f19bb9dfd910d1db3c2af9f4d5d2a20b798062ec",
+      "adaptation": "App-owned note-presence summary plus pure saved-draft local checks inside the held session; fresh online entry, post-lock and final disclosure checks remain; no cache or mutation behavior change"
     },
     {
       "target": "mailbox-store.mjs",
