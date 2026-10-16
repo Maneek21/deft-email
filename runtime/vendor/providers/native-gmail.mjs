@@ -54,10 +54,10 @@ function inventoryNeedsRestart(state,account,limit){
  let restart=false;for(const [cursor,bindings,tokenLimit]of cursors)if(priorEpochCursor(cursor,account,bindings,tokenLimit))restart=true;
  return restart;
 }
-async function metadataBatch(reader,ids){
+async function metadataBatch(reader,ids,budget){
  const found=[];
  for(let offset=0;offset<ids.length;offset+=10){
-  const results=await Promise.allSettled(ids.slice(offset,offset+10).map(async id=>({id,message:await reader.resetReadMetadata(id)})));
+  const results=await Promise.allSettled(ids.slice(offset,offset+10).map(async id=>({id,message:await reader.resetReadMetadata(id,{budget})})));
   const failure=results.find(result=>result.status==='rejected');if(failure)throw failure.reason;
   found.push(...results.map(result=>result.value));
  }
@@ -67,8 +67,10 @@ async function metadataBatch(reader,ids){
 /** Account-wide inventory and history state are bounded SQL-owned records.
  * This function produces a proposed page; only the host's fenced transaction
  * commits messages, generation, private state, checkpoint and replay receipt. */
-export async function readNativeGmailPage({runtime,provider_state,input}){
+export async function readNativeGmailPage({runtime,provider_state,input,hydrationLimit=input.limit}){
  pageLimit(input.limit);
+ const batchLimit=Math.min(input.limit,pageLimit(hydrationLimit));
+ const budget=hydrationLimit<input.limit?{remaining:PROVIDER_LIMITS.metadata_bytes,deadline:Date.now()+60000}:undefined;
  if(typeof provider_state?.read!=='function'||typeof provider_state?.stale!=='function')fail('EMAIL_NATIVE_STATE_REQUIRED');
  await runtime.check();const retained=await provider_state.read(NATIVE_GMAIL_STATE_KEY);await runtime.check();
  const reader=createMetadataResetReader(runtime.adapterOptions);
@@ -90,9 +92,13 @@ export async function readNativeGmailPage({runtime,provider_state,input}){
   pending:[],after_pending:null,sweep_done:false,continuation:randomUUID()};state.inventory_refresh=inventoryRefresh(state.checkpoint);};
  const identify=id=>logicalMailIdForProviderMessage(runtime.identity_scope??runtime.scope,runtime.account.account_id,'gmail',id);
  const ingest=results=>{for(const {id,message}of results){if(message)messages.push(message);else tombstones.push(identify(id));}};
- if(state.pending.length){
-  const batch=state.pending.splice(0,input.limit);ingest(await metadataBatch(reader,batch));
-  if(!state.pending.length){Object.assign(state,state.after_pending);state.after_pending=null;}
+ const finishPending=()=>{Object.assign(state,state.after_pending);state.after_pending=null;if(state.phase!=='inventory')delete state.inventory_refresh;};
+ // Keep the current-history turn between bounded inventory chunks, so older
+ // backfill cannot delay newly arriving mail behind the retained ID queue.
+ if(state.pending.length&&!(state.phase==='inventory'&&state.inventory_refresh?.turn==='history')){
+  const batch=state.pending.splice(0,batchLimit);ingest(await metadataBatch(reader,batch,budget));
+  if(state.phase==='inventory'&&state.inventory_refresh)state.inventory_refresh.turn='history';
+  if(!state.pending.length)finishPending();
  }else if(state.phase==='inventory'){
   // Interleave current changes with older inventory. Preserve the original
   // checkpoint for the final catch-up/sweep; this lane never claims coverage.
@@ -107,14 +113,21 @@ export async function readNativeGmailPage({runtime,provider_state,input}){
     else{refresh.checkpoint=changes.checkpoint;refresh.cursor=changes.next_cursor;refresh.pending=ids;}
    }
    if(state.inventory_refresh===refresh){
-    ingest(await metadataBatch(reader,refresh.pending.splice(0,input.limit)));refresh.turn='inventory';
+    ingest(await metadataBatch(reader,refresh.pending.splice(0,batchLimit),budget));if(!refresh.pending.length)refresh.turn='inventory';
    }
   }else{
-  const page=await runtime.adapter.listMessages({limit:input.limit,cursor:state.cursor,include_spam_trash:true});
-  messages=page.messages;failures=page.failures.filter(failure=>failure.code!=='EMAIL_PROVIDER_NOT_FOUND');
-  tombstones=page.failures.filter(failure=>failure.code==='EMAIL_PROVIDER_NOT_FOUND').map(failure=>identify(failure.provider_message_id));state.cursor=page.next_cursor;
+  if(batchLimit===input.limit){
+   const page=await runtime.adapter.listMessages({limit:input.limit,cursor:state.cursor,include_spam_trash:true});
+   messages=page.messages;failures=page.failures.filter(failure=>failure.code!=='EMAIL_PROVIDER_NOT_FOUND');
+   tombstones=page.failures.filter(failure=>failure.code==='EMAIL_PROVIDER_NOT_FOUND').map(failure=>identify(failure.provider_message_id));state.cursor=page.next_cursor;
+   refresh.turn='history';if(page.next_cursor===null){state.phase='catchup';delete state.inventory_refresh;}
+  }else{
+  const page=await reader.resetListMessageIds({limit:input.limit,cursor:state.cursor,budget});
+  state.pending=page.ids;state.after_pending={phase:page.next_cursor===null?'catchup':'inventory',checkpoint:state.checkpoint,cursor:page.next_cursor};
+  ingest(await metadataBatch(reader,state.pending.splice(0,batchLimit),budget));
   refresh.turn='history';
-  if(page.next_cursor===null){state.phase='catchup';delete state.inventory_refresh;}
+  if(!state.pending.length)finishPending();
+  }
   }
  }else if(state.phase==='sweep'){
   await runtime.check();const stale=await provider_state.stale(generation,null,input.limit);await runtime.check();

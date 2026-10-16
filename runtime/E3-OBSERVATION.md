@@ -9,3 +9,9 @@ The output is the frozen bounded scalar metadata projection with account-scoped 
 Completed journal recovery may disclose the exact saved page under fresh current authority and unchanged custody. A started or indeterminate journal never repeats provider I/O. Revoked/expired authority publishes no page. A failed read is not permission to replay its Run: a future observation requires a separately admitted current Run under the host's existing lease/checkpoint/recovery rules. The runner creates no second scheduler and issues no Send, mutation or channel renewal.
 
 The optional process worker polls the public channel at most once every five seconds after an attempt; the host remains the only scheduler. `start_observation_workers:false` disables it for controlled fixtures. Test-only awaited phase hooks are `before_provider`, `before_checkpoint` and `before_disclosure`, carrying only the Run UUID. No content, token, MIME or provider URL is logged.
+
+## Bounded Gmail inventory hydration
+
+Runtime12 keeps the existing 25-item provider cursor and public publication limit, but background inventory turns hydrate at most five messages. The remaining IDs and next provider cursor stay in the existing durable pending queue; only the last chunk advances that cursor. Current history checks still run between older inventory chunks, and history backlogs drain in five-message chunks without dropping IDs. Restart and immutable publication replay retain their existing fences.
+
+Foreground reads, the 30-second operation deadline, current authority/custody checks and UNKNOWN no-replay behavior are unchanged. Inventory turns share the existing 2 MiB response budget. Older inventory backfill takes more observation turns. Sweep verification remains at its prior 25-item size and can still cause a longer wait; this change does not establish end-to-end UI latency acceptance.

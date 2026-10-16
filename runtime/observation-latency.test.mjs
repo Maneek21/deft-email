@@ -41,11 +41,11 @@ test('reproduce25-item observation deadline spent on repeated nested online nati
 });
 
 test('request-local pure observation checks retain online provider/commit/disclosure authority within the same budget',async t=>{
- const f=await fixture(t,{clockStep:160}),events=[],before=f.providerCalls,result=await f.runner({onDiagnostic:e=>events.push(e)}).runOnce();console.log(JSON.stringify({event:'synthetic_observation_after',clock_cost_per_authority_ms:160,authority:f.authorityCalls,provider:f.providerCalls-before,status:result.status}));assert.equal(result.status,'returned');assert.equal(result.page.upserts.length,25);assert.equal(f.resultCalls,1);assert.ok(f.authorityCalls<50);assert.equal(f.providerCalls-before,27);assert.deepEqual(events,[]);
+ const f=await fixture(t,{clockStep:160}),events=[],before=f.providerCalls,result=await f.runner({onDiagnostic:e=>events.push(e)}).runOnce();console.log(JSON.stringify({event:'synthetic_observation_after',clock_cost_per_authority_ms:160,authority:f.authorityCalls,provider:f.providerCalls-before,status:result.status}));assert.equal(result.status,'returned');assert.equal(result.page.upserts.length,5);assert.equal(f.resultCalls,1);assert.ok(f.authorityCalls<50);assert.equal(f.providerCalls-before,7);assert.deepEqual(events,[]);
 });
 
-test('live requested100 still fetches only25 and outputs no file/body handles; late revocation prevents checkpoint/disclosure',async t=>{
- const f=await fixture(t),events=[];f.started.input.max_items=100;const before=f.providerCalls,result=await f.runner({onDiagnostic:e=>events.push(e),onPhase(phase){if(phase==='before_checkpoint')f.revoke();}}).runOnce();assert.equal(result.status,'indeterminate');assert.equal(f.resultCalls,0);assert.equal(f.providerCalls-before,27);assert.ok(events.some(e=>e.phase==='checkpoint'));assert.equal(await createMailboxStore({store:f.store}).cursor({org_id:f.scope.org_id,owner_user_id:f.scope.owner_user_id,account_id:f.connected.account.account_ref},()=>{}),null);const calls=f.providerCalls;f.allow();assert.equal((await f.runner({onDiagnostic:e=>events.push(e)}).runOnce()).status,'indeterminate');assert.equal(f.providerCalls,calls);
+test('live requested100 still lists25 but hydrates only5 and outputs no file/body handles; late revocation prevents checkpoint/disclosure',async t=>{
+ const f=await fixture(t),events=[];f.started.input.max_items=100;const before=f.providerCalls,result=await f.runner({onDiagnostic:e=>events.push(e),onPhase(phase){if(phase==='before_checkpoint')f.revoke();}}).runOnce();assert.equal(result.status,'indeterminate');assert.equal(f.resultCalls,0);assert.equal(f.providerCalls-before,7);assert.ok(events.some(e=>e.phase==='checkpoint'));assert.equal(await createMailboxStore({store:f.store}).cursor({org_id:f.scope.org_id,owner_user_id:f.scope.owner_user_id,account_id:f.connected.account.account_ref},()=>{}),null);const calls=f.providerCalls;f.allow();assert.equal((await f.runner({onDiagnostic:e=>events.push(e)}).runOnce()).status,'indeterminate');assert.equal(f.providerCalls,calls);
 });
 
 test('online authority remains fresh between provider requests; frozen locals cannot bypass revocation',async t=>{
@@ -63,9 +63,9 @@ test('allowlisted failure diagnostics contain stage/counts only and never reflec
 });
 
 
-test('same25-item real authority-latency fixture measures requests and elapsed before and after',async t=>{
- const measurements=[];for(const [label,factory]of [['before',previousRunner],['after',improvedRunner]]){const f=await fixture(t,{factory,authorityLatency:10}),before=f.providerCalls,start=performance.now(),result=await f.runner({onDiagnostic:()=>{}}).runOnce();measurements.push({label,authority_latency_ms:10,provider:f.providerCalls-before,authority:f.authorityCalls,elapsed_ms:Math.round(performance.now()-start),status:result.status});assert.equal(result.status,'returned');assert.equal(result.page.upserts.length,25);}
- console.log(JSON.stringify({event:'synthetic_observation_measured',measurements}));assert.equal(measurements[0].provider,measurements[1].provider);// Immutable publication adds current boundary checks; retain at least50% fewer authority roundtrips with the same actual provider reads. Wall-time remains measured evidence because durable filesystem latency varies across platforms.
+test('same25-ID inventory fixture measures whole-page versus bounded hydration requests and elapsed',async t=>{
+ const measurements=[];for(const [label,factory]of [['before',previousRunner],['after',improvedRunner]]){const f=await fixture(t,{factory,authorityLatency:10}),before=f.providerCalls,start=performance.now(),result=await f.runner({onDiagnostic:()=>{}}).runOnce();measurements.push({label,authority_latency_ms:10,provider:f.providerCalls-before,authority:f.authorityCalls,elapsed_ms:Math.round(performance.now()-start),status:result.status});assert.equal(result.status,'returned');assert.equal(result.page.upserts.length,label==='before'?25:5);}
+ console.log(JSON.stringify({event:'synthetic_observation_measured',measurements}));assert.equal(measurements[0].provider,27);assert.equal(measurements[1].provider,7);// One bounded turn intentionally hydrates fewer IDs; separate recovery tests drain every retained ID. Wall-time is measured, not an end-to-end UI guarantee.
  assert.ok(measurements[0].authority>=measurements[1].authority*2);
 });
 
@@ -77,7 +77,7 @@ test('observation retains every authority check while bounding one peer burst un
  f.onAuthority(async()=>{checks++;active++;peak=Math.max(peak,active);try{if(active+7>16){overloaded++;throw Object.assign(Error('static authority overload'),{code:'APP_RESOURCE_SYNC_FAILURE',status:503});}await delay(100);}finally{active--;}});
  const result=await f.runner({onDiagnostic:e=>events.push(e)}).runOnce();
  console.log(JSON.stringify({event:'synthetic_observation_authority_burst',peer_limit:16,competing_requests:7,peak,overloaded,checks,status:result.status,diagnostics:events}));
- assert.equal(result.status,'returned');assert.equal(result.page.upserts.length,25);assert.equal(overloaded,0);assert.equal(peak,1);assert.equal(f.resultCalls,1);assert.ok(checks>25);
+ assert.equal(result.status,'returned');assert.equal(result.page.upserts.length,5);assert.equal(overloaded,0);assert.equal(peak,1);assert.equal(f.resultCalls,1);assert.ok(checks>5);
 });
 
 
@@ -107,7 +107,7 @@ test('mid-provider Host503 settles queued checks without further provider I/O or
 test('expired OAuth refresh does not reacquire its held custody lock before metadata I/O',async t=>{
  const f=await fixture(t,{rejectRecursiveLocks:true}),events=[];await f.expireToken();const result=await f.runner({onDiagnostic:e=>events.push(e)}).runOnce();
  console.log(JSON.stringify({event:'synthetic_expired_oauth_observation',status:result.status,recursive_locks:f.recursiveLocks,refresh_requests:f.refreshCalls,authority_checks:f.authorityCalls}));
- assert.equal(f.recursiveLocks,0,'OAuth transport must not reacquire the account lock held by getAccessToken');assert.equal(result.status,'returned');assert.equal(f.refreshCalls,1);assert.equal(result.page.upserts.length,25);assert.equal(f.resultCalls,1);assert.deepEqual(events,[]);
+ assert.equal(f.recursiveLocks,0,'OAuth transport must not reacquire the account lock held by getAccessToken');assert.equal(result.status,'returned');assert.equal(f.refreshCalls,1);assert.equal(result.page.upserts.length,5);assert.equal(f.resultCalls,1);assert.deepEqual(events,[]);
 });
 
 

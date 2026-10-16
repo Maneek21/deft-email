@@ -1,4 +1,4 @@
-import {createApiTransport,PROVIDER_LIMITS,fail,text,pathId,pageLimit,digest,encodeCursor,decodeCursor} from './contract.mjs';
+import {createApiTransport,PROVIDER_LIMITS,fail,text,pathId,pageLimit,digest,encodeCursor,decodeCursor,decodePageLimitCursor} from './contract.mjs';
 import {gmailMetadataSummary} from './gmail.mjs';
 import {microsoftMetadataSummary} from './microsoft.mjs';
 
@@ -11,9 +11,18 @@ export function createMetadataResetReader(options){
  const provider=options.account.provider,api=createApiTransport(options,provider==='gmail'?'https://gmail.googleapis.com':'https://graph.microsoft.com'),{account}=api;
  return {
   async resetStartCheckpoint(){if(provider!=='gmail')return null;return sequence((await api.request(`${gmail}/profile`)).historyId);},
-  async resetReadMetadata(id){
+  async resetListMessageIds({limit,cursor,budget}){
+   if(provider!=='gmail')fail('EMAIL_PROVIDER_OPERATION_UNSUPPORTED');limit=pageLimit(limit);
+   // Retain exactly the existing account/epoch/25-item inventory cursor binding.
+   const {binding,value:token}=decodePageLimitCursor(cursor,limit,size=>digest({account_id:account.account_id,epoch:account.authority_epoch,operation:'read',query:'',label_ids:[],include_spam_trash:true,limit:size})),url=new URL(`${gmail}/messages`);
+   url.searchParams.set('maxResults',String(limit));url.searchParams.set('includeSpamTrash','true');if(token!==null)url.searchParams.set('pageToken',text(token,4096));
+   const page=await api.request(url.href,{maxBytes:PROVIDER_LIMITS.metadata_bytes,budget}),rows=page.messages??[];if(!Array.isArray(rows)||rows.length>limit)fail('EMAIL_PROVIDER_RESPONSE_INVALID');
+   const ids=rows.map(row=>text(row.id)),next_cursor=page.nextPageToken===undefined?null:encodeCursor(binding,text(page.nextPageToken,4096));
+   if(new Set(ids).size!==ids.length)fail('EMAIL_PROVIDER_RESPONSE_INVALID');if(next_cursor!==null&&next_cursor===cursor)fail('EMAIL_PROVIDER_PAGINATION_STALLED');return {ids,next_cursor};
+  },
+  async resetReadMetadata(id,{budget}={}){
    text(id);const url=new URL(`${provider==='gmail'?gmail:graph}/messages/${pathId(id)}`);if(provider==='gmail')url.searchParams.set('format','metadata');else url.searchParams.set('$select',graphFields);
-   try{const data=await api.request(url.href,{headers:provider==='microsoft'?{Prefer:'IdType="ImmutableId"'}:{}});if(data.id!==id)fail('EMAIL_PROVIDER_RESPONSE_INVALID');return provider==='gmail'?gmailMetadataSummary(account,data):microsoftMetadataSummary(account,data);}catch(error){if(error.code!=='EMAIL_PROVIDER_NOT_FOUND')throw error;await api.authority('read');return null;}
+   try{const data=await api.request(url.href,{budget,headers:provider==='microsoft'?{Prefer:'IdType="ImmutableId"'}:{}});if(data.id!==id)fail('EMAIL_PROVIDER_RESPONSE_INVALID');return provider==='gmail'?gmailMetadataSummary(account,data):microsoftMetadataSummary(account,data);}catch(error){if(error.code!=='EMAIL_PROVIDER_NOT_FOUND')throw error;await api.authority('read');return null;}
   },
   async resetReadChanges({checkpoint,cursor=null,folder_id=null,limit=25}){
    limit=pageLimit(limit);const binding=digest({provider,account_id:account.account_id,epoch:account.authority_epoch,checkpoint,folder_id,limit}),inner=decodeCursor(cursor,binding);
