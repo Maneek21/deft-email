@@ -232,3 +232,39 @@ test('reader top menu nominates Task and Knowledge through the current governed 
  await ui.click('create_task');await ui.click('knowledge');assert.equal(calls.length,0,'Host owns nomination and permission review; Worker calls no integration API');
  await ui.click('email_settings');await ui.click('saved_content');await ui.click('settings_preferences');assert.match(node(ui,'settings_empty').text,/load automatically.*ask before loading/i);
 });
+
+for(const count of [1,26])test(`Undo rebinds ${count} successful sources after the confirmed effect refreshes their digests`,async()=>{
+ const newer='sha256:'+'b'.repeat(64),messages=Array.from({length:count},(_,index)=>({...mail,record_id:`11111111-1111-4111-8111-${String(index+1).padStart(12,'0')}`,data:{...mail.data,seen:true}}));
+ const receipt={snapshot_id:id,snapshot_digest:digest},runs=new Map();let refreshed=false,undoCalls=0;
+ const ui=await start({listMailbox:async()=>({outcome:'completed',items:messages.map(message=>refreshed?{...message,content_digest:newer,data:{...message.data,seen:false}}:message),next_cursor:null}),refresh:async()=>{refreshed=true;return {outcome:'completed'};},request:async(kind,key,input)=>{
+  if(kind==='dialog'){
+   const children=key==='review_resource_action_batch'?input.children:[input];
+   if(children[0].operation_key==='undo'){for(const child of children){assert.equal(child.undo.snapshot_id,receipt.snapshot_id);assert.equal(child.undo.snapshot_digest,receipt.snapshot_digest);assert.ok(child.sources.every(source=>source.content_digest===newer),'Host only routes the current retained source digest');}undoCalls++;return {cancelled:true};}
+   const entries=children.map((child,index)=>{const run_id=`22222222-2222-4222-8222-${String(index+1).padStart(12,'0')}`;runs.set(run_id,child);return {run_id};});
+   return children.length===1?{run:{id:entries[0].run_id},prepared_ref:receipt}:{batch:{id},items:entries,prepared_refs:children.map(()=>receipt)};
+  }
+  const child=runs.get(input.run_id);return {id:input.run_id,state:'succeeded',output:{operation_id:input.run_id,operation_key:child.operation_key,automatic_retry:false,item_count:child.sources.length,succeeded_count:child.sources.length,failed_count:0,items_json:JSON.stringify(child.sources.map(source=>({record_id:source.record_id,state:'succeeded'})))}};
+ }});
+ await ui.click('toggle_selection');await ui.click('select_loaded');await ui.click('organize_mark_unread');await ui.click('check_mailbox_action');assert.ok(node(ui,'undo_mailbox_action'));
+ await ui.click('undo_mailbox_action');assert.equal(undoCalls,1);assert.doesNotMatch(node(ui,'status')?.text??'',/could not be confirmed/);
+});
+
+test('Undo rejects a missing or foreign-account loaded source without opening any review',async()=>{
+ const {currentUndoSources}=await import('./folder-ui.mjs');const original={account_target_key:'primary',sources:[{resource_key:'inbox',record_id:id,content_digest:digest}]};
+ for(const rows of [[],[{...mail,account_target_key:'recipient'}],[{...mail,account_target_key:'primary',content_digest:'invalid'}],[{...mail,account_target_key:'primary',tombstone:true}]])assert.throws(()=>currentUndoSources(original,rows),/Undo source unavailable/);
+ const next=currentUndoSources(original,[{...mail,account_target_key:'primary',content_digest:'sha256:'+'b'.repeat(64)}]);assert.equal(next[0].content_digest,'sha256:'+'b'.repeat(64));assert.equal(original.sources[0].content_digest,digest);
+});
+
+test('Undo is not advertised when the completed source leaves the loaded mailbox page',async()=>{
+ let refreshed=false,dialogs=0;const run_id='22222222-2222-4222-8222-222222222222';
+ const ui=await start({listMailbox:async()=>({outcome:'completed',items:refreshed?[]:[mail],next_cursor:null}),refresh:async()=>{refreshed=true;return {outcome:'completed'};},request:async(kind)=>{if(kind==='dialog'){dialogs++;return {run:{id:run_id},prepared_ref:{snapshot_id:id,snapshot_digest:digest}};}return {id:run_id,state:'succeeded',output:{operation_id:run_id,operation_key:'archive',automatic_retry:false,item_count:1,succeeded_count:1,failed_count:0,items_json:JSON.stringify([{record_id:id,state:'succeeded'}])}};}});
+ await ui.click('mail_'+id.replaceAll('-',''));await ui.click('organize_archive');await ui.click('check_mailbox_action');assert.equal(node(ui,'undo_mailbox_action'),undefined);assert.equal(dialogs,1);
+});
+
+test('creating reading preferences preserves the automatic default and never rewrites an existing Ask choice',async()=>{
+ const created=[];const ui=await start({listSaved:async()=>({outcome:'completed',items:[],next_cursor:null}),createSaved:async(store,record_id,value)=>{created.push({store,value});return {outcome:'completed',record:{...row,store_key:store,record_id,summary:value}};}});
+ await ui.click('email_settings');await ui.click('saved_content');await ui.click('settings_preferences');await ui.click('new_setting');
+ assert.equal(created.length,1);assert.equal(created[0].store,'preferences');assert.equal(created[0].value.external_images,'always');assert.ok(node(ui,'setting_editor'));
+ const saved={...row,store_key:'preferences',summary:{external_images:'ask'}},other=await start({listSaved:async store=>({outcome:'completed',items:store==='preferences'?[saved]:[],next_cursor:null}),createSaved:async()=>{throw Error('Must not rewrite the saved privacy choice');}});
+ await other.click('email_settings');await other.click('saved_content');await other.click('settings_preferences');assert.equal(node(other,'new_setting').disabled,true);assert.ok(other.nodes().some(item=>item.description==='Ask before loading'));
+});

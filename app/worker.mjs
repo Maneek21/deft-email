@@ -1,6 +1,6 @@
 import {importedHistoryForm,importedHistoryMeta} from './imported-history.mjs';
 import {ruleMeta,ruleForm,ruleEvent,newRuleValue,rulePreviewQuery,ruleParameters,ruleReceiptNotice} from './rules-ui.mjs';
-import {folderMeta,folderReference,folderPath,folderChoices,succeededUndoSources,knownOrganizeReceipt,exactLoadedSelection} from './folder-ui.mjs';
+import {folderMeta,folderReference,folderPath,folderChoices,succeededUndoSources,currentUndoSources,knownOrganizeReceipt,exactLoadedSelection} from './folder-ui.mjs';
 import {emailSearchHelp,emailSearchUnsupportedReason} from './search-help.mjs';
 import {sentReceiptNotice} from './sent-status.mjs';
 import {emailProviderSupport,emailRowsProvider,emailOrganizeAvailable} from './provider-admission.mjs';
@@ -61,6 +61,8 @@ self.onmessage=event=>{
   button('email_settings','Settings','ghost',{selected:settingsModes.has(mode),disabled:busy||!canClose()}),
  ];
  function render(){
+  const undoGroups=batchUndo.length?batchUndo:undoSources.length&&originalOrganize?[{...originalOrganize,sources:undoSources}]:[];
+  const undoAvailable=undoGroups.length>0&&undoGroups.every(original=>{try{currentUndoSources(original,items);return true;}catch{return false;}});
   const composeAccountMismatch=accountTargets.length>1&&(accountChoice==='all'||accountChoice!==selectedAccountTarget);
   const composeAccountLabel=accountTargets.find(target=>target.key===selectedAccountTarget)?.label||'the current account';
   const toolbar=stack('toolbar',[button('compose',minimizedDraft?'Resume draft':'Compose','primary',{icon:'compose',disabled:busy||!!pendingCreate||!canClose()||(!minimizedDraft&&accountTargets.length>1&&(accountChoice==='all'||accountChoice!==selectedAccountTarget)),description:!minimizedDraft&&accountTargets.length>1?'Select the connected compose account in account settings.':undefined}),
@@ -111,7 +113,7 @@ self.onmessage=event=>{
    const primaryBulk=bulkChoices.filter(item=>['organize_archive','organize_trash'].includes(item.id)),moreBulk=bulkChoices.filter(item=>!primaryBulk.includes(item));
    const mailboxHeader=selectionMode?stack('mailbox_header',[stack('selection_summary',[menu('selection_menu','Selection',[{id:'select_loaded',label:'Select loaded messages (up to 100)',disabled:busy||!items.length},{id:'clear_selection',label:'Clear selection',disabled:busy||!checked.size}],{icon:items.length&&checked.size===items.length?'check':'select',disabled:busy}),text('selection_count',`${checked.size} selected`,'caption')],{layout:'horizontal'}),stack('selection_actions',[...primaryBulk.map(({danger,...item})=>button(item.id,item.label,'ghost',item)),...(moreBulk.length?[menu('bulk_more','More actions',moreBulk,{icon:'more',disabled:busy||actionPending||!checked.size})]:[]),button('toggle_selection','Exit selection','ghost',{icon:'close',disabled:busy})],{layout:'horizontal'})],{layout:'toolbar'}):stack('mailbox_header',[text('folder_title',appliedQuery?'Search results':folders[folder].label,'heading'),stack('mailbox_header_actions',[toolbar.children[2],toolbar.children[1],button('toggle_selection','Select messages','ghost',{icon:'select',disabled:busy}),toolbar.children[0]],{layout:'horizontal'})],{layout:'toolbar'});
    const list=stack('message_list',[mailboxHeader,...(search?[search,...(searchHelpOpen?[text('search_syntax',emailSearchHelp,'caption'),text('keyboard_help','Keyboard: C compose, / search, J/K move between messages, Enter open, R reply. Shortcuts pause while typing or using dialogs.','caption')]:[])]:[]),
-     ...((undoSources.length||batchUndo.length)?[button('undo_mailbox_action','Undo last completed change','ghost',{disabled:busy||actionPending})]:[]),
+     ...(undoAvailable?[button('undo_mailbox_action','Undo last completed change','ghost',{disabled:busy||actionPending})]:[]),
     ...((pendingActionRun||pendingOrganizeBatch)?[button('check_mailbox_action','Check action status','ghost',{disabled:busy})]:[]),
     ...rowGroups('mail_rows',items.map(item=>button(rowId('mail',item),label(item),'list',{selected:selectionMode?checked.has(item.record_id):selected?.record_id===item.record_id,
      ...(selectionMode?{icon:checked.has(item.record_id)?'check':'select'}:{}),eyebrow:scalar(item,'sender')||scalar(item,'from'),description:[accountChoice==='all'&&accountTargets.length>1?item.account_label:'',scalar(item,'preview')||scalar(item,'snippet')].filter(Boolean).join(' · '),meta:shortDate(scalar(item,'date')),disabled:busy||selectionMode&&!checked.has(item.record_id)&&checked.size>=100}))),
@@ -193,7 +195,7 @@ self.onmessage=event=>{
  async function createSetting(address){
   if(pendingSetting)throw Error('Check the existing change first');
   if(settingStore==='signatures'){const identities=verifiedSettingIdentities(await sdk.request('app_data','signatures',{operation:'connection_metadata',input:{store_key:'signatures'}}));if(!identities.some(identity=>identity.address===address))throw Error('Verified identity changed');}
-  const value=settingStore==='smtp_preferences'?{sent_copy_mode:'server_managed'}:settingStore==='templates'?{title:'New template',subject:'',body:'',body_html:''}:settingStore==='preferences'?{external_images:'ask'}:{address,plain:'',html:'',placement:'none',automatic:{schema_version:'deft.signature_automatic.v1',enabled:false}};
+  const value=settingStore==='smtp_preferences'?{sent_copy_mode:'server_managed'}:settingStore==='templates'?{title:'New template',subject:'',body:'',body_html:''}:settingStore==='preferences'?{external_images:'always'}:{address,plain:'',html:'',placement:'none',automatic:{schema_version:'deft.signature_automatic.v1',enabled:false}};
   const id=newRecordId();pendingSetting={store:settingStore,record_id:id};const result=await sdk.createRecord(settingStore,id,value);if(result.outcome!=='completed'||!result.record)throw Error('Setting creation unconfirmed');
   const meta=settingMeta(settingStore,result.record);if(meta.record_id!==id||meta.status!=='draft')throw Error('Setting creation changed');pendingSetting=null;setting=meta;settingIdentities=[];mode='setting';
  }
@@ -236,7 +238,7 @@ self.onmessage=event=>{
   mode='reader';folderPurpose=null;
   if(result?.cancelled===true)return;
   if(result?.run&&typeof result.run.id==='string'){
-   undoSources=[];originalOrganize=operation!=='undo'&&['archive','trash','spam','not_spam','restore','move','labels','mark_read','mark_unread','star','unstar'].includes(operation)&&result.prepared_ref?{run_id:result.run.id,operation,sources,prepared_ref:result.prepared_ref}:null;
+   undoSources=[];originalOrganize=operation!=='undo'&&['archive','trash','spam','not_spam','restore','move','labels','mark_read','mark_unread','star','unstar'].includes(operation)&&result.prepared_ref?{run_id:result.run.id,operation,sources,account_target_key:rows[0]?.account_target_key,prepared_ref:result.prepared_ref}:null;
    actionPending=true;pendingActionRun=result.run.id;status='Request submitted. Check original action status for its exact receipt.';
   }else if(result?.unknown===true){actionPending=true;status='The action may have been submitted. Check Activity before trying again.';}
   else status='Action review closed. Refresh or check the account status before trying again.';
@@ -245,7 +247,7 @@ self.onmessage=event=>{
   let result;try{result=await sdk.request('dialog','review_resource_action_batch',{children});}catch{actionPending=true;status='The selected action outcome is not confirmed. Check Activity before another change.';return;}
   mode='reader';folderPurpose=null;if(result?.cancelled)return;
   if(result?.batch?.id&&Array.isArray(result.items)&&result.items.length===children.length&&Array.isArray(result.prepared_refs)&&result.prepared_refs.length===children.length){
-   undoSources=[];batchUndo=[];originalOrganize=null;pendingOrganizeBatch={id:result.batch.id,items:result.items.map((item,ordinal)=>({run_id:item.run_id,operation:children[ordinal].operation_key,sources:children[ordinal].sources,prepared_ref:result.prepared_refs[ordinal]}))};actionPending=true;status='Selected action submitted in exact groups. Check original group status.';
+   undoSources=[];batchUndo=[];originalOrganize=null;pendingOrganizeBatch={id:result.batch.id,items:result.items.map((item,ordinal)=>({run_id:item.run_id,operation:children[ordinal].operation_key,sources:children[ordinal].sources,account_target_key:items.find(row=>row.record_id===children[ordinal].sources[0]?.record_id)?.account_target_key,prepared_ref:result.prepared_refs[ordinal]}))};actionPending=true;status='Selected action submitted in exact groups. Check original group status.';
   }else if(result?.unknown){actionPending=true;status='Selected action may have been submitted. Check Activity; no group will be resubmitted here.';}
   else status='Selected action review closed. Refresh before another change.';
  }
@@ -346,8 +348,8 @@ self.onmessage=event=>{
    else if(/^setting_(templates|signatures|preferences|smtp_preferences)_[a-f0-9]{32}$/.test(event.node_id)&&mode==='settings'){const item=settingRows.find(row=>rowId('setting_'+settingStore,row)===event.node_id);if(!item)throw Error('Saved content unavailable');const meta=settingMeta(settingStore,await sdk.readRecordMeta(settingStore,item.record_id));if(meta.record_id!==item.record_id||meta.status!=='draft')throw Error('Saved content changed');setting={...meta,summary:{...item.summary,...meta.summary}};mode='setting';}
    else if(event.node_id==='account_all'||event.node_id.startsWith('account_pick_')){if(!canChangeAccount())return;const choice=event.node_id==='account_all'?'all':accountTargets[Number(event.node_id.slice(13))]?.key;if(!choice)throw Error('Account selection unavailable');if(choice===accountChoice)return;accountChoice=choice;items=[];selected=null;conversation=null;cursor=null;observed=null;complete=false;pane='list';checked.clear();selectionMode=false;draft=null;minimizedDraft=null;draftRows=[];historyRows=[];initialDraftId=null;mode='reader';importedRows=[];importedCursor=null;importedChoice=null;importedAccount=null;undoSources=[];batchUndo=[];originalOrganize=null;originalRule=null;ruleRows=[];ruleOrder=null;ruleChoice=null;ruleEditor=null;rulePreview=[];ruleChecked.clear();ruleAccount=null;folderRows=[];folderCursor=null;folderChoice=null;folderPurpose=null;folderName='';folderPreferences=[];folderAccountTarget=null;sendNotice='';inspectionRun=null;accountPages.clear();render();await mailbox({resetSelection:true});}
    else if(event.node_id==='compose'){setting=null;if(minimizedDraft)await restoreDraft();else await compose();}
-   else if(event.node_id==='undo_mailbox_action'&&batchUndo.length){const owned=batchUndo;batchUndo=[];await organizeBatch(owned.map(original=>({store_key:'drafts',resource_key:'inbox',action_key:'organize_messages',operation_key:'undo',sources:original.sources,undo:original.prepared_ref})));}
-   else if(event.node_id==='undo_mailbox_action'&&originalOrganize&&undoSources.length){const owned=originalOrganize,refs=undoSources;undoSources=[];await organize('undo',{undo:owned.prepared_ref},refs);}
+   else if(event.node_id==='undo_mailbox_action'&&batchUndo.length){const owned=batchUndo;batchUndo=[];await organizeBatch(owned.map(original=>({store_key:'drafts',resource_key:'inbox',action_key:'organize_messages',operation_key:'undo',sources:currentUndoSources(original,items),undo:original.prepared_ref})));}
+   else if(event.node_id==='undo_mailbox_action'&&originalOrganize&&undoSources.length){const owned=originalOrganize,refs=undoSources;undoSources=[];await organize('undo',{undo:owned.prepared_ref},currentUndoSources({...owned,sources:refs},items));}
    else if(event.node_id==='check_mailbox_action')await checkMailboxAction();
    else if(event.node_id==='toggle_selection'&&mode==='reader'){selectionMode=!selectionMode;checked.clear();}
    else if(event.node_id==='select_loaded'&&selectionMode){checked=new Map(items.slice(0,100).map(item=>[item.record_id,item.content_digest]));}
