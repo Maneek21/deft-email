@@ -9,22 +9,24 @@ import {createDurableStore} from './durable-store.mjs';
 import {createConnectionRuntime} from './connection-runtime.mjs';
 import {createDataRuntime} from './data-runtime.mjs';
 import {createForegroundCache} from './foreground-cache.mjs';
+import {createSettingsStore} from './settings-store.mjs';
 import {createMailboxStore} from './mailbox-store.mjs';
 import {createEncryptedEmailCustody} from './vendor/providers/custody-encrypted.mjs';
 import {digest} from './contract.mjs';
 import {makeScope,registrationFor,client,twoAccountProviderFixture,authority,beginFor,nextFor} from './test-support.mjs';
 
 async function fixture(t,{authorityLatency=0,now=Date.now}={}){
- const parent=await mkdtemp(join(tmpdir(),'email-foreground-cache-')),root=join(parent,'private'),encryption_key=Buffer.alloc(32,53),scope=makeScope(),registration=registrationFor(scope),provider=twoAccountProviderFixture();
+ const parent=await mkdtemp(join(tmpdir(),'email-foreground-cache-')),root=join(parent,'private'),encryption_key=Buffer.alloc(32,53),scope=makeScope(),registration=registrationFor(scope),secondScope={...scope,target_key:'second_mailbox',resource_binding_id:randomUUID(),runtime_registration_id:randomUUID()},secondRegistration=registrationFor(secondScope),provider=twoAccountProviderFixture();
  const store=await createDurableStore({root,encryption_key,key_id:'cache-fixture',allow_windows_fixture:process.platform==='win32'});let providerCalls=0,authorityCalls=0,allowed=true,onAuthority=null,onProvider=null;
  const fetch=async(...args)=>{providerCalls++;if(onProvider){const response=await onProvider(...args);if(response instanceof Response)return response;}return provider(...args);};
  const connections=createConnectionRuntime({registration,client,store,encryption_key,key_id:'cache-fixture',assertCurrent:authority,fetch}),begin=beginFor(scope),begun=await connections.request(begin),callback=nextFor(begin,begun,'callback');callback.callback.code='fixture-first-account';const connected=await connections.request(callback);
  const consent={consent_id:randomUUID(),consent_digest:'sha256:'+'d'.repeat(64),data_policy_digest:'sha256:'+'e'.repeat(64)},connection={session_id:begin.session_id,session_revision:5,runtime_session_ref:begun.runtime_session_ref,account_ref:connected.account.account_ref};
- const dependencies={registrations:[registration],client,store,encryption_key,key_id:'cache-fixture',now,assertCurrent:async input=>{authorityCalls++;await delay(authorityLatency);if(onAuthority)await onAuthority(input);if(!allowed)throw Error('fixture revoked');return {...input,allowed:true};},fetch};let runtime=createDataRuntime(dependencies);
+ const dependencies={registrations:[registration,secondRegistration],client,store,encryption_key,key_id:'cache-fixture',now,assertCurrent:async input=>{authorityCalls++;await delay(authorityLatency);if(onAuthority)await onAuthority(input);if(!allowed)throw Error('fixture revoked');return {...input,allowed:true};},fetch};let runtime=createDataRuntime(dependencies);
  const request=(operation,input)=>({schema_version:'deft.app_data_runtime.v1',request_id:randomUUID(),scope,connection,authority:consent,operation,expires_at:new Date(now()+29000).toISOString(),input});
  t.after(async()=>{await store.close();await rm(parent,{recursive:true,force:true});});
+ const secondAccount=async()=>{const secondConnections=createConnectionRuntime({registration:secondRegistration,client,store,encryption_key,key_id:'cache-fixture',assertCurrent:authority,fetch}),start=beginFor(secondScope),opened=await secondConnections.request(start),callback=nextFor(start,opened,'callback');callback.callback.code='fixture-second-account';const second=await secondConnections.request(callback),current={session_id:start.session_id,session_revision:5,runtime_session_ref:opened.runtime_session_ref,account_ref:second.account.account_ref};return {account_id:current.account_ref,request:(operation,input)=>({...request(operation,input),scope:secondScope,connection:current})};};
  const localScope={org_id:scope.org_id,owner_user_id:scope.owner_user_id,account_id:connection.account_ref},mailbox=createMailboxStore({store,now}),binding=(await store.withLock({key:'email.runtime.session.'+begin.session_id},tx=>tx.read())).value.binding,custody=createEncryptedEmailCustody({store,encryption_key,key_id:'cache-fixture',now});
- return {scope,localScope,mailbox,custody,binding,connection,request,store,runtime,run:(...args)=>runtime.request(...args),counts:()=>({provider:providerCalls,authority:authorityCalls}),deny:()=>{allowed=false;},allow:()=>{allowed=true;},onAuthority:fn=>{onAuthority=fn;},onProvider:fn=>{onProvider=fn;},restart:()=>{runtime=createDataRuntime(dependencies);}};
+ return {scope,localScope,mailbox,custody,binding,connection,request,secondAccount,store,runtime,run:(...args)=>runtime.request(...args),counts:()=>({provider:providerCalls,authority:authorityCalls}),deny:()=>{allowed=false;},allow:()=>{allowed=true;},onAuthority:fn=>{onAuthority=fn;},onProvider:fn=>{onProvider=fn;},restart:()=>{runtime=createDataRuntime(dependencies);}};
 }
 const listInput={store_key:'drafts',resource_key:'inbox',cursor:null,limit:25,query:'in:inbox'};
 test('repeated foreground query and presentation reuse exact data under fresh current authority',async t=>{
@@ -111,4 +113,23 @@ test('partial query memo preserves exact cursor, original observation and incomp
 
 test('two foreground requests retain the exact session lock and second hit uses fresh authority',async t=>{
  const f=await fixture(t);let entered,release;const ready=new Promise(r=>entered=r),pause=new Promise(r=>release=r);let firstProvider=true;f.onProvider(async()=>{if(firstProvider){firstProvider=false;entered();await pause;}});const first=f.run(f.request('resource_list',listInput));await ready;const before=f.counts();const second=f.run(f.request('resource_list',listInput));try{await delay(30);assert.equal(f.counts().provider,before.provider);assert.ok(f.counts().authority>=before.authority);}finally{release();}const [one,two]=await Promise.all([first,second]);assert.deepEqual(two.items,one.items);assert.equal(two.freshness.provider_observed,false);assert.equal(f.counts().provider-before.provider,1);assert.ok(f.counts().authority-before.authority>=2);
+});
+
+test('presentation image defaults read only the current account preference outside the source memo',async t=>{
+ const f=await fixture(t),second=await f.secondAccount(),settings=createSettingsStore({store:f.store}),other={...f.localScope,account_id:second.account_id},id=randomUUID();
+ const options=()=>({request_id:randomUUID(),user_id:f.localScope.owner_user_id,check:()=>{}});
+ await settings.create(other,'preferences',randomUUID(),{external_images:'ask'},options());
+ const first=await f.run(f.request('resource_list',listInput)),source={store_key:'drafts',resource_key:'inbox',record_id:first.items[0].record_id,content_digest:first.items[0].content_digest};
+ const view=()=>f.run(f.request('resource_read_presentation',source));
+ assert.equal((await view()).presentation.external_images,'always','another account ask preference is never a fallback');
+ let saved=await settings.create(f.localScope,'preferences',id,{external_images:'ask'},options());
+ const before=f.counts().provider;assert.equal((await view()).presentation.external_images,'ask');assert.equal(f.counts().provider,before,'the source memo cannot hide a changed privacy choice');
+ saved=await settings.save(f.localScope,'preferences',id,{external_images:'always'},{...options(),expected_revision:saved.revision,expected_content_digest:saved.content_digest});
+ assert.equal((await view()).presentation.external_images,'always');
+ const secondPage=await f.run(second.request('resource_list',listInput)),secondSource={...source,record_id:secondPage.items[0].record_id,content_digest:secondPage.items[0].content_digest};
+ assert.equal((await f.run(second.request('resource_read_presentation',secondSource))).presentation.external_images,'ask','the second connected account uses its own ask preference, not the first account always choice');
+ await settings.archive(f.localScope,'preferences',id,{...options(),expected_revision:saved.revision,expected_content_digest:saved.content_digest});
+ assert.equal((await view()).presentation.external_images,'always');
+ assert.equal((await settings.list(other,'preferences',{cursor:null,limit:1},()=>{})).items[0].summary.external_images,'ask','reading never rewrites another account preference');
+ f.deny();await assert.rejects(view());
 });

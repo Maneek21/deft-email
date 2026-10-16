@@ -16,7 +16,7 @@ function retainedSource(scope,item,previous){
  const {authority_epoch:old,...oldIdentity}=a,{authority_epoch:current,...currentIdentity}=b;
  return canonical(oldIdentity)===canonical(currentIdentity)?a:b;
 }
-export const resourceView=record=>({record_id:record.record_id,content_digest:'sha256:'+digest([record.logical_message_id,record.provider_revision,record.provider_source,record.data]),revision:String(record.revision),label:(record.data.label||record.data.subject||'(No subject)').replace(/[\u0000-\u001f\u007f<>]/gu,' ').slice(0,200)||'(No subject)',data:record.data,tombstone:record.deleted,membership_generation:record.revision,checkpoint_generation:record.checkpoint_generation??1});
+export const resourceView=record=>({record_id:record.record_id,content_digest:'sha256:'+digest([record.logical_message_id,record.provider_revision,record.provider_source,record.data]),revision:String(record.revision),label:(typeof record.data.subject==='string'?record.data.subject:record.data.label||'').replace(/[\u0000-\u001f\u007f<>]/gu,' ').slice(0,200)||'(No subject)',data:record.data,tombstone:record.deleted,membership_generation:record.revision,checkpoint_generation:record.checkpoint_generation??1});
 /** App-owned locator/catalog. Provider page state advances only after durable
  * message/tombstone rows; partial pages never infer absence/deletion. */
 export function createMailboxStore({store,now=Date.now,imapAliases}){

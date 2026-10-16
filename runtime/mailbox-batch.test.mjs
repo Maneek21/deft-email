@@ -51,7 +51,7 @@ test('real runtime synthetic 25-message list reduces authority amplification wit
  const connection=createConnectionRuntime({registration,client,store,encryption_key,key_id:'synthetic-batch',assertCurrent:authority,fetch}),begin=beginFor(s),begun=await connection.request(begin),connected=await connection.request(nextFor(begin,begun,'callback'));
  let delayMs=0;const runtime=createDataRuntime({registrations:[registration],client,store,encryption_key,key_id:'synthetic-batch',assertCurrent:async input=>{checks++;if(delayMs)await new Promise(r=>setTimeout(r,delayMs));return {...input,allowed:true};},fetch});
  const measurements=[];for(const ms of [0,100]){delayMs=ms;checks=0;providerCalls=0;const started=performance.now(),result=await runtime.request({schema_version:'deft.app_data_runtime.v1',request_id:randomUUID(),scope:s,connection:{session_id:begin.session_id,session_revision:5,runtime_session_ref:begun.runtime_session_ref,account_ref:connected.account.account_ref},authority:{consent_id:randomUUID(),consent_digest:'sha256:'+'d'.repeat(64),data_policy_digest:'sha256:'+'e'.repeat(64)},operation:'resource_list',expires_at:new Date(Date.now()+29000).toISOString(),input:{store_key:'drafts',resource_key:'inbox',query:'in:inbox',cursor:null,limit:25}});
- assert.equal(result.items.length,25);assert.equal(providerCalls,26);assert.equal(checks,32);measurements.push({authority_delay_ms:ms,authority_checks:checks,synthetic_provider_calls:providerCalls,elapsed_ms:Math.round(performance.now()-started)});}
+ assert.equal(result.items.length,25);assert.equal(providerCalls,26);assert.equal(checks,10);measurements.push({authority_delay_ms:ms,authority_checks:checks,synthetic_provider_calls:providerCalls,elapsed_ms:Math.round(performance.now()-started)});}
  t.diagnostic(JSON.stringify({network_calls:0,measurements}));
 });
 
@@ -68,4 +68,14 @@ test('interrupted cached row updates invalidate warm unread totals before a repl
 test('unchanged cache rows preserve warm generation and canonical unread coverage',async t=>{
  const store=await fixture(t),mailbox=createMailboxStore({store}),s=scope(),initial=page(s,0,2);initial.items.forEach(item=>item.flags={seen:false});await mailbox.commit(s,initial,async()=>{});
  const before=await mailbox.unreadSnapshot(s,[],async()=>{});await mailbox.commit(s,{...initial,state_updates:[]},async()=>{});const after=await mailbox.unreadSnapshot(s,[],async()=>{});assert.deepEqual(after,before);
+});
+
+test('resource labels use the exact message subject without sender or recipient decorations',()=>{
+ const record={record_id:'11111111-1111-4111-8111-111111111111',logical_message_id:'mail_'+'a'.repeat(64),provider_revision:'one',provider_source:{provider:'gmail'},revision:1,deleted:false,data:{subject:'Only the subject',label:'Only the subject · Sender <sender@example.test> → recipient@example.test',sender:'Sender <sender@example.test>',recipients:'recipient@example.test'}};
+ const result=resourceView(record);
+ assert.equal(result.label,'Only the subject');assert.deepEqual(result.data,record.data);
+ assert.equal(resourceView({...record,data:{...record.data,label:'Different descriptive label'}}).label,result.label);
+ assert.equal(resourceView({...record,data:{...record.data,subject:''}}).label,'(No subject)');
+ const {subject,...legacy}=record.data;assert.equal(resourceView({...record,data:legacy}).label,'Only the subject · Sender  sender@example.test  → recipient@example.test');
+ assert.equal(result.content_digest,resourceView({...record,label:'view-only title'}).content_digest,'title projection does not change immutable source identity');
 });

@@ -1,17 +1,17 @@
 # Compatibility and source identity
 
-The current source candidate is App `1.9.0-preview.8` with packed Kit `0.1.0-alpha.36` and unchanged Runtime `0.4.0-preview.10` with Kit `0.1.0-alpha.35`. It requires Host schema120 and the generic `menu.v1` capability. The UI upgrade keeps the existing permission declarations and exact-message Send review. Deploy the compatible Host before upgrading the App; use exact build and live receipts rather than inferring acceptance from version labels.
+The current source candidate is App `1.9.0-preview.9` with packed Kit `0.1.0-alpha.37` and Runtime `0.4.0-preview.11` with Kit `0.1.0-alpha.35`. It requires Host schema120 and the generic `menu.v1` governed-document integration contract. The App nominates Task/Knowledge from the reader menu; Host owns current-source validation and permission review. Runtime presentation defaults external images per actual account preference without changing source digests. Deploy the compatible Host before upgrading the App; exact-message Send review remains unchanged. Use exact build and live receipts rather than version labels as acceptance.
 
 Schema 117 historically rejected `record_stores[].supplemental_effects` with `APP_V7_RECORD_STORE_INVALID` and rolled back activation. Schema 118 adds strict signed-declaration validation; actual PostgreSQL fresh/retained activation regressions and the preceding preview.3 public activation passed without bypassing the guard.
 
 | Boundary | Exact known identity | Status |
 |---|---|---|
-| Current Host prerequisite | schema120 and matching public Kit36 contracts, including `menu.v1` | Retains Kit35 compatibility for the existing Runtime and preceding App; exact build/source and live proof required |
+| Current Host prerequisite | schema120 and matching public Kit37 contracts, including `menu.v1` | Retains Kit35 compatibility for the existing Runtime and preceding App; exact build/source and live proof required |
 | Historical Host database contract | schema118 | Fresh and supported retained-lineage regression proof; preceding preview.3 installed acceptance |
 | Historical matched Host source | `25492e34489c0b61144d1ff0e70cbf480a70e27c` | [Complete source offer](https://demo.deft.ing/downloads/deft-host-25492e34-source-offer.html), including retained overlays |
 | Current Host review | [Deft PR357](https://github.com/Maneek21/Deft/pull/357) | Require final exact-head required checks, build/source offer and installed proof |
-| Current Email source | [Email PR1](https://github.com/Maneek21/deft-email/pull/1), preview.8 / Runtime preview.10 | Build and installed receipts must identify their exact source |
-| Current App Kit | `0.1.0-alpha.36` | SHA256 `2f4cc1dc08005b9b6191d6aaff409be61bee3b726b6cdf514a54cc7739adfc9d`; sealed bytes |
+| Current Email source | [Email PR1](https://github.com/Maneek21/deft-email/pull/1), preview.9 / Runtime preview.11 | Build and installed receipts must identify their exact source |
+| Current App Kit | `0.1.0-alpha.37` | SHA256 `9cc83a3ea8d1ac5593b23fddaf34c74a842840bb70d1c09acdc59d800197a024`; sealed bytes |
 | Current Runtime Kit | `0.1.0-alpha.35` | SHA256 `82c2d5bff2776e423b58647fad0f4a6a6430535f4e60c8146fed737d83f33ad5`; unchanged sealed bytes |
 | Historical Kit34 | `0.1.0-alpha.34` | SHA256 `d5b0c498025684e4eae9fafe950846794b39874fac1f3277914e7e3c61bd93ef`; historical sealed bytes unchanged |
 | Historical Kit33 | `0.1.0-alpha.33` | SHA256 `c022a3e215766d9730367002f210013ec14b46e01ee6fdf71ed25ca754cb9037`; historical sealed bytes unchanged |

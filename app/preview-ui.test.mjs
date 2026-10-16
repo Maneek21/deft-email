@@ -3,7 +3,7 @@ import test from 'node:test';
 import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
 import {webcrypto} from 'node:crypto';
-import {DeftExperienceRecordFormV3NodeSchema} from '@deft/app-kit';
+import {DeftExperienceRecordFormV3NodeSchema,parseDeftExperienceMenuNode} from '@deft/app-kit';
 
 const id='11111111-1111-4111-8111-111111111111',digest='sha256:'+'a'.repeat(64);
 const mail={record_id:id,content_digest:digest,label:'Preview message',data:{provider:'gmail',subject:'Preview message',sender:'Sender <sender@example.test>',date:'2026-10-13T10:00:00Z',preview:'A controlled preview message.'}};
@@ -218,4 +218,17 @@ test('reader menu Conversation dispatches only the bounded selected-message quer
 test('loaded selection stays bounded and unavailable provider operations never dispatch a review',async()=>{
  const messages=Array.from({length:105},(_,i)=>({...mail,record_id:`11111111-1111-4111-8111-${String(i+1).padStart(12,'0')}`})),ui=await start({messages});await ui.click('toggle_selection');await ui.click('select_loaded');assert.equal(node(ui,'selection_count').text,'100 selected');
  const calls=[],unsupported=await start({messages:[{...mail,data:{...mail.data,provider:'unsupported'}}],request:async(...args)=>calls.push(args)});await unsupported.click('mail_'+id.replaceAll('-',''));assert.equal(node(unsupported,'organize_archive'),undefined);await unsupported.click('organize_archive');assert.equal(calls.length,0);assert.match(node(unsupported,'status').text,/Organize is unavailable/);
+});
+
+test('reader top menu nominates Task and Knowledge through the current governed document',async()=>{
+ const calls=[],ui=await start({request:async(...args)=>calls.push(args)});await ui.click('mail_'+id.replaceAll('-',''));
+ const more=node(ui,'reader_more'),document=node(ui,'mail_body');
+ assert.deepEqual(parseDeftExperienceMenuNode(JSON.parse(JSON.stringify(more))),JSON.parse(JSON.stringify(more)),'the packed public Kit validates native integration nominations');
+ assert.deepEqual(JSON.parse(JSON.stringify(more.items.slice(0,2))),[
+  {id:'create_task',label:'Create task',integration:{kind:'task',document_id:'mail_body'}},
+  {id:'knowledge',label:'Knowledge',integration:{kind:'knowledge',document_id:'mail_body'}}
+ ]);
+ assert.equal(document.record_id,id);assert.equal(document.content_digest,digest);assert.equal(calls.length,0);
+ await ui.click('create_task');await ui.click('knowledge');assert.equal(calls.length,0,'Host owns nomination and permission review; Worker calls no integration API');
+ await ui.click('email_settings');await ui.click('saved_content');await ui.click('settings_preferences');assert.match(node(ui,'settings_empty').text,/load automatically.*ask before loading/i);
 });
