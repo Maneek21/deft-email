@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRuntimeChannelRenewal} from './runtime-channel-renewal.mjs';
+import {createDeftResourceSyncClientV3} from '@deft/app-kit';
+import {ResourceSyncClientError} from '@deft/app-kit/experimental/resource-sync';
 
 const iso=n=>new Date(n).toISOString(),signal=()=>new AbortController().signal;
 function fixture(options={}){
@@ -88,4 +90,30 @@ test('stale initial expiry reconciles once against a still-current Host session;
   await life.client.claim();assert.equal(claims,mode==='host_current'?1:0);
   assert.equal(channel.credential.session_token,'unchanged');
  }
+});
+
+test('transport retries are bounded for actual Kit observer timeout errors and retain the same session/deadline',async()=>{
+ const initial=Date.now(),at=n=>iso(initial+n);
+ const session_id='752d6bb3-a77d-4c34-93fa-ae62b398bc2e',session_token='a'.repeat(43),calls=[];
+ const channel={channel_url:'https://fixture.invalid/api/app-resource-sync-channel/v3',credential:{session_id,session_token},registration:{},technical_renewal:{expires_at:at(900000),renewable_until:at(3600000)}};
+ const runtime_client=createDeftResourceSyncClientV3({channel_url:channel.channel_url,credential:channel.credential,timeout_ms:5,fetch:async(url,options)=>{
+  calls.push({path:new URL(url).pathname,body:JSON.parse(options.body),authorization:options.headers.authorization});
+  if(calls.length<3)return new Promise(()=>{});
+  return new Response(JSON.stringify({renewed:{session_id,expires_at:at(1720000),renewable_until:at(3600000)}}),{status:200,headers:{'content-type':'application/json'}});
+ }});
+ const life=createRuntimeChannelRenewal({channel,runtime_client,now:()=>initial+820000,wait:async()=>{}});
+ assert.equal(await life.renew(signal()),true);assert.equal(calls.length,3);assert.equal(life.expires_at,at(1720000));
+ for(const call of calls)assert.deepEqual(call,{path:'/api/app-resource-sync-channel/v3/renew',body:{schema_version:'deft.app_runtime_channel.v3',audience:'app_resource_sync',session_id,expected_expires_at:at(900000)},authorization:'AppRuntime '+session_token});
+ assert.equal(channel.technical_renewal.expires_at,at(900000));
+});
+
+test('transport retries are bounded for SDK timeout exhaustion, but denial malformed replies and expired leases stay closed',async()=>{
+ const timeout=new ResourceSyncClientError(0,'APP_RESOURCE_SYNC_TIMEOUT');
+ for(const error of [timeout,new ResourceSyncClientError(403,'APP_RESOURCE_SYNC_DENIED'),new ResourceSyncClientError(200,'APP_RESOURCE_SYNC_INVALID_RESPONSE'),new ResourceSyncClientError(0,'APP_RESOURCE_SYNC_ABORTED'),new ResourceSyncClientError(0,'UNRECOGNIZED')]){
+  const f=fixture({renew:async()=>{throw error;}});f.setNow(820000);
+  assert.equal(await f.lifecycle.renew(signal()),false);assert.equal(f.renewals,error===timeout?3:1);
+  assert.equal(await f.lifecycle.renew(signal()),false);assert.equal(await f.lifecycle.client.claim(),null);
+ }
+ let expired;expired=fixture({renew:async()=>{expired.setNow(900001);throw timeout;}});expired.setNow(820000);
+ assert.equal(await expired.lifecycle.renew(signal()),false);assert.equal(expired.renewals,1);assert.equal(await expired.lifecycle.client.claim(),null);
 });

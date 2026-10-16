@@ -17,7 +17,7 @@ export function createRuntimeChannelRenewal({channel,runtime_client,now=Date.now
  let expires_at=metadata.expires_at,pending=null,closed=false,denied=false,unverified=Date.parse(metadata.expires_at)<=now();
  const valid=()=>!closed&&!denied&&!unverified&&Date.parse(expires_at)>now();
  const reconcilable=()=>!closed&&!denied&&unverified&&ceilingDeadline>now();
- const transport=error=>error?.status>=500&&error?.status<=599||['TimeoutError','AbortError'].includes(error?.name)||error?.name==='TypeError'&&/fetch failed|network|failed to fetch/iu.test(error.message??'');
+ const transport=error=>error?.name==='ResourceSyncClientError'&&error.status===0&&error.code==='APP_RESOURCE_SYNC_TIMEOUT'||error?.status>=500&&error?.status<=599||['TimeoutError','AbortError'].includes(error?.name)||error?.name==='TypeError'&&/fetch failed|network|failed to fetch/iu.test(error.message??'');
  async function renew(signal,startup=false){
   signal=AbortSignal.any([signal,stopped.signal]);signal.throwIfAborted();if(!(startup?reconcilable():valid()))return false;if(pending)return pending;
   const expected=expires_at;
