@@ -34,7 +34,8 @@ export async function createDurableStore({root, encryption_key, key_id, allow_wi
   const pathFor = id => join(root, digest(id) + '.json');
   // Independently versioned app data budgets; connection/custody retain their
   // original limits. Identity includes immutable org/owner/account/record pins.
-  const budget = id => id.startsWith('email.runtime.graph_send.') ? 1024*1024 : id.startsWith('email.data.sync_handoff.')||id.startsWith('email.data.sync_publication.') ? 1024*1024 : id.startsWith('email.data.file.') || id.startsWith('email.data.snapshot.') ? 100 * 1024 * 1024
+  const budget = id => id.startsWith('email.runtime.consent_continuation.') || id.startsWith('email.runtime.account_lineage.') ? 8 * 1024 * 1024
+    : id.startsWith('email.runtime.graph_send.') ? 1024*1024 : id.startsWith('email.data.sync_handoff.')||id.startsWith('email.data.sync_publication.') ? 1024*1024 : id.startsWith('email.data.file.') || id.startsWith('email.data.snapshot.') ? 100 * 1024 * 1024
     : id.startsWith('email.data.draft.') || id.startsWith('email.data.draft_index.') || id.startsWith('email.data.settings_record.') || id.startsWith('email.data.record_change.') ? 1024 * 1024
     : id.startsWith('email.data.request.') ? 2 * 1024 * 1024
     : id.startsWith('email.data.mailbox.') ? 8 * 1024 * 1024 : 131072;

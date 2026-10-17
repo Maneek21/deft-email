@@ -10,6 +10,7 @@ import {createReattachRuntime} from './connection-reattach-runtime.mjs';
 import {reviewDigest} from './reattach-contract.mjs';
 import {readFile} from 'node:fs/promises';
 import {continuationPins,continuationReviewDigest,continuationReceiptDigest} from './consent-continuation-contract.mjs';
+import {digest} from './contract.mjs';
 const read=(f,id)=>f.store.withLock({key:'email.runtime.session.'+id},tx=>tx.read());
 const empty={mode:'compose',to:'target@example.test',cc:'',bcc:'',subject:'Unsent',body:'Exact unsent\n',body_html:'',reply_record_id:'',attachments:[]};
 test('expiry-only continuation preserves encrypted custody, original session, account and action identities across restart',async t=>{
@@ -49,6 +50,50 @@ test('committed local interruption resumes exact journal on status without custo
   await assert.rejects(f.runtime.request(activation));await f.restart();const result=await f.runtime.request({...activation,operation:'status'});assert.equal(result.state,'connected',phase);
   assert.deepEqual(await f.runtime.request({...activation,operation:'status'}),result);assert.deepEqual(await read(f,old.value.session_id),old);assert.deepEqual(await f.data.custody.withAccount(old.value.binding,tx=>tx.read()),before);assert.equal(f.calls,calls);
  }
+});
+test('large lineage eligible journal resumes exact reviewed status after restart without provider replay',async t=>{
+ const f=await fixture(t),journalIds=[];let lineage;
+ for(let index=0;index<17;index++){const prior=await f.prepare(await f.next());await f.activate(prior);journalIds.push(prior.session_id);}
+ const sourceRow=await read(f,f.id),source=sourceRow.value,beforeCustody=await f.data.custody.withAccount(source.binding,tx=>tx.read());
+ lineage=(await f.store.withLock({key:lineageKey(source.binding)},tx=>tx.read())).value;
+ assert.ok(Buffer.byteLength(JSON.stringify(lineage))<128*1024);
+ const request=await f.next(),activation=await f.prepare(request),calls=f.calls;
+ const journalKey='email.runtime.consent_continuation.'+activation.session_id,targetKey='email.runtime.target.'+digest(request.scope);
+ const beforeJournal=await f.store.withLock({key:journalKey},tx=>tx.read());
+ const beforeLineage=await f.store.withLock({key:lineageKey(source.binding)},tx=>tx.read());
+ const beforeTarget=await f.store.withLock({key:targetKey},tx=>tx.read());
+ await f.restart();
+ const eligible=await f.runtime.request({...request,operation:'status',review:null});
+ assert.equal(eligible.state,'eligible');assert.equal(await read(f,activation.session_id),null);
+ assert.deepEqual(await f.store.withLock({key:journalKey},tx=>tx.read()),beforeJournal);
+ assert.deepEqual(await f.store.withLock({key:lineageKey(source.binding)},tx=>tx.read()),beforeLineage);
+ assert.deepEqual(await f.store.withLock({key:targetKey},tx=>tx.read()),beforeTarget);
+ f.failWrite((options,input)=>options.key===journalKey&&input.value.state==='activation_started');
+ await assert.rejects(f.runtime.request({...activation,operation:'status'}));
+ const started=(await f.store.withLock({key:journalKey},tx=>tx.read())).value;
+ assert.equal(started.state,'activation_started');assert.ok(Buffer.byteLength(JSON.stringify(started))>128*1024);
+ await f.restart();const result=await f.runtime.request({...activation,operation:'status'});
+ assert.equal(result.state,'connected');assert.equal(f.calls,calls);
+ const session=(await read(f,activation.session_id)).value;
+ const finalLineage=(await f.store.withLock({key:lineageKey(session.binding)},tx=>tx.read())).value;
+ assert.ok(Buffer.byteLength(JSON.stringify(finalLineage))<128*1024);validateLineage(finalLineage,session);
+ const journal=(await f.store.withLock({key:journalKey},tx=>tx.read())).value;
+ assert.equal(journal.state,'connected');assert.equal(journal.schema_version,'email.runtime.consent_continuation_journal.v2');
+ assert.equal(Object.hasOwn(journal,'next_lineage'),false);assert.equal(Object.hasOwn(journal,'prior_lineage_digest'),false);
+ assert.equal(journal.next_lineage_digest,digest(finalLineage));
+ const connectedJournal=await f.store.withLock({key:journalKey},tx=>tx.read());
+ assert.deepEqual(await f.runtime.request({...activation,operation:'status'}),result);
+ assert.deepEqual(await f.runtime.request({...activation,operation:'status'}),result);
+ assert.deepEqual(await f.store.withLock({key:journalKey},tx=>tx.read()),connectedJournal);
+ assert.deepEqual(await read(f,source.session_id),sourceRow);assert.deepEqual(await f.data.custody.withAccount(source.binding,tx=>tx.read()),beforeCustody);assert.equal(f.calls,calls);
+ await f.activate(activation);journalIds.push(activation.session_id);
+ const last=await f.prepare(await f.next());await f.activate(last);journalIds.push(last.session_id);
+ const largeSession=(await read(f,f.id)).value,largeLineage=(await f.store.withLock({key:lineageKey(largeSession.binding)},tx=>tx.read())).value;
+ assert.ok(Buffer.byteLength(JSON.stringify(largeLineage))>128*1024);validateLineage(largeLineage,largeSession);assert.equal(f.calls,calls);
+ let total=0;for(const id of journalIds){const value=(await f.store.withLock({key:'email.runtime.consent_continuation.'+id},tx=>tx.read())).value,bytes=Buffer.byteLength(JSON.stringify(value));
+  assert.equal(value.schema_version,'email.runtime.consent_continuation_journal.v2');assert.equal(value.state,'connected');assert.equal(Object.hasOwn(value,'next_lineage'),false);assert.ok(bytes<32*1024);total+=bytes;}
+ assert.ok(total<journalIds.length*32*1024);
+ await f.restart();assert.deepEqual(await f.runtime.request({...last,operation:'status'}),await f.runtime.request({...last,operation:'status'}));assert.equal(f.calls,calls);
 });
 test('repeated continuations append receipts without advancing credential generation or epoch',async t=>{
  const f=await fixture(t,{readOnly:true}),first=await f.prepare(await f.next());await f.activate(first);const second=await f.prepare(await f.next());await f.activate(second);

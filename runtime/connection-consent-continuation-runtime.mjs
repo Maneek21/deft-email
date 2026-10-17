@@ -39,17 +39,17 @@ export function createConsentContinuationRuntime({registration:raw,client,provid
      if(journal&&canonical(current)!==canonical(journal.eligibility))denied();
      if(!journal||journal.state==='eligible'){
       if(lineage){if(lineage.transport_digest!==request.transport_digest)denied();validateLineage(lineage,source);}
-      if(request.operation==='status'){
-       if(request.review!==null&&canonical(request.review)!==canonical({...current,digest:continuationReviewDigest(request,current)}))denied();
-       await check();return {...base,state:'eligible',...current};
-      }
+      if(request.operation==='status'&&request.review===null){await check();return {...base,state:'eligible',...current};}
+      // Reject an exhausted lineage before reserving the next target or
+      // creating an eligible journal. This leaves the 1,025th prepare with no
+      // durable side effects or stranded target reservation.
+      if((lineage?.receipts.length??0)>=1024)denied();
       if(request.operation==='prepare'){
        await reserveTarget({store,request,kind:'consent_continuation',check,now});
        if(!journal)await persist({schema_version:'email.runtime.consent_continuation_journal.v1',pins:continuationPins(request),state:'eligible',eligibility:current,review:null});
        await check();return {...base,state:'eligible',...current};
       }
       if(!journal||canonical(request.review)!==canonical({...current,digest:continuationReviewDigest(request,current)}))denied();
-      if((lineage?.receipts.length??0)>=1024)denied();
       const nextSession={session_id:request.session_id,scope:request.scope,action_consents:request.action_consents,purpose_set:sealPurposeSet(source.binding,request.action_consents,current.custody_generation),client_fingerprint:fingerprint,runtime_session_ref:randomBytes(32).toString('base64url'),binding:source.binding,state:'connected',account:source.account,provider_state:null,callback_expires_at:0};
       const receipt_digest=continuationReceiptDigest(request,request.review,nextSession.runtime_session_ref);
       const initial=lineage??{schema_version:'email.runtime.account_lineage.v1',pins:continuityPins(source),transport_digest:request.transport_digest,epochs:[source.binding.authority_epoch],receipts:[],base:{session_id:source.session_id,binding:source.binding,custody_generation:current.custody_generation},current:{session_id:source.session_id,binding:source.binding,custody_generation:current.custody_generation}};
@@ -59,6 +59,19 @@ export function createConsentContinuationRuntime({registration:raw,client,provid
      }
      if(request.operation==='prepare')return {...base,state:'indeterminate'};
      if(canonical(request.review)!==canonical(journal.review))denied();
+     if(journal.state==='connected'){
+      const plannedDigest=journal.next_lineage_digest??(journal.next_lineage?digest(journal.next_lineage):null);
+      if(typeof plannedDigest!=='string'||!/^[a-f0-9]{64}$/u.test(plannedDigest)||journal.next_lineage&&digest(journal.next_lineage)!==plannedDigest||digest(lineage??null)!==plannedDigest)denied();
+      return store.withLock({key:sessionKey(request.session_id)},async ntx=>{
+       const existing=await ntx.read();if(!existing||canonical(existing.value)!==canonical(journal.new_session))denied();
+       validateLineage(lineage,journal.new_session);
+      if(journal.receipt_digest!==continuationReceiptDigest(request,journal.review,journal.new_session.runtime_session_ref)||lineage.current?.receipt_digest!==journal.receipt_digest)denied();
+       const targetKey='email.runtime.target.'+digest(request.scope),target=(await store.withLock({key:targetKey},tx=>tx.read()))?.value;
+       if(target?.session_id!==request.session_id||target.kind!=='consent_continuation'||target.state!=='connected'||canonical(target.scope)!==canonical(request.scope))denied();
+       await check();return {...base,state:'connected',account:source.account,runtime_session_ref:journal.new_session.runtime_session_ref,custody_generation:current.custody_generation,receipt_digest:journal.receipt_digest};
+      });
+     }
+     if(journal.state!=='activation_started')denied();
      // A durable plan can only finish its exact local publication. Neither
      // custody nor source/effect history is rewritten on retries or status.
      if(digest(lineage??null)!==journal.prior_lineage_digest&&canonical(lineage)!==canonical(journal.next_lineage))denied();
@@ -67,9 +80,10 @@ export function createConsentContinuationRuntime({registration:raw,client,provid
       if(!existing){await check();if(!await ntx.compareAndSwap({expected_revision:null,value:journal.new_session}))fail('EMAIL_RUNTIME_CONFLICT');}
       if(canonical(lineage)!==canonical(journal.next_lineage)){await check();if(!await ltx.compareAndSwap({expected_revision:lineageRow?.revision??null,value:journal.next_lineage}))fail('EMAIL_RUNTIME_CONFLICT');}
       const targetKey='email.runtime.target.'+digest(request.scope),target=(await store.withLock({key:targetKey},tx=>tx.read()))?.value;
-      if(target?.session_id!==request.session_id||target.kind!=='consent_continuation')denied();
+      if(target?.session_id!==request.session_id||target.kind!=='consent_continuation'||canonical(target.scope)!==canonical(request.scope))denied();
       if(target.state==='prepared')await advanceTarget({store,request,from:'prepared',to:'connected',check});else if(target.state!=='connected')denied();
-      if(journal.state!=='connected')await persist({...journal,state:'connected'});
+      await persist({schema_version:'email.runtime.consent_continuation_journal.v2',pins:journal.pins,state:'connected',eligibility:journal.eligibility,
+       review:journal.review,new_session:journal.new_session,receipt_digest:journal.receipt_digest,next_lineage_digest:digest(journal.next_lineage)});
       await check();return {...base,state:'connected',account:source.account,runtime_session_ref:journal.new_session.runtime_session_ref,custody_generation:current.custody_generation,receipt_digest:journal.receipt_digest};
      });
     });
