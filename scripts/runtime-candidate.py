@@ -1,4 +1,4 @@
-"""Deterministic Runtime14/App13 source candidate. Local artifacts only; never deploys a service.
+"""Deterministic Runtime15/App13 source candidate. Local artifacts only; never deploys a service.
 
 freeze uses the maintained package-source.py, exact committed Git blobs and the
 current App13/Kit38 package plus unchanged Runtime Kit35 pins. build defaults to validation only; explicit execute
@@ -9,7 +9,7 @@ from pathlib import Path,PurePosixPath
 import argparse,hashlib,json,shutil,subprocess,tarfile,threading
 
 ROOT=Path(__file__).resolve().parent.parent
-VERSION='0.4.0-preview.14'
+VERSION='0.4.0-preview.15'
 BASE='sha256:65a99b8f95836d91f6d36d4b0723772b622264b6d52dfb186fea944746f07215'
 BASE_TAG='deft-email-runtime:0.4.0-preview.12-4af03db9'
 KIT='82c2d5bff2776e423b58647fad0f4a6a6430535f4e60c8146fed737d83f33ad5'
@@ -103,7 +103,7 @@ def build(frozen,base_inspect,out,execute):
  need(completed.returncode==0,'BUILD_FAILED_PRESERVE_LOG_NO_REPLAY');image=json.loads(command(['docker','image','inspect',tag]))[0]
  need(image['RootFS']['Layers'][:len(base['RootFS']['Layers'])]==base['RootFS']['Layers'] and all(image['Config'].get(k)==base['Config'].get(k) for k in DEFAULTS),'IMAGE_DEFAULT_OR_ANCESTRY_DRIFT')
  write_json(out/'image-inspect.json',[image])
- script="const fs=require('fs'),c=require('crypto');const pins="+json.dumps(pins)+";for(const [p,h]of Object.entries(pins))if(c.createHash('sha256').update(fs.readFileSync(p)).digest('hex')!==h)throw Error('SOURCE_DRIFT');import('@deft/app-kit').then(k=>{if(k.DEFT_APP_KIT_VERSION!=='0.1.0-alpha.35')throw Error('KIT_DRIFT');console.log('Runtime14/Kit35 exact source verified');});"
+ script="const fs=require('fs'),c=require('crypto');const pins="+json.dumps(pins)+";for(const [p,h]of Object.entries(pins))if(c.createHash('sha256').update(fs.readFileSync(p)).digest('hex')!==h)throw Error('SOURCE_DRIFT');import('@deft/app-kit').then(k=>{if(k.DEFT_APP_KIT_VERSION!=='0.1.0-alpha.35')throw Error('KIT_DRIFT');console.log('Runtime15/Kit35 exact source verified');});"
  verified=command(['docker','run','--rm','-i','--network','none','--entrypoint','node',tag,'-'],input=script.encode(),timeout=60).decode().strip()
  result.update(image=image['Id'],rootfs_diff_ids=image['RootFS']['Layers'],image_bytes=image['Size'],source_files_sha256=pins,source_files_verified_in_container=len(pins),source_version_check=verified,defaults_preserved=True,kit_version='0.1.0-alpha.35',clean_prod_install=True,base_lock_and_dependencies_unchanged=False,frozen_build_sha256=file_sha(frozen/'BUILD.json'),runtime_source_bytes=(frozen/'runtime-artifact.tgz').stat().st_size,package_json_sha256=pins['package.json'],lockfile_sha256=pins['pnpm-lock.yaml'],install_flags=['--prod','--frozen-lockfile','--ignore-scripts','--offline'])
  write_json(out/'BUILD.json',result);return result

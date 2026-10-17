@@ -1,6 +1,6 @@
 {
   "name": "@deft-email/connection-runtime",
-  "version": "0.4.0-preview.14",
+  "version": "0.4.0-preview.15",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-only",
@@ -340,6 +340,7 @@
     "source-snapshot-cache.test.mjs",
     "resource-bytes-source-reuse.test.mjs",
     "RUNTIME14.md",
+    "RUNTIME15.md",
     "lifecycle-fetch.mjs",
     "shutdown-channel.test.mjs"
   ]
