@@ -1,5 +1,6 @@
 import {createCredentialRepairPorts} from './credential-repair-ports.mjs';
 import {createRuntimeChannelRenewal} from './runtime-channel-renewal.mjs';
+import {createLifecycleFetch} from './lifecycle-fetch.mjs';
 import {createMirrorClient} from './mirror-client.mjs';
 import {createMirrorCoordinator} from './mirror-coordinator.mjs';
 import {createLocalJobRuntime} from './local-job-runtime.mjs';
@@ -33,6 +34,8 @@ export async function readOperatorJson(path, allow_windows_fixture = false) {
 
 export async function startRuntime(config, options = {}) {
   if(config?.provider_config?.provider==='imap_smtp')return (await import('./imap-server.mjs')).startFormRuntime(config,options);
+  const stopped=new AbortController();
+  options={...options,channelFetch:createLifecycleFetch(stopped.signal,options.channelFetch)};
   const registrationField = Object.hasOwn(config, 'registration') ? 'registration' : 'registrations';
   const integrationFields=Object.hasOwn(config,'integration_tool_authority_url')?['integration_tool_authority_url']:[];
   const dataFields=Object.hasOwn(config,'data_authority_url')?['data_authority_url']:[];
@@ -81,11 +84,12 @@ export async function startRuntime(config, options = {}) {
     const server = createServer(createHttpHandler({runtime,data_runtime,local_job_runtime,integration_tool_runtime, runtime_auth_token: config.runtime_auth_token}));
     server.headersTimeout = 10000; server.requestTimeout = 30000; server.timeout = 35000;
     await new Promise((done, reject) => {server.once('error', reject); server.listen(config.listen_port, '127.0.0.1', done);});
-    const stopped=new AbortController();
     const worker=(runner,waitMs,maxWaitMs=waitMs)=>runPollingWorker(runner,{signal:stopped.signal,waitMs,maxWaitMs});
     const workers=[...channel_renewals.filter(({kind})=>kind==='observation'?options.start_observation_workers!==false:options.start_send_workers!==false).map(({renewal})=>renewal.run(stopped.signal)),...(mirror_coordinator&&options.start_mirror_worker!==false?[worker(mirror_coordinator,5000)]:[]),...(local_job_runner&&options.start_local_job_worker!==false?[worker(local_job_runner,5000)]:[]),...(options.start_send_workers===false?[]:send_runners.map(runner=>worker(runner,500,5000))),...(options.start_observation_workers===false||!observation_runners.length?[]:[worker(createResourceObservationPoller(observation_runners),5000)])];
-    return {server, store, data_runtime,integration_tool_runtime, mirror_coordinator,send_runners, observation_runners, local_job_runtime,local_job_runner, async close() {stopped.abort();for(const {renewal}of channel_renewals)renewal.close();await Promise.all(workers);await new Promise(done => server.close(done)); data_runtime?.close?.();await store.close(); encryption_key.fill(0); }};
-  } catch (error) { await store.close(); encryption_key.fill(0); throw error; }
+    let closing;
+    const phase=value=>{try{(options.onShutdown??(entry=>console.error(JSON.stringify(entry))))({event:'email_runtime_shutdown',phase:value});}catch{}};
+    return {server, store, data_runtime,integration_tool_runtime, mirror_coordinator,send_runners, observation_runners, local_job_runtime,local_job_runner, close() {return closing??=(async()=>{phase('admission_closed');const drained=new Promise(done=>server.close(done));stopped.abort();for(const {renewal}of channel_renewals)renewal.close();await Promise.all(workers);phase('workers_drained');await drained;phase('http_drained');data_runtime?.close?.();await store.close();encryption_key.fill(0);phase('writer_released');})();}};
+  } catch (error) { stopped.abort();await store.close(); encryption_key.fill(0); throw error; }
 }
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   try {

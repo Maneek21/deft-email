@@ -32,7 +32,7 @@ export function createPreparedActions({store,now=Date.now}){
       const record=await drafts.validateInline(scope,input.record_id,input.expected_revision,localCheck);
       if(record.status!=='draft'||record.native_effect_fence||'sha256:'+record.content_digest!==input.expected_content_digest)fail('EMAIL_DRAFT_CONFLICT');
       await assertCalendarRsvpCurrent({record,resource_key:request.scope.resource_key,check:localCheck,read:async ref=>{const anchor=await mailbox.get(scope,ref.record_id,localCheck);if(resourceView(anchor).content_digest!==ref.content_digest)fail('EMAIL_DATA_SOURCE_CHANGED');return bridge.nativeEmailCalendarParts({source:await sourceFor(anchor)},{...nativeContext,recheck:localCheck});}});
-      const sender=await bridge.nativeEmailSendIdentity({...nativeContext,recheck:localCheck,owner_capabilities:['read','send']});await check();
+      const sender=await bridge.nativeEmailSendIdentity({...nativeContext,recheck:localCheck,owner_capabilities:['read','send']});await localCheck();
       const desired=record.content.from_identity?.address??sender.primary_address,fromAddress=sender.verified_sender_identities.find(address=>address.toLowerCase()===desired.toLowerCase());if(!fromAddress)fail('EMAIL_SEND_SENDER_DENIED');
       const prepareDeadline=input.prepare_expires_at?Date.parse(input.prepare_expires_at):Date.parse(request.expires_at);if(!Number.isFinite(prepareDeadline)||prepareDeadline<=now()||(!input.execution_window&&prepareDeadline>now()+300000)||prepareDeadline>consentDeadline(request.scope,'consent_expires_at'))fail('EMAIL_SEND_SNAPSHOT_DENIED');
       const future_release=input.execution_window?prepareFutureRecordAction(input.execution_window,prepareDeadline,now()):null;
@@ -45,7 +45,7 @@ export function createPreparedActions({store,now=Date.now}){
       const service=createOutgoingSnapshotService({profile:'native',resolve:async()=>{await localCheck();return resolved;},seal:async value=>{await localCheck();retained=value;return {snapshot_id,sealed_contract:randomBytes(32).toString('base64url')};},verify:async()=>false,reserve:async()=>fail('EMAIL_SEND_RELEASE_REQUIRED')});
       let view;
       try{
-        view=await service.prepare({account_id:scope.account_id,draft_id:record.draft_id,expected_revision:record.revision});await check();
+        view=await service.prepare({account_id:scope.account_id,draft_id:record.draft_id,expected_revision:record.revision});await localCheck();
         // Large Graph Send creates provider drafts/uploads and needs a separate reviewed effect stage. Never do it during this local preview.
         let required_action_consents;
         if(sender.provider==='microsoft'&&retained.mime_bytes.length>3*1024*1024){const consent=actionConsents.find(row=>row.action_key==='organize_messages');if(!consent||consentDeadline(consent)<Date.parse(expires_at))fail('EMAIL_GRAPH_SEND_MODIFY_REQUIRED');required_action_consents=[structuredClone(consent)];}
@@ -56,7 +56,9 @@ export function createPreparedActions({store,now=Date.now}){
         const prepared={schema_version:'deft.app_prepared_record_action.v1',snapshot_id,snapshot_digest:'sha256:'+digest(identity),record_id:record.draft_id,revision:record.revision,record_content_digest:pins.content_digest,action_key:input.action_key,input:pins,preview,expires_at,...(future_release?{future_release}:{}),...(supplemental_effect?{supplemental_effect}: {}),...(required_action_consents?{required_action_consents}: {})};
         const snapshot={snapshot_id,sealed_contract:view.sealed_contract,payload:view.payload,payload_digest:view.payload_digest,mime_digest:view.mime_digest,envelope:view.envelope,mime_bytes:retained.mime_bytes.toString('base64url'),body_bytes:retained.body_bytes.toString('base64url'),...(retained.body_html_bytes?{body_html_bytes:retained.body_html_bytes.toString('base64url')}:{ }),file_bytes:retained.file_bytes.map(bytes=>bytes.toString('base64url'))};
         const value={schema_version:'email.app_snapshot.v1',scope,connection_scope:request.scope,connection:request.connection,authority:request.authority,identity,prepared,snapshot,state:'prepared',effect:null,...(copy_plan?{copy_plan}: {})};
-        assertSnapshot(value);await check();await store.withLock({key:snapshotKey(scope,snapshot_id)},async tx=>{if(await tx.read()||!await tx.compareAndSwap({expected_revision:null,value}))fail('EMAIL_SEND_SNAPSHOT_DENIED');});await check();return prepared;
+        // MIME assembly is local under the pinned session. Recheck online at
+        // persistence and let the enclosing request recheck before disclosure.
+        assertSnapshot(value);await check();await store.withLock({key:snapshotKey(scope,snapshot_id)},async tx=>{if(await tx.read()||!await tx.compareAndSwap({expected_revision:null,value}))fail('EMAIL_SEND_SNAPSHOT_DENIED');});await localCheck();return prepared;
       }finally{view?.dispose();retained?.mime_bytes?.fill(0);retained?.body_bytes?.fill(0);retained?.body_html_bytes?.fill(0);retained?.file_bytes?.forEach(bytes=>bytes.fill(0));files.forEach(file=>file.bytes.fill(0));resolved.draft.body_bytes.fill(0);resolved.draft.body_html_bytes?.fill(0);}
     },
     async read_prepared({request,scope,input,check}){exact(input,['store_key','snapshot_id','snapshot_digest']);if(input.store_key!=='drafts')fail('EMAIL_DATA_INPUT_INVALID');const value=await read(scope,input.snapshot_id,check);if(value.prepared.snapshot_digest!==input.snapshot_digest||canonical(value.authority)!==canonical(request.authority)||canonical(value.connection)!==canonical(request.connection)||Date.parse(value.prepared.expires_at)<=now())fail('EMAIL_SEND_SNAPSHOT_DENIED');return value.prepared;},

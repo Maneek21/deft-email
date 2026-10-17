@@ -38,10 +38,10 @@ async function fixture(t,{files=2}={}){
 }
 test('PDF and inline image preview keeps bounded online checks independent of local file count',async t=>{
  const f=await fixture(t),result=await f.prepare();console.log(JSON.stringify({event:'two_file_prepare',online_checks:f.checks,provider_calls:f.providerCalls,send_calls:f.sendCalls}));
- assert.equal(result.outcome,'completed');assert.equal(result.prepared.revision,f.record.revision);assert.equal(f.sendCalls,0);assert.ok(f.checks<=18,`Preview made ${f.checks} online checks`);
+ assert.equal(result.outcome,'completed');assert.equal(result.prepared.revision,f.record.revision);assert.equal(f.sendCalls,0);assert.ok(f.checks<=6,`Preview made ${f.checks} online checks`);
 });
 test('maximum attachment preview remains bounded and has no provider Send',async t=>{
- const f=await fixture(t,{files:32}),result=await f.prepare();console.log(JSON.stringify({event:'32_file_prepare',online_checks:f.checks}));assert.equal(result.outcome,'completed');assert.ok(f.checks<=18);assert.equal(f.sendCalls,0);
+ const f=await fixture(t,{files:32}),result=await f.prepare();console.log(JSON.stringify({event:'32_file_prepare',online_checks:f.checks}));assert.equal(result.outcome,'completed');assert.ok(f.checks<=6);assert.equal(f.sendCalls,0);
 });
 test('fresh final authority check denies a preview revoked during preparation',async t=>{
  const measured=await fixture(t);await measured.prepare();const f=await fixture(t);f.denyAt(measured.checks);await assert.rejects(f.prepare(),/synthetic owner revocation/);assert.equal(f.sendCalls,0);

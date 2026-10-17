@@ -8,4 +8,8 @@ Gmail image/file reads may reuse immutable message MIME data in memory: at most 
 
 These are candidate behavior and offline regression results. Deployment, end-to-end correctness and actual browser latency need separate evidence. App 11 package bytes, Runtime Kit 35, dependency pins and mailbox schemas are unchanged.
 
+The shutdown follow-up cancels every channel transport, including an incomplete response body, when shutdown begins. Admission closes before workers drain; the writer closes only after workers and HTTP requests finish. The regression uses the actual pinned Kit client with a stalled claim body and proves that the writer can reopen. This does not retry provider effects or fabricate completion receipts.
+
+Send preparation now uses local cancellation and pinned-session checks during local MIME assembly, retaining fresh online checks before snapshot persistence and final disclosure. Two-file and 32-file preparations each require six callbacks instead of nine; final-check revocation still rejects disclosure. Host record-review brokers retain their selected-action checks independently of data-only callback introspection. Live review timing and graceful deployment remain acceptance checks.
+
 The maintained `scripts/runtime-candidate.py` creates source archives from clean, exact Git content through `scripts/package-source.py`, validates the Runtime 12 base and offline recipe, builds only with `--execute-root-only`, and exports the exact tagged image once. It never publishes or swaps a service. Outputs retain at least 512 MiB local reserve; failed exclusive outputs are preserved. Run `python scripts/runtime-candidate.test.py` from the repository root for the offline packaging guards.
