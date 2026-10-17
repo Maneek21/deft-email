@@ -6,6 +6,15 @@ import {join} from 'node:path';
 import {randomUUID,randomBytes} from 'node:crypto';
 import {startRuntime} from './server.mjs';
 import {makeScope,registrationFor,client} from './test-support.mjs';
+import {createLifecycleFetch} from './lifecycle-fetch.mjs';
+
+test('channel lifetime transport preserves a successful response and rejects work after shutdown',async()=>{
+ const lifetime=new AbortController();let calls=0;
+ const fetch=createLifecycleFetch(lifetime.signal,async()=>{calls++;return new Response('{"claim":null}',{status:200,headers:{'content-type':'application/json','x-fixture':'kept'}});});
+ const response=await fetch('https://fixture.invalid/claim');
+ assert.equal(response.status,200);assert.equal(response.headers.get('x-fixture'),'kept');assert.deepEqual(await response.json(),{claim:null});
+ lifetime.abort();await assert.rejects(fetch('https://fixture.invalid/claim'),{name:'AbortError'});assert.equal(calls,1);
+});
 
 test('shutdown cancels a stalled actual Kit claim response and releases the writer for restart',async()=>{
  const directory=await mkdtemp(join(tmpdir(),'email-shutdown-')),scope=makeScope();
