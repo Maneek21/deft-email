@@ -3,14 +3,26 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash, randomUUID} from 'node:crypto';
 import {verifyDeftAppPackageJson, parseRuntimeObjectInput, RuntimeObjectSchema, DEFT_APP_KIT_VERSION} from '@deft/app-kit';
+import {createDeftExperienceSdk} from '@deft/app-kit/experience';
 
 const json = readFileSync(new URL('./app.deft.json', import.meta.url), 'utf8');
 const verified = await verifyDeftAppPackageJson(json);
 const manifest = verified.package.manifest;
 const metadata = JSON.parse(readFileSync(new URL('./package.json', import.meta.url)));
+const rootMetadata = JSON.parse(readFileSync(new URL('../package.json', import.meta.url)));
 
-test('fresh package authenticates its manifest and worker artifact against public Kit37', () => {
-  assert.equal(DEFT_APP_KIT_VERSION, '0.1.0-alpha.37');
+test('packed public Kit keeps the displayed target on a mailbox refresh', async () => {
+  const sent=[],port={onmessage:null,postMessage:value=>sent.push(value),close(){}},sdk=createDeftExperienceSdk(port,'packed-refresh');
+  const pending=sdk.refreshDataResource('drafts','inbox','receiving_account');
+  assert.deepEqual(sent[0].input,{operation:'resource_refresh',input:{store_key:'drafts',resource_key:'inbox'},target_key:'receiving_account'});
+  port.onmessage({data:{version:'deft.experience_bridge.v1',kind:'response',session_id:'packed-refresh',request_id:'request_1',ok:true,output:{outcome:'completed'}}});
+  assert.equal((await pending).outcome,'completed');sdk.close();
+});
+
+test('fresh package authenticates its manifest and worker artifact against public Kit38', () => {
+  assert.equal(DEFT_APP_KIT_VERSION, '0.1.0-alpha.38');
+  assert.equal(metadata.version, '1.9.0-preview.12');
+  assert.equal(rootMetadata.version, metadata.version);
   assert.equal(manifest.id, 'io.deft.email');
   assert.equal(manifest.version, metadata.version);
   assert.equal(manifest.license, metadata.license);

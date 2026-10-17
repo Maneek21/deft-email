@@ -40,6 +40,28 @@ test('Refresh failure retains the selected message and reports the failure truth
  const ui=await start({refresh:async()=>{throw Error('Controlled provider failure');}});await ui.click('mail_'+id.replaceAll('-',''));await ui.click('refresh');
  assert.equal(node(ui,'mail_subject').text,'Preview message');assert.equal(node(ui,'mail_'+id.replaceAll('-','')).label,'Preview message');assert.match(node(ui,'status').text,/Refresh could not be completed/);
 });
+
+test('Refresh follows the displayed account without refreshing the compose account',async()=>{
+ const refreshed=[];
+ const ui=await start({targets:[{key:'primary',label:'Sender'},{key:'secondary',label:'Recipient'}],refresh:async(_store,_resource,target)=>{refreshed.push(target);if(target!=='secondary')throw Error('Unrelated compose account unavailable');return {outcome:'completed'};}});
+ await ui.click('account_pick_1');await ui.click('refresh');
+ assert.deepEqual(refreshed,['secondary']);assert.equal(node(ui,'status'),undefined);assert.equal(node(ui,'account_pick_1').selected,true);
+});
+
+test('All accounts refreshes each displayed target once with bounded concurrency and keeps unavailable rows',async()=>{
+ const refreshed=[];let active=0,peak=0;
+ const targets=Array.from({length:4},(_,index)=>({key:'account_'+index,label:'Account '+index}));
+ const ui=await start({targets,refresh:async(_store,_resource,target)=>{refreshed.push(target);active++;peak=Math.max(peak,active);await new Promise(resolve=>setTimeout(resolve,2));active--;if(target==='account_1')throw Error('Account temporarily unavailable');return {outcome:'completed'};},listMailbox:async target=>({outcome:'completed',items:[{...mail,record_id:id.slice(0,-1)+target.at(-1)}],next_cursor:null,freshness:{complete:true}})});
+ await ui.click('account_all');await ui.click('refresh');
+ assert.deepEqual([...refreshed].sort(),targets.map(target=>target.key));assert.equal(peak,2);
+ assert.equal(ui.nodes().filter(item=>/^mail_[a-f0-9]{32}$/.test(item.id)).length,4);assert.match(node(ui,'status').text,/Account 1: unavailable; last loaded rows/);
+});
+
+test('Refresh removes the displayed account rows when current account access is denied',async()=>{
+ const ui=await start({refresh:async()=>({outcome:'not_found',items:[],account_state:'denied'})});
+ await ui.click('mail_'+id.replaceAll('-',''));await ui.click('refresh');
+ assert.equal(node(ui,'mail_'+id.replaceAll('-','')),undefined);assert.equal(node(ui,'mail_subject'),undefined);assert.match(node(ui,'status').text,/access ended/);
+});
 test('folder departure removes the old reader before pending work and retains loaded rows on failure',async()=>{
  for(const fail of[false,true]){
   let finish,calls=0;const page={outcome:'completed',items:[mail],next_cursor:null,freshness:{complete:true}},ui=await start({listMailbox:async()=>++calls===1?page:new Promise(resolve=>{finish=resolve;})});await ui.click('mail_'+id.replaceAll('-',''));assert.ok(node(ui,'mail_body'));
@@ -183,7 +205,7 @@ test('compose and draft list have one contextual header without disabled mailbox
 
 
 test('a slow foreground refresh shows one progress notice while keeping the original reader and clears it after completion',async()=>{
- let finish;const ui=await start({refresh:()=>new Promise(resolve=>finish=resolve)});await ui.click('mail_'+id.replaceAll('-',''));const pending=ui.click('refresh');
+ let finish,entered;const started=new Promise(resolve=>entered=resolve);const ui=await start({refresh:()=>new Promise(resolve=>{finish=resolve;entered();})});await ui.click('mail_'+id.replaceAll('-',''));const pending=ui.click('refresh');await started;
  assert.equal(node(ui,'mail_progress').text,'Refreshing…');assert.equal(node(ui,'refresh').disabled,true);assert.equal(node(ui,'mail_subject').text,mail.data.subject);
  finish({outcome:'completed'});await pending;assert.equal(node(ui,'mail_progress'),undefined);assert.equal(node(ui,'refresh').disabled,false);assert.equal(node(ui,'mail_subject').text,mail.data.subject);
 });

@@ -5,7 +5,7 @@ import gzip, hashlib, io, json, os, tarfile
 root = Path(__file__).resolve().parent.parent
 output = root/'dist'
 output.mkdir(exist_ok=True)
-excluded = {'node_modules', '.git', 'state', 'private', 'dist', 'coverage'}
+excluded = {'node_modules', '.git', 'state', 'private', 'dist', 'coverage', '__pycache__'}
 generated = {'app/app.deft.json','app/artifact.json','app/worker.bundle.js','app/build-result.json'}
 files = []
 entries = ['app','runtime','scripts','docs','.github','README.md','LICENSE','NOTICE','THIRD-PARTY-LICENSES.md','package.json','.gitignore','.gitattributes','.env.example']
@@ -25,7 +25,7 @@ for name in entries:
                 relative = path.relative_to(root).as_posix()
                 assert not path.is_symlink(), f'Source links are not allowed: {relative}'
                 assert '\n' not in relative and '\r' not in relative
-                if relative not in generated and not name.endswith('.log') and not any(part.startswith('.env') and part != '.env.example' for part in path.relative_to(root).parts):
+                if relative not in generated and not name.endswith(('.log', '.pyc')) and not any(part.startswith('.env') and part != '.env.example' for part in path.relative_to(root).parts):
                     files.append(path)
 files.sort(key=lambda path:path.relative_to(root).as_posix())
 version = json.loads((root/'package.json').read_text())['version']
