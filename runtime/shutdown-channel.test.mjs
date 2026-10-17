@@ -7,6 +7,7 @@ import {randomUUID,randomBytes} from 'node:crypto';
 import {startRuntime} from './server.mjs';
 import {makeScope,registrationFor,client} from './test-support.mjs';
 import {createLifecycleFetch} from './lifecycle-fetch.mjs';
+import {connect} from 'node:net';
 
 test('channel lifetime transport preserves a successful response and rejects work after shutdown',async()=>{
  const lifetime=new AbortController();let calls=0;
@@ -39,4 +40,24 @@ test('shutdown cancels a stalled actual Kit claim response and releases the writ
   instance=await startRuntime(config,{allow_windows_fixture:process.platform==='win32',start_send_workers:false});
   await instance.close();instance=null;
  }finally{if(instance)await instance.close();await rm(directory,{recursive:true,force:true});}
+});
+
+test('shutdown drains an authenticated incomplete HTTP body before releasing the writer',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'email-http-shutdown-')),scope=makeScope();
+ const clientFile=join(directory,'client.json');await writeFile(clientFile,JSON.stringify(client),{mode:0o600});
+ const config={listen_port:0,store_root:join(directory,'state'),key_id:'shutdown-http-fixture',encryption_key_hex:randomBytes(32).toString('hex'),runtime_auth_token:randomBytes(32).toString('base64url'),authority_token:randomBytes(32).toString('base64url'),authority_url:'https://fixture.invalid/authority',registrations:[registrationFor(scope)],gmail_client_file:clientFile};
+ let instance,socket;
+ try{
+  const phases=[];instance=await startRuntime(config,{allow_windows_fixture:process.platform==='win32',onShutdown:entry=>phases.push(entry.phase)});
+  const accepted=new Promise(resolve=>instance.server.once('request',resolve));
+  socket=connect(instance.server.address().port,'127.0.0.1');socket.on('error',()=>{});
+  await new Promise(resolve=>socket.once('connect',resolve));
+  socket.write('POST /v1/connections HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer '+config.runtime_auth_token+'\r\nContent-Type: application/json\r\nContent-Length: 100\r\n\r\n{');
+  await accepted;const closing=instance.close();
+  const settled=await Promise.race([closing.then(()=>true),new Promise(resolve=>setTimeout(()=>resolve(false),700))]);
+  socket.destroy();await closing;instance=null;
+  assert.equal(settled,true,'A connected peer must not hold the writer lease through shutdown');
+  assert.deepEqual(phases,['admission_closed','workers_drained','http_drained','writer_released']);
+  instance=await startRuntime(config,{allow_windows_fixture:process.platform==='win32'});await instance.close();instance=null;
+ }finally{socket?.destroy();if(instance)await instance.close();await rm(directory,{recursive:true,force:true});}
 });

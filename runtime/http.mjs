@@ -50,7 +50,7 @@ export function createAuthorityClient({authority_url, authority_token, fetch: fe
   };
 }
 const sha = value => createHash('sha256').update(value).digest();
-export function createHttpHandler({runtime, data_runtime, local_job_runtime, run_inspection_runtime, integration_tool_runtime, runtime_auth_token, onDenial=entry=>console.error(JSON.stringify(entry)), onFailure=entry=>console.error(JSON.stringify(entry))}) {
+export function createHttpHandler({runtime, data_runtime, local_job_runtime, run_inspection_runtime, integration_tool_runtime, runtime_auth_token, shutdown_signal, onDenial=entry=>console.error(JSON.stringify(entry)), onFailure=entry=>console.error(JSON.stringify(entry))}) {
   const expected = sha(token(runtime_auth_token));
   return async (request, response) => {
     const send = (value, status = 200) => { response.writeHead(status, {'content-type': 'application/json', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff'}); response.end(JSON.stringify(value)); };
@@ -64,9 +64,14 @@ export function createHttpHandler({runtime, data_runtime, local_job_runtime, run
     const requestClosed = () => {if (!request.complete) aborted();};
     const responseClosed = () => {if (!response.writableEnded) aborted();};
     request.on('aborted', aborted); request.on('close', requestClosed); response.on('close', responseClosed);
-    const signal = AbortSignal.any([disconnected.signal, AbortSignal.timeout(30000)]);
+    const signal = AbortSignal.any([disconnected.signal, AbortSignal.timeout(30000),...(shutdown_signal?[shutdown_signal]:[])]);
+    // Aborting the operation must also wake a body iterator whose peer stopped
+    // sending bytes. Merely checking the signal inside the loop cannot do that.
+    const cancelBody = () => request.destroy();
+    signal.addEventListener('abort',cancelBody,{once:true});
     let diagnostic=null;
     try {
+      signal.throwIfAborted();
       const framed=isData&&request.headers['content-type']==='application/vnd.deft.app-data-frame.v1';
       const maximum=framed?FILE_BYTES+FILE_FRAME_HEADER_BYTES+4:isData?DATA_JSON_BYTES:isIntegrationTool?614400:MAX_HTTP_BYTES;
       if ((!framed&&!/^application\/json(?:\s*;|$)/iu.test(request.headers['content-type'] ?? '')) || Number(request.headers['content-length']) > maximum) fail('EMAIL_RUNTIME_INPUT_INVALID');
@@ -96,7 +101,7 @@ export function createHttpHandler({runtime, data_runtime, local_job_runtime, run
       const failureCodes=new Set(['EMAIL_RUNTIME_TRANSPORT_DENIED','EMAIL_RUNTIME_TRANSPORT_LIMIT','EMAIL_DATA_OPERATION_UNAVAILABLE','EMAIL_DATA_RESULT_INVALID','EMAIL_OAUTH_AUTHORITY_DENIED','EMAIL_CONNECTION_AUTHORITY_DENIED','EMAIL_OAUTH_ACCOUNT_BINDING_DENIED','EMAIL_OAUTH_CUSTODY_BINDING_DENIED','EMAIL_OAUTH_CUSTODY_INVALID','EMAIL_OAUTH_CUSTODY_UNAVAILABLE','EMAIL_OAUTH_FILE_STORE_LOCK_BUSY','EMAIL_OAUTH_FILE_STORE_STALE_LOCK','EMAIL_OAUTH_FILE_STORE_FENCE_LOST','EMAIL_OAUTH_FILE_STORE_UNAVAILABLE','EMAIL_OAUTH_REAUTH_REQUIRED','EMAIL_OAUTH_PROVIDER_UNAVAILABLE','EMAIL_OAUTH_PROVIDER_REQUEST_FAILED','EMAIL_OAUTH_PROVIDER_RESPONSE_INVALID','EMAIL_OAUTH_PROVIDER_RESPONSE_LIMIT','EMAIL_PROVIDER_NETWORK_UNAVAILABLE','EMAIL_PROVIDER_PERMISSION_DENIED','EMAIL_PROVIDER_RATE_LIMITED','EMAIL_PROVIDER_REAUTH_REQUIRED','EMAIL_PROVIDER_REQUEST_FAILED','EMAIL_PROVIDER_RESPONSE_INVALID','EMAIL_PROVIDER_RESPONSE_LIMIT','EMAIL_PROVIDER_SCAN_DEADLINE','EMAIL_RUNTIME_STORE_CLOSED','EMAIL_RUNTIME_STORE_KEY_UNAVAILABLE','EMAIL_RUNTIME_STORE_LIMIT','EMAIL_RUNTIME_STORE_ROW_INVALID','EMAIL_RUNTIME_WRITER_FENCE_LOST']);
       if(diagnostic&&status===503){const failureCode=failureCodes.has(error?.code)?error.code:error?.name==='TimeoutError'?'EMAIL_RUNTIME_TIMEOUT':error?.name==='AbortError'?'EMAIL_RUNTIME_ABORTED':'EMAIL_RUNTIME_UNAVAILABLE';try{onFailure({event:'email_runtime_http_failure',...diagnostic,status,code:failureCode});}catch{}}
       if (!response.destroyed && !response.writableEnded) send({error: code}, status);
-    } finally {request.off('aborted', aborted); request.off('close', requestClosed); response.off('close', responseClosed);}
+    } finally {signal.removeEventListener('abort',cancelBody);request.off('aborted', aborted); request.off('close', requestClosed); response.off('close', responseClosed);}
   };
 }
 
