@@ -19,7 +19,7 @@ async function start({refresh=async()=>({outcome:'completed'}),targets=[{key:'pr
  for(const match of source.matchAll(/^import \{[^}]+\} from '(\.\/[^']+)';/gm))Object.assign(bindings,await import(match[1]));
  const self={};vm.runInNewContext(source.replace(/^import .*;\r?\n/gm,''),{self,...bindings,createDeftExperienceSdk:()=>sdk,crypto:webcrypto,TextEncoder,Date,Map,setTimeout,clearTimeout});
  self.onmessage({data:{kind:'start',port:{},session_id:id}});await new Promise(resolve=>setTimeout(resolve,5));
- return {views,listedTargets,listedStores,nodes:()=>nodes(views.at(-1)),click:node_id=>handler({kind:'click',node_id}),input:event=>handler({kind:'input',...event})};
+ return {views,listedTargets,listedStores,nodes:()=>nodes(views.at(-1)),event:event=>handler(event),click:node_id=>handler({kind:'click',node_id}),input:event=>handler({kind:'input',...event})};
 }
 function nodes(view){const result=[];const walk=node=>{result.push(node);node.children?.forEach(walk);node.items?.forEach(walk);};walk(view.root);view.navigation?.forEach(walk);return result;}
 const node=(ui,id)=>ui.nodes().find(item=>item.id===id);
@@ -61,6 +61,17 @@ test('Refresh removes the displayed account rows when current account access is 
  const ui=await start({refresh:async()=>({outcome:'not_found',items:[],account_state:'denied'})});
  await ui.click('mail_'+id.replaceAll('-',''));await ui.click('refresh');
  assert.equal(node(ui,'mail_'+id.replaceAll('-','')),undefined);assert.equal(node(ui,'mail_subject'),undefined);assert.match(node(ui,'status').text,/access ended/);
+});
+test('account visibility ending invalidates an in-flight mailbox load before it can repopulate revoked rows',async()=>{
+ const secondId='22222222-2222-4222-8222-222222222222',second={...mail,record_id:secondId,data:{...mail.data,subject:'Revoked account message'}};
+ let release,entered;const started=new Promise(resolve=>entered=resolve);
+ const ui=await start({targets:[{key:'primary',label:'Sender'},{key:'secondary',label:'Recipient'}],listMailbox:async target=>{
+  if(target!=='secondary')return {outcome:'completed',items:[mail],next_cursor:null,freshness:{complete:true}};
+  return new Promise(resolve=>{release=resolve;entered();});
+ }});
+ const pending=ui.click('account_all');await started;await ui.event({kind:'click',node_id:'account_visibility_secondary'});
+ release({outcome:'completed',items:[second],next_cursor:null,freshness:{complete:true}});await pending;
+ assert.equal(node(ui,'mail_'+secondId.replaceAll('-','')),undefined);assert.match(node(ui,'status').text,/Account access ended/);
 });
 test('folder departure removes the old reader before pending work and retains loaded rows on failure',async()=>{
  for(const fail of[false,true]){

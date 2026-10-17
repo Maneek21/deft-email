@@ -1,7 +1,7 @@
-"""Deterministic Runtime14/App12 source candidate. Local artifacts only; never deploys a service.
+"""Deterministic Runtime14/App13 source candidate. Local artifacts only; never deploys a service.
 
 freeze uses the maintained package-source.py, exact committed Git blobs and the
-current App12/Kit38 package plus unchanged Runtime Kit35 pins. build defaults to validation only; explicit execute
+current App13/Kit38 package plus unchanged Runtime Kit35 pins. build defaults to validation only; explicit execute
 uses the reviewed Runtime12 base and an offline, frozen, no-script install.
 export saves the exact verified image; upload, load and swap are separate work.
 """
@@ -13,7 +13,7 @@ VERSION='0.4.0-preview.14'
 BASE='sha256:65a99b8f95836d91f6d36d4b0723772b622264b6d52dfb186fea944746f07215'
 BASE_TAG='deft-email-runtime:0.4.0-preview.12-4af03db9'
 KIT='82c2d5bff2776e423b58647fad0f4a6a6430535f4e60c8146fed737d83f33ad5'
-APP='fbd507e6f09252bf0d68fa476b1aaf86080b1d911ff801ad7af1549a4bca252c'
+APP='7ab7876f5318888ce13177d0d5f7fbf423c0083d437ee2c8b02b78aef66a840a'
 APP_KIT='dbb35ea11e2ce192fed72889aee8ea65764aa16dd93ce0b71f5075e2fb655341'
 DEFAULTS=('Env','Cmd','Entrypoint','WorkingDir','User','Healthcheck','ExposedPorts','Volumes','StopSignal')
 RESERVE=512*1024*1024
@@ -49,7 +49,7 @@ def freeze(commit,out):
  need(command(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()==commit,'CURRENT_COMMIT_REQUIRED')
  need(not command(['git','status','--porcelain'],cwd=ROOT).strip(),'CLEAN_COMMITTED_SOURCE_REQUIRED')
  need(not out.exists(),'EXCLUSIVE_OUTPUT_REQUIRED')
- need(file_sha(ROOT/'app/app.deft.json')==APP and file_sha(ROOT/'app/deft-app-kit-0.1.0-alpha.38.tgz')==APP_KIT,'EXACT_APP12_REQUIRED')
+ need(file_sha(ROOT/'app/app.deft.json')==APP and file_sha(ROOT/'app/deft-app-kit-0.1.0-alpha.38.tgz')==APP_KIT,'EXACT_APP13_REQUIRED')
  need(json.loads((ROOT/'runtime/package.json').read_text())['version']==VERSION,'EXACT_RUNTIME_VERSION_REQUIRED')
  tree={}
  for raw in command(['git','ls-tree','-rz','--full-tree',commit],cwd=ROOT).split(b'\0'):
@@ -63,7 +63,7 @@ def freeze(commit,out):
  require_space(ROOT/'dist',budget);require_space(out,2*budget)
  subprocess.run(['node',str(ROOT/'runtime/verify-provenance.mjs')],cwd=ROOT,check=True)
  subprocess.run(['python',str(ROOT/'scripts/package-source.py')],cwd=ROOT,check=True)
- source=ROOT/'dist/email-1.9.0-preview.12-source.tar.gz';members=files(source)
+ source=ROOT/'dist/email-1.9.0-preview.13-source.tar.gz';members=files(source)
  need(set(members)==intended,'COMPLETE_SELECTED_GIT_MEMBERSHIP_REQUIRED')
  for name,raw in members.items():
   need(name in tree,'UNTRACKED_SOURCE_DENIED');mode,kind,blob=tree[name]
@@ -74,7 +74,7 @@ def freeze(commit,out):
  out.mkdir(parents=True,exist_ok=False)
  for name in ['runtime-artifact.tgz',source.name,'source-manifest.json']:shutil.copyfile(ROOT/'dist'/name,out/name)
  for name in ['app.deft.json','artifact.json','build-result.json']:shutil.copyfile(ROOT/'app'/name,out/name)
- result={'schema_version':'email.independent_runtime_frozen.v1','source_commit':commit,'runtime_version':VERSION,'app_version':'1.9.0-preview.12','package_digest':'sha256:'+APP,'app_kit_version':'0.1.0-alpha.38','app_kit_sha256':APP_KIT,'kit_sha256':KIT,'runtime_source_sha256':file_sha(out/'runtime-artifact.tgz'),'source_archive_sha256':file_sha(out/source.name),'source_member_count':len(members),'runtime_member_count':len(runtime),'all_source_members_match_exact_git_blobs':True,'archive_modes':'normalized0644','server_mutations':0}
+ result={'schema_version':'email.independent_runtime_frozen.v1','source_commit':commit,'runtime_version':VERSION,'app_version':'1.9.0-preview.13','package_digest':'sha256:'+APP,'app_kit_version':'0.1.0-alpha.38','app_kit_sha256':APP_KIT,'kit_sha256':KIT,'runtime_source_sha256':file_sha(out/'runtime-artifact.tgz'),'source_archive_sha256':file_sha(out/source.name),'source_member_count':len(members),'runtime_member_count':len(runtime),'all_source_members_match_exact_git_blobs':True,'archive_modes':'normalized0644','server_mutations':0}
  write_json(out/'BUILD.json',result);return result
 def recipe(commit,user):
  need(len(commit)==40 and all(c in '0123456789abcdef' for c in commit),'EXACT_COMMIT_REQUIRED')
