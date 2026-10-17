@@ -1,0 +1,48 @@
+name: Email focused checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: email-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22.23.2
+      - name: Pin package managers
+        run: npm install --global npm@11.9.0 pnpm@10.33.0
+      - name: Install locked public dependencies
+        run: |
+          npm --prefix app ci --no-audit --no-fund
+          pnpm --dir runtime install --frozen-lockfile --ignore-scripts
+      - name: Verify immutable Kit packages and vendor provenance
+        run: npm run verify:provenance
+      - name: Build and validate the App package
+        run: |
+          npm run build
+          npm run test:app
+          npm run test:ui
+      - name: Check focused Runtime contracts
+        run: |
+          pnpm --dir runtime run test:uuid
+          pnpm --dir runtime run test:upgrade
+          npm run test:runtime:preview
+          node --test runtime/observation-latency.test.mjs
+          node --test runtime/runtime-channel-renewal-startup.test.mjs runtime/consent-lifetime.test.mjs
+          node --test --test-concurrency=1 --test-name-pattern="until-revoked|persistent observation" runtime/data.test.mjs runtime/observation.test.mjs runtime/observation-process.test.mjs runtime/consent-continuation.test.mjs
+          node --test runtime/http-failure-diagnostic.test.mjs runtime/sync-handoff-host-uuid.test.mjs
+          node --test runtime/prepared-effect.test.mjs runtime/email-domain-boundary.test.mjs runtime/integration-source.test.mjs runtime/capture-transport.test.mjs
+          node --test runtime/smtp-send-runner.test.mjs runtime/run-inspection-runtime.test.mjs

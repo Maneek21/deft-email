@@ -1,0 +1,26 @@
+{
+  "schema_version": "email.domain_helpers.v1",
+  "license": "AGPL-3.0-only",
+  "source_commit": "c1c56b10b8d128ee9bf0e5cf035eb348f6e07e5b",
+  "transformation": "TypeScript compiled with existing pinned toolchain; relative mailbox-list suffix adapted from .js to .mjs; source algorithms unchanged",
+  "copies": [
+    {
+      "source": "packages/app-kit/src/mailbox-list.ts",
+      "source_sha256": "18fe66433b1724f1dfe3229156e5e532971b8b2003d3756ddf11215e646137a8",
+      "target": "domain/mailbox-list.mjs",
+      "sha256": "206a2d867af3be58c3c64ae4d567985654977b62d7a0bb70bd61797c0aebda42"
+    },
+    {
+      "source": "packages/app-kit/src/safe-compose-html.ts",
+      "source_sha256": "d3bafa67744470305faff9820186cc524bf817df291efb74d6620048315bab74",
+      "target": "domain/safe-compose-html.mjs",
+      "sha256": "15b9140fc98f5ac2658aa4bdf008378c34bfe1655f2065e186d36371c05642dc"
+    },
+    {
+      "source": "packages/app-kit/src/native-compose-raster.ts",
+      "source_sha256": "5ba3f0e16075d044543c80aeae1254403b5e80d4d24b3e9785c081b45e0115ea",
+      "target": "domain/native-compose-raster.mjs",
+      "sha256": "1edf989eae9c34337887ff82a551fb887fca1ec42251c63711661f9d77d37205"
+    }
+  ]
+}

@@ -1,0 +1,644 @@
+{
+  "schema_version": "email.runtime_provenance.v1",
+  "baseline": "email-html-93-b031713813d9",
+  "source_archive_sha256": "aba970b792ae6e1aaf909c4a41a30e20a379c2f1e4aaefd395e98c9850a98328",
+  "extraction": "Frozen native provider/mail/source/outgoing engine dependency closure; independent app-owned data/custody/draft/prepared resource-action journals and public released-action/observation adapters replace private host ports",
+  "copies": [
+    {
+      "source": "examples/apps/email/account-config.mjs",
+      "target": "vendor/account-config.mjs",
+      "sha256": "da3f948128fadd3968e7653072a824e4cdc7619cc4958570262e2e790d183a59",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/account-registry.mjs",
+      "target": "vendor/account-registry.mjs",
+      "sha256": "c8ee8703c8b044f8ed1cf53c2ccc7b1ac0c6a2cd513c06f8e7e1ad62a8be1c28",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/oauth-account.mjs",
+      "target": "vendor/providers/oauth-account.mjs",
+      "sha256": "10c4b0c6202e0ce331dee56e9fed6253f053345f8be7dfe8b30814554d40f564",
+      "mode": "reviewed_adaptation",
+      "e5_parent_sha256": "3433d090c0e05617e03312231f17c9b6a7cfcd692907038316e0bb2f51e3cc17",
+      "frozen_source_sha256": "3433d090c0e05617e03312231f17c9b6a7cfcd692907038316e0bb2f51e3cc17",
+      "e5_merge_reason": "Reviewed original-native import preserves immutable custody, native namespace and inspect-only effect history on exact accepted current E4 parent.",
+      "e45_parent_sha256": "4b642c34261e94d85ea9cecc9636d056d056476ebb164c216f0a00986464daf4",
+      "e45_merge_reason": "Exact credential repair validates unchanged provider identity/client/granted scopes before credential custody write.",
+      "e58_parent_sha256": "723beced6f5aa9aecf9a93dc788914c9fe8f44571a39a8ff366403fa7a3d643c",
+      "e58_merge_reason": "Accepted optional secret-free credential-repair completion stage diagnostics; ordinary OAuth behavior unchanged."
+    },
+    {
+      "source": "examples/apps/email/providers/oauth-contract.mjs",
+      "target": "vendor/providers/oauth-contract.mjs",
+      "sha256": "c5b15eaf82a258f6ea13d78d03a0debb7bd21e66341bf3bd8e96db53b3e37192",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/oauth-provider.mjs",
+      "target": "vendor/providers/oauth-provider.mjs",
+      "sha256": "8144e4db2cf56f9ff2ffa41efcb2a811497778db8d30354ae9c148cc092e85b7",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/custody-encrypted.mjs",
+      "target": "vendor/providers/custody-encrypted.mjs",
+      "sha256": "fc67a4833bb7254fe4687318c43243d11c845b836f6bc46bd5851bf848c90e77",
+      "mode": "reviewed_adaptation",
+      "e5_parent_sha256": "dd3b60d0024f31ae316188f5b36175d7660abd15ed9d2133fbb58d8a74fbe022",
+      "frozen_source_sha256": "dd3b60d0024f31ae316188f5b36175d7660abd15ed9d2133fbb58d8a74fbe022",
+      "e5_merge_reason": "Reviewed original-native import preserves immutable custody, native namespace and inspect-only effect history on exact accepted current E4 parent."
+    },
+    {
+      "source": "examples/apps/email/providers/custody-file-store.mjs",
+      "target": "vendor/providers/custody-file-store.mjs",
+      "sha256": "3eb6594bd389bc82d11af4fb8e822bfe84e0b6f16a6d6ad15b8e043d861359fe",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/native-mailbox.mjs",
+      "target": "vendor/providers/native-mailbox.mjs",
+      "sha256": "2e0cd19024d2a414dd7a0b58fb1412dacfdee4a0b28414f95c715ccc624abfee",
+      "mode": "reviewed_adaptation",
+      "source_sha256": "a212ca9f3dcd6c21094c8e29be32bc707689622ef92641a873cefb226f25c863",
+      "adaptation": "Preserve Microsoft Archive mapping and admit exact catalog folder pages with provider-returned folder membership filtering.",
+      "adaptation_packet_sha256": "735ba6e0dcc07ec2c6ad4e8c1869eb8986cb2130691de33a06ca8ddf5f09d23e",
+      "prior_reviewed_sha256": "cc4134c5f8e83e46d53ddf3ad6a8110d4c024ae7d59cafc44dfc912afa484e1d",
+      "e5_parent_sha256": "7f1aed86c2a66617ad7fd7f38d072dcc31bcea9ca1cf9aefb73678206828cb08",
+      "e5_merge_reason": "Reviewed original-native import preserves immutable custody, native namespace and inspect-only effect history on exact accepted current E4 parent."
+    },
+    {
+      "source": "examples/apps/email/providers/native-owner-consent.mjs",
+      "target": "vendor/providers/native-owner-consent.mjs",
+      "sha256": "5aa595e99795a77447018a7587c778d8352dc8ece882e8d3e3cfda3fafe85f59",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/contract.mjs",
+      "target": "vendor/providers/contract.mjs",
+      "sha256": "2fc03fedda9f2059d9750d03cc08c3819db58c73bf39940308c9b8608d703763",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/logical-mail-index.mjs",
+      "target": "vendor/logical-mail-index.mjs",
+      "sha256": "99b9d1c9a93609244d242e3e82f056ea0ce5a332b6df3b06df5bcbea96073004",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/gmail.mjs",
+      "target": "vendor/providers/gmail.mjs",
+      "sha256": "ac6152641973c2001917c172f6bd9037c54bfd6dd8eafd9e67a810cc7cf69f17",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/microsoft.mjs",
+      "target": "vendor/providers/microsoft.mjs",
+      "sha256": "213c8fc2b4157efab9e4ebc89eb2b6d425d2a405b99592f2481f26e263da0d90",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/metadata-resource.mjs",
+      "target": "vendor/metadata-resource.mjs",
+      "sha256": "99bc0048214bc2fcd4f50383f33f565fa03a3f880e30dc66d3bfe538e953debf",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/provider-browser.mjs",
+      "target": "vendor/providers/provider-browser.mjs",
+      "sha256": "aaae0419cc7e96a3144f611e2c1d7a1f3b32a2b603fc8dda4b8b76c610979a77",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/resource-reader.mjs",
+      "target": "vendor/providers/resource-reader.mjs",
+      "sha256": "848532acd4d3b00f2e8a607a996c536e4ef65407b9d76c3e565992b1450589b5",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/message-reader.mjs",
+      "target": "vendor/message-reader.mjs",
+      "sha256": "523fcb223258e726a1a6cca4a3eb225c7750092cd7994a1676028b3545d52a23",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/message-search.mjs",
+      "target": "vendor/message-search.mjs",
+      "sha256": "27cd4fb2ffeeefc0ed85b21d0e0238fb81c1ee6a2d84f5cb74e70b4f8280a81f",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/source-read.mjs",
+      "target": "vendor/providers/source-read.mjs",
+      "sha256": "843c205e8cac2dbdb7a79feae178eaeaa0b397f26fc22cb55e3d2d42b548334d",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/incoming-source-files.mjs",
+      "target": "vendor/providers/incoming-source-files.mjs",
+      "sha256": "6c9ef93d55ffddf0aecfbd40750e791628a407fffbe04a2fc8052c23daee5a78",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/email-attachments.mjs",
+      "target": "vendor/email-attachments.mjs",
+      "sha256": "db77600e9c6917ff1351112c1a430c5b328b2d61fe275e72faa3dd27743553ed",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/remote-image-proxy.mjs",
+      "target": "vendor/providers/remote-image-proxy.mjs",
+      "sha256": "daadb6d4cc3a8e20fc18546bebfecae314a3e8cbe49423a541ae164ddb390893",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/calendar-source-parts.mjs",
+      "target": "vendor/providers/calendar-source-parts.mjs",
+      "sha256": "2052aadbac649034c34e604df2eb07dd30610c0e6a2788db5e7e78c0dd2f9dff",
+      "mode": "reviewed_adaptation",
+      "e4_merge_reason": "Existing E4 bounded ICS source parser ported to current R23 with retained Gmail repairs."
+    },
+    {
+      "source": "examples/apps/email/providers/native-gmail.mjs",
+      "target": "vendor/providers/native-gmail.mjs",
+      "sha256": "3457c1fccb73d6e74bc6690603a7b68ad0765a19b31df20de21b0aadb679ee1c",
+      "mode": "reviewed_adaptation",
+      "source_sha256": "21305a6eb78e3c422a721a7b82766ff2c9a32289cef428d23fe81992b121cefb",
+      "adaptation": "Restart strictly verified same-account prior-epoch native inventory cursors with NULL provider token and new generation; preserve checkpoint/cache until successful commit, keep generic cursor decoder unchanged.",
+      "adaptation_packet_sha256": "f6088e2a1228d5cb8ef62798b797025e563fc5aad6f5a9c5ef89c3c15712e06a",
+      "e5_parent_sha256": "063e977f646ef04ab7338218509caad6cf11cf8321054d8e8ffff28cbe3fd708",
+      "e5_merge_reason": "Reviewed original-native import preserves immutable custody, native namespace and inspect-only effect history on exact accepted current E4 parent."
+    },
+    {
+      "source": "examples/apps/email/providers/conversation-reset.mjs",
+      "target": "vendor/providers/conversation-reset.mjs",
+      "sha256": "9201b9510a171c21a22e50fec6ce579305133c42df98ac2144203106631fd5cf",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/native-microsoft.mjs",
+      "target": "vendor/providers/native-microsoft.mjs",
+      "sha256": "898647d9f59227edcde11f09e17d3ff0896141bfa8c0f73bc65070eb386921dd",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/native-folder-identity.mjs",
+      "target": "vendor/providers/native-folder-identity.mjs",
+      "sha256": "cbadfe70cb06e96783f2480ac0fc288f94c1ed8516818152571f456721db323e",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/email-query-language.mjs",
+      "target": "vendor/email-query-language.mjs",
+      "sha256": "ca154d4f34378c9646a4c8b8f4f4610bbfc60193375b86bafb724149bf78a68c",
+      "mode": "reviewed_adaptation",
+      "source_sha256": "aaee8a12f4f919a5f8aeac2f86a42d49c19525f7225464ddef3c2e3632741904",
+      "adaptation": "Add explicit Microsoft Archive query using existing folder semantics",
+      "adaptation_packet_sha256": "4527676bd702f9398f3e7af73ad7aaa97c08101b3c9f858d6b9bd22e47a3bf58"
+    },
+    {
+      "source": "examples/apps/email/providers/native-triage.mjs",
+      "target": "vendor/providers/native-triage.mjs",
+      "sha256": "b0ca95405473377d39abf640bba1603dca69ea26e6bc3e3cd5dc877e316c7c9d",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/triage-service.mjs",
+      "target": "vendor/triage-service.mjs",
+      "sha256": "f21499ec50dd67b475dd2b0255c4e6f62710e13deafdcdd5c2c57be21a3e97a8",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/triage-contract.mjs",
+      "target": "vendor/providers/triage-contract.mjs",
+      "sha256": "962318ba7eebcb6329a470a265e244077c41624f88d55920edac0296eb3b6afe",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/triage-gmail.mjs",
+      "target": "vendor/providers/triage-gmail.mjs",
+      "sha256": "92ca9de9eeb8af963b2a0c2673bb162c750295c816fe12d6272bb820134bc848",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/triage-microsoft.mjs",
+      "target": "vendor/providers/triage-microsoft.mjs",
+      "sha256": "79a1fffe910912c9ee100220fb0a04f08e46ff52d756aa99a06e88eea17beb84",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/native-imap-alias.mjs",
+      "target": "vendor/providers/native-imap-alias.mjs",
+      "sha256": "520e4c0c53d751b07172f6b1da04423a99515bf20914efceb334e8108c48dbce",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/native-folders.mjs",
+      "target": "vendor/providers/native-folders.mjs",
+      "sha256": "7aa15c4630a79d0f4f33736042d2b2bd33decdcdc2bdb4fa8f2da2fc9a4ebcac",
+      "mode": "reviewed_adaptation",
+      "source_sha256": "34cdc377d50c2b5f5a5e03f39fbdc3437f4344a809c79d3621ccca2068a0f6dd",
+      "reason": "Root create/rename preserves shipped provider folder behavior behind app-owned exact catalog references, expected-name concurrency guard and generic reviewed resource actions.",
+      "adaptation_packet_sha256": "735ba6e0dcc07ec2c6ad4e8c1869eb8986cb2130691de33a06ca8ddf5f09d23e",
+      "prior_reviewed_sha256": "000944424596f387ebb500be240df904a983c1aecde1133bd27b37fb71b52516",
+      "adaptation": "Preserve reviewed root create/rename. Read-only folder catalog resolves current protected Graph aliases before displaying Rename, denying incomplete protection metadata; Gmail system labels remain protected."
+    },
+    {
+      "source": "examples/apps/email/providers/native-send.mjs",
+      "target": "vendor/providers/native-send.mjs",
+      "sha256": "67fee351dd60f57f74a0111e0d100f9503152c11b2ac6ccdcf9ff50f67c95fb4",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/native-graph-send.mjs",
+      "target": "vendor/providers/native-graph-send.mjs",
+      "sha256": "7c393f8266f51cef9005a158d8f603d9725352445c01619bfe3db7f79c100ca1",
+      "mode": "reviewed_adaptation",
+      "source_sha256": "dd02c74d196960a5385cd1b61a163ab73795aa7b434a2849e9af910a59c9efd3",
+      "adaptation": "Bounded upload chunks and backoff supporting renewed reviewed Send",
+      "adaptation_packet_sha256": "4527676bd702f9398f3e7af73ad7aaa97c08101b3c9f858d6b9bd22e47a3bf58"
+    },
+    {
+      "source": "examples/apps/email/providers/native-draft-content.mjs",
+      "target": "vendor/providers/native-draft-content.mjs",
+      "sha256": "49f25d5645688544584a0d2ca31a5c858c753264325794320c0da9effa86ff9b",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/outgoing-snapshot.mjs",
+      "target": "vendor/outgoing-snapshot.mjs",
+      "sha256": "1396e55a758a43260e112de410da84e156d3fbbfd00520288755098b1b6b5c60",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/native-conversation.mjs",
+      "target": "vendor/providers/native-conversation.mjs",
+      "sha256": "994f33ec637285774e502349acfc5cfdde0daf075cd79076d5ed303e48f3b4fd",
+      "mode": "reviewed_adaptation",
+      "e5_parent_sha256": "0f2101a4cd9398f7ed70bdb7a6b81496d53bd2fba255fc641d564b0876dd5e24",
+      "frozen_source_sha256": "0f2101a4cd9398f7ed70bdb7a6b81496d53bd2fba255fc641d564b0876dd5e24",
+      "e5_merge_reason": "Reviewed original-native import preserves immutable custody, native namespace and inspect-only effect history on exact accepted current E4 parent."
+    },
+    {
+      "source": "examples/apps/email/providers/native-draft-sync.mjs",
+      "target": "vendor/providers/native-draft-sync.mjs",
+      "sha256": "fe8f64c5878bbfd181e2f93a9884f40c85f359a490cac76ec828d51a5e1c7353",
+      "mode": "reviewed_adaptation",
+      "source_sha256": "d0e734accbcc5a6258b52561378a6055431c619224491b59324bf59adf942c36",
+      "adaptation": "Bounded read-only original Message-ID recovery with immutable MIME content verification; no search pagination, writes, replay, or fence clearing."
+    },
+    {
+      "source": "examples/apps/email/providers/native-graph-draft-update.mjs",
+      "target": "vendor/providers/native-graph-draft-update.mjs",
+      "sha256": "293a45bbfaf4f90c47b06457853400c26d004239d4bc7ba587c75e4a8c912ea8",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/outgoing-send-runtime.mjs",
+      "target": "vendor/outgoing-send-runtime.mjs",
+      "sha256": "a1aef715187f1aa024f5b91415fcfe583891c6b85f397a63d2ba8f0e7f3d9916",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/account-runtime.mjs",
+      "target": "vendor/providers/account-runtime.mjs",
+      "sha256": "225424d71cead8ad4082d3ea4d0e5d296ed84c705815d65720fccd6e244d5c8f",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/imap.mjs",
+      "target": "vendor/providers/imap.mjs",
+      "sha256": "8f897da2b69fb37fcd3033f3e5625a83b58c967170a083250212b95701d12500",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/mailbox-sync.mjs",
+      "target": "vendor/mailbox-sync.mjs",
+      "sha256": "c7f9fb869051ecaa6f14123d3a80e422ce4bfe496ed5e92c7222ba9484a4d279",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/mailbox-lifecycle.mjs",
+      "target": "vendor/mailbox-lifecycle.mjs",
+      "sha256": "988c723478a157bfcdd362e6867f541648d9220d2dc0b6cc1482258e8b8568e4",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/mail-inventory.mjs",
+      "target": "vendor/mail-inventory.mjs",
+      "sha256": "abf01e969666c3c659df7c0224c5cb77b80e57603b4e50247cdb7f6acfe50d00",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/imap-metadata.mjs",
+      "target": "vendor/providers/imap-metadata.mjs",
+      "sha256": "e2d94b038e0eb92f2257fc7362da275999e4512c40868245e535dc2cb9be75af",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/conversation-reconciliation.mjs",
+      "target": "vendor/providers/conversation-reconciliation.mjs",
+      "sha256": "52fd93c726cbc9e92db6fb19fbdccbccb244fe2c32d6187f30f9fd601ed63375",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/outgoing-payload-builder.mjs",
+      "target": "vendor/outgoing-payload-builder.mjs",
+      "sha256": "0c504432c44cad3090128d8771dbd39d4d262d72b2cf2f0ef6c8abd05ea0ee01",
+      "mode": "byte_copy"
+    },
+    {
+      "source": "examples/apps/email/providers/native-imap.mjs",
+      "target": "vendor/providers/native-imap.mjs",
+      "sha256": "ba558063184a8cbf1c0686d800d97a3408b3a65ea03da658f73478b3c5703474",
+      "source_sha256": "f9095f19d4c54557cf01a8cd48a337a011d5d5042a037873ce022c625e49b55f",
+      "mode": "line_endings_normalized",
+      "normalization": "CRLF to LF only; module text unchanged"
+    },
+    {
+      "source": "examples/apps/email/providers/native-imap-reader.mjs",
+      "target": "vendor/providers/native-imap-reader.mjs",
+      "sha256": "0621ff126d05966a2761f2a17c7bf0275d137de4c06424a925727ee927b942f6",
+      "source_sha256": "8135ebe0fda75053527fda130d664aae06bd18a0dbc3d165e409c3c6910d3429",
+      "mode": "line_endings_normalized",
+      "normalization": "CRLF to LF only; module text unchanged"
+    },
+    {
+      "source": "examples/apps/email/providers/native-imap-query.mjs",
+      "target": "vendor/providers/native-imap-query.mjs",
+      "sha256": "ffbf4559ae93cb62306bb9e9717e9f4d6b53a009a487b19eee3394a496b31e84",
+      "source_sha256": "7b1b788c48f75d0cae1f103a539939db192fc42efe2fc06dab4cd6def1c921bb",
+      "mode": "line_endings_normalized",
+      "normalization": "CRLF to LF only; module text unchanged"
+    },
+    {
+      "source": "examples/apps/email/providers/native-imap-effects.mjs",
+      "target": "vendor/providers/native-imap-effects.mjs",
+      "sha256": "d26210461fd42bea6f86d45c9661b329a19ec306353760868c7c2f0311edcefc",
+      "source_sha256": "6ba4780bb3bb1de5a850ba6f10a1f0b227fb06a19c6bc1af2ffe112c81c68457",
+      "mode": "line_endings_normalized",
+      "normalization": "CRLF to LF only; module text unchanged"
+    },
+    {
+      "source": "examples/apps/email/providers/native-imap-sent-copy.mjs",
+      "target": "vendor/providers/native-imap-sent-copy.mjs",
+      "sha256": "1a1552cdb14f8c527df2360c811392669fb123f2e40bd6ef4ba3e77ed7adb112",
+      "source_sha256": "801b9fae3d5aa82f72e145b1c7248957297d9b441fe94612f403c50d3edcd942",
+      "mode": "line_endings_normalized",
+      "normalization": "CRLF to LF only; module text unchanged"
+    },
+    {
+      "source": "examples/apps/email/providers/triage-imap.mjs",
+      "target": "vendor/providers/triage-imap.mjs",
+      "sha256": "4baf6159cd9a248f40a39d42c7edf01647c78c53d51610476b600611ca1116d0",
+      "source_sha256": "739013d2dc1ed719bf11af7edf3a5b45651255592757417bcd4492f4b46d7b03",
+      "mode": "line_endings_normalized",
+      "normalization": "CRLF to LF only; module text unchanged"
+    }
+  ],
+  "ported_behaviors": [
+    {
+      "target": "draft-store.mjs",
+      "source": "apps/api/src/lib/email-draft-service.ts",
+      "reason": "Strict native draft, quota, managed signature and app-owned scoped CAS behavioral port",
+      "source_sha256": "0b413d372f5eb6d9652f35111c2da464de103a9195ad9b1de2c403e6fecd858b",
+      "mode": "behavioral_port",
+      "sha256": "dfd87748ed948b3ed42153daaac5e8c7e461b7076eb266d6440d750c206fbc42"
+    },
+    {
+      "target": "draft-store.mjs",
+      "source": "apps/api/src/lib/email-draft-store.ts",
+      "reason": "Scoped draft/file revisions and lifecycle behavioral port with independent encrypted store",
+      "source_sha256": "65883da1bd835b002b60ffc6b6da9f04b26a6700b425ccd9abc759e0d09498d8",
+      "mode": "behavioral_port",
+      "sha256": "dfd87748ed948b3ed42153daaac5e8c7e461b7076eb266d6440d750c206fbc42"
+    },
+    {
+      "target": "reply-compose.mjs",
+      "source": "apps/web/src/lib/email-native-reply.ts",
+      "reason": "Native recipient/self-exclusion/header/quote budget and visible notice behavioral port",
+      "source_sha256": "08a8f8420a05e3c4a91a7d74c59ff8be0984d187c66558f55525fdae7d63d984",
+      "mode": "behavioral_port",
+      "sha256": "7c5a2be19635a666b68c09368834c5e8efc31d2f2a15327787af7652dc6fb6d6"
+    },
+    {
+      "target": "connection-runtime.mjs",
+      "mode": "independent_adapter",
+      "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
+      "sha256": "8b8f26cd700624bc87c419466d05fe088de88867f18b11ba63967165a405a645"
+    },
+    {
+      "target": "connection-upgrade-runtime.mjs",
+      "mode": "independent_adapter",
+      "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
+      "sha256": "6df1c87f62276dd1d53c75f4ed06c8c0c411a373b0c35530f463ca7b343cc557"
+    },
+    {
+      "target": "upgrade-contract.mjs",
+      "mode": "independent_adapter",
+      "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
+      "sha256": "3a6dfaf5deca2bd137f73feb04a64e0130f393492b9849901cfd25d49b7f003a"
+    },
+    {
+      "target": "purpose-set.mjs",
+      "mode": "independent_adapter",
+      "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
+      "sha256": "ac2459bdaa54ad1e07fa5c891ffdd260b717a50d6d845a0926254c4af1a2d455"
+    },
+    {
+      "target": "file-copy.mjs",
+      "mode": "independent_adapter",
+      "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
+      "sha256": "6af81c2cde005b05e941978c3a9a7d1dae1f304b9d0aa20f799dc8f0efb3c9d5"
+    },
+    {
+      "target": "account-lineage.mjs",
+      "mode": "independent_adapter",
+      "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
+      "sha256": "a58adc667768a070ae747e6a40b918eaaa49e3998b7f14e68d994ae851b9fd21"
+    },
+    {
+      "target": "target-reservation.mjs",
+      "mode": "independent_adapter",
+      "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
+      "sha256": "aff3d2b6359d2518bd42682eabc7afccef217d4c5f3ee37b5a2b0290a07dd48c"
+    },
+    {
+      "target": "registration-dispatch.mjs",
+      "mode": "independent_adapter",
+      "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
+      "sha256": "eb8b947995c037a1b917dc1602e302831beae22cf8e2587f596e85f0f1214823"
+    },
+    {
+      "target": "server.mjs",
+      "mode": "independent_adapter",
+      "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
+      "sha256": "69b839308e2d152cc6819edd39d4d4c5fc5aab3beb46ca73712a208951c1ef24"
+    },
+    {
+      "target": "http.mjs",
+      "mode": "independent_adapter",
+      "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
+      "sha256": "e7c2cd91ad7c4832fdadcf48848adf6aec9ee067fff02cf67effa26b2ed2bc5e"
+    },
+    {
+      "target": "data-contract.mjs",
+      "mode": "independent_adapter",
+      "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
+      "sha256": "cc89be0408e480fd90dd97c1988e0632d27897c0c39ed3989f355b98fae8ce53"
+    },
+    {
+      "target": "data-runtime.mjs",
+      "mode": "independent_adapter",
+      "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
+      "sha256": "b5e6f89d37859c2eab82afd9fdeb0cb681e0bb88b38ee7e1aa9627dfbe0b7e22"
+    },
+    {
+      "target": "send-runner.mjs",
+      "mode": "independent_adapter",
+      "reason": "Owned public Kit15 v2 independent purposes and reviewed stable-account OAuth upgrade, immutable lineage/current account gates and exact original attachment draft CAS copy; frozen51 vendor bytes unchanged",
+      "sha256": "80c404389b34e6c1713ba51c9784898b70e91ce60a67e8acabe74d78e54b2024"
+    },
+    {
+      "target": "resource-plan-store.mjs",
+      "mode": "independent_adapter",
+      "reason": "Public Kit16 immutable resource plans and independently consented Organize runtime effects; whole-plan/per-item no-replay, exact custody/current authority and request-local observation checks; frozen provider51 unchanged",
+      "sha256": "36f00b97aff8c185213e47f91852284ef8e280a97642b209f9b7cce1313d493c"
+    },
+    {
+      "target": "resource-actions.mjs",
+      "mode": "independent_adapter",
+      "reason": "Public Kit16 immutable resource plans and independently consented Organize runtime effects; whole-plan/per-item no-replay, exact custody/current authority and request-local observation checks; frozen provider51 unchanged",
+      "sha256": "57ffcdf911236f41f8c356ea68443cd481a08fe36ca0ea29c1dc539cdb78d767"
+    },
+    {
+      "target": "resource-triage.mjs",
+      "mode": "independent_adapter",
+      "reason": "Public Kit16 immutable resource plans and independently consented Organize runtime effects; whole-plan/per-item no-replay, exact custody/current authority and request-local observation checks; frozen provider51 unchanged",
+      "sha256": "f54b4521435d7648b2f7e650f15592df9d0e8a724919beb8b9855d5f4d8a11d9"
+    },
+    {
+      "target": "organize-runner.mjs",
+      "mode": "independent_adapter",
+      "reason": "Public Kit16 immutable resource plans and independently consented Organize runtime effects; whole-plan/per-item no-replay, exact custody/current authority and request-local observation checks; frozen provider51 unchanged",
+      "sha256": "99da782d6d9d8f14e6bea829ed84b720aa06db4ebcb1c119c8dbf8117300a0fd"
+    },
+    {
+      "target": "action-runner.mjs",
+      "mode": "independent_adapter",
+      "reason": "Public Kit16 immutable resource plans and independently consented Organize runtime effects; whole-plan/per-item no-replay, exact custody/current authority and request-local observation checks; frozen provider51 unchanged",
+      "sha256": "bae85098fc8b998b04c73c736daad33313cdc004dad0b9a6b63a05468d1873a8"
+    },
+    {
+      "target": "observation-diagnostics.mjs",
+      "mode": "independent_adapter",
+      "reason": "Public Kit16 immutable resource plans and independently consented Organize runtime effects; whole-plan/per-item no-replay, exact custody/current authority and request-local observation checks; frozen provider51 unchanged",
+      "sha256": "c54de3e3e36b3ff8c2b76cd129ce98b0d9c920d0147046018d1b70a85b5605e0"
+    },
+    {
+      "target": "observation-runner-e3-4-fixture.mjs",
+      "mode": "independent_adapter",
+      "reason": "Public Kit16 immutable resource plans and independently consented Organize runtime effects; whole-plan/per-item no-replay, exact custody/current authority and request-local observation checks; frozen provider51 unchanged",
+      "sha256": "bd0595e0e1630e24c07d8290a00e5db92c9bd2bcabf5e0f7af5e9c978103defc"
+    },
+    {
+      "target": "mailbox-store.mjs",
+      "mode": "independent_adapter",
+      "reason": "Public Kit16 immutable resource plans and independently consented Organize runtime effects; whole-plan/per-item no-replay, exact custody/current authority and request-local observation checks; frozen provider51 unchanged",
+      "sha256": "8145b23ab987525931f64b8c0cb3847a559225df6457e0d48e0318dc040227ad"
+    },
+    {
+      "target": "connection-reattach-runtime.mjs",
+      "mode": "independent_adapter",
+      "reason": "Public Kit16 immutable resource plans and independently consented Organize runtime effects; whole-plan/per-item no-replay, exact custody/current authority and request-local observation checks; frozen provider51 unchanged",
+      "sha256": "38b9795c631c3c09fcff229b834f2aa781497893deb12c8556b42da3ed874d46"
+    },
+    {
+      "target": "observation-runner.mjs",
+      "mode": "independent_adapter",
+      "reason": "Public Kit16 immutable resource plans and independently consented Organize runtime effects; whole-plan/per-item no-replay, exact custody/current authority and request-local observation checks; frozen provider51 unchanged",
+      "sha256": "f16d93fe98f12e2ba04e7c77c5996517951370466d3336dc6c13c563e26097f9"
+    }
+  ],
+  "owned_adapters": [
+    {
+      "target": "resource-bytes.mjs",
+      "mode": "independent_adapter",
+      "reason": "One authoritative native source read and frozen incoming parser/proxy reuse for exact binary references; no vendor modifications or authority caching",
+      "reused_frozen_modules": [
+        "vendor/providers/native-mailbox.mjs",
+        "vendor/providers/incoming-source-files.mjs",
+        "vendor/providers/remote-image-proxy.mjs"
+      ],
+      "sha256": "76b3a69ad18ae5aa8fd5b69674de583f5f3c35b195eb78ca10092e587decfa4d"
+    },
+    {
+      "target": "connection-reattach-runtime.mjs",
+      "mode": "independent_adapter",
+      "reason": "Public reviewed upgrade reattachment, app-owned custody lineage/source nomination and exact current-scope reservation; no frozen engine changes",
+      "sha256": "38b9795c631c3c09fcff229b834f2aa781497893deb12c8556b42da3ed874d46"
+    },
+    {
+      "target": "reattach-contract.mjs",
+      "mode": "independent_adapter",
+      "reason": "Public reviewed upgrade reattachment, app-owned custody lineage/source nomination and exact current-scope reservation; no frozen engine changes",
+      "sha256": "0cda31ffe1c9315a592cacaacfc1094437c8d683d08860a46182271cee4fe7a3"
+    },
+    {
+      "target": "account-lineage.mjs",
+      "mode": "independent_adapter",
+      "reason": "Public reviewed upgrade reattachment, app-owned custody lineage/source nomination and exact current-scope reservation; no frozen engine changes",
+      "sha256": "a58adc667768a070ae747e6a40b918eaaa49e3998b7f14e68d994ae851b9fd21"
+    },
+    {
+      "target": "target-reservation.mjs",
+      "mode": "independent_adapter",
+      "reason": "Public reviewed upgrade reattachment, app-owned custody lineage/source nomination and exact current-scope reservation; no frozen engine changes",
+      "sha256": "aff3d2b6359d2518bd42682eabc7afccef217d4c5f3ee37b5a2b0290a07dd48c"
+    },
+    {
+      "target": "archive-read.mjs",
+      "mode": "independent_adapter",
+      "reason": "Explicit pure canonical Gmail Archive read with frozen OAuth/Gmail metadata/identity/cursor primitives, current scope/custody/principal/provider guards and hydrated system-label exclusions; no arbitrary query bypass or vendor edit",
+      "reused_frozen_modules": [
+        "vendor/providers/oauth-account.mjs",
+        "vendor/providers/gmail.mjs",
+        "vendor/providers/contract.mjs",
+        "vendor/providers/native-folder-identity.mjs",
+        "vendor/logical-mail-index.mjs",
+        "vendor/metadata-resource.mjs"
+      ],
+      "sha256": "036d797f8b5ac3cc91a1e5ee206e90e8eb3d716a95465475d93e83448847c81a"
+    },
+    {
+      "target": "observation-runner.mjs",
+      "mode": "independent_adapter",
+      "reason": "Current human opt-in observation via unchanged public v3 claim/start/heartbeat/result; app-owned durable Run generation and lineage receipt fences, immutable metadata-only projection, current provider/checkpoint/disclosure authority; no vendor modifications",
+      "reused_frozen_modules": [
+        "vendor/providers/native-mailbox.mjs",
+        "vendor/providers/custody-encrypted.mjs",
+        "vendor/metadata-resource.mjs"
+      ],
+      "sha256": "f16d93fe98f12e2ba04e7c77c5996517951370466d3336dc6c13c563e26097f9"
+    },
+    {
+      "target": "data-runtime.mjs",
+      "mode": "independent_adapter",
+      "reason": "Bounded data-only60s foreground memo and durable membership generation invalidation; operation-local pure rechecks with fresh entry/provider/token/commit/disclosure online authority, unchanged session/custody/mutation locks and frozen vendors",
+      "sha256": "b5e6f89d37859c2eab82afd9fdeb0cb681e0bb88b38ee7e1aa9627dfbe0b7e22"
+    },
+    {
+      "target": "mailbox-store.mjs",
+      "mode": "independent_adapter",
+      "reason": "Bounded data-only60s foreground memo and durable membership generation invalidation; operation-local pure rechecks with fresh entry/provider/token/commit/disclosure online authority, unchanged session/custody/mutation locks and frozen vendors",
+      "sha256": "8145b23ab987525931f64b8c0cb3847a559225df6457e0d48e0318dc040227ad"
+    },
+    {
+      "target": "foreground-cache.mjs",
+      "mode": "independent_adapter",
+      "reason": "Bounded data-only60s foreground memo and durable membership generation invalidation; operation-local pure rechecks with fresh entry/provider/token/commit/disclosure online authority, unchanged session/custody/mutation locks and frozen vendors",
+      "sha256": "b4d8d23a8ffe488bfed77cf0be59bb54a2b110d4899ad33108961d54b560cf18"
+    }
+  ]
+}
