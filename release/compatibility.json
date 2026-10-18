@@ -1,0 +1,30 @@
+{
+  "schema": "deft.email.preview.compatibility.v1",
+  "publication_state": "source-template",
+  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.13/compatibility.json",
+  "resolution": "The detached release asset resolves exact tagged source commits, Host image digest and asset SHA256 values after packaging. This source template does not certify publication or contain its own archive checksum.",
+  "host": {
+    "version": "0.3.0-preview.120",
+    "tag": "v0.3.0-preview.120",
+    "repository": "https://github.com/Maneek21/Deft",
+    "release_manifest": "https://github.com/Maneek21/Deft/releases/download/v0.3.0-preview.120/release-manifest.json",
+    "browser_profile": "apps-developer-preview",
+    "schema_version": "0.3.0-preview.120",
+    "contracts": { "app_protocol": 7, "connection_protocol": 2, "record_form": 3, "resource_sync_channel": 3 }
+  },
+  "email": {
+    "tag": "v1.9.0-preview.13",
+    "repository": "https://github.com/Maneek21/deft-email",
+    "app_version": "1.9.0-preview.13",
+    "runtime_version": "0.4.0-preview.15",
+    "app_kit_version": "0.1.0-alpha.38",
+    "runtime_kit_version": "0.1.0-alpha.35",
+    "kit_compatibility": "App alpha.38 adds account-targeted Refresh; Runtime alpha.35 implements the existing connection, permission and effect contracts supported by Host preview.120. The versions need not match."
+  },
+  "kits": [
+    { "version": "0.1.0-alpha.38", "asset": "deft-app-kit-0.1.0-alpha.38.tgz", "sha256": "dbb35ea11e2ce192fed72889aee8ea65764aa16dd93ce0b71f5075e2fb655341", "consumer": "email-app" },
+    { "version": "0.1.0-alpha.35", "asset": "deft-app-kit-0.1.0-alpha.35.tgz", "sha256": "82c2d5bff2776e423b58647fad0f4a6a6430535f4e60c8146fed737d83f33ad5", "consumer": "email-runtime" }
+  ],
+  "supported_environment": { "host_platform": "linux/amd64", "runtime_instances": 1, "runtime_platform": "POSIX with durable private storage and HTTPS", "node": ">=22.13.0", "npm": "11.9.0", "pnpm": "10.33.0" },
+  "limitations": ["Operator-managed developer preview, not production Gmail/Outlook parity.", "Refresh can take tens of seconds; repeated latency campaigns are outside release acceptance.", "OAuth configuration, purpose-specific Host gates/keys, reviewed grants and durable Runtime custody are required.", "Resource publication for Task/Knowledge integration needs separate reviewed finite or explicitly Host-issued until_revoked consent; technical renewal alone does not grant it."]
+}

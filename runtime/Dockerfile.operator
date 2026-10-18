@@ -1,0 +1,15 @@
+# Operator recipe only; root pins and verifies the official Node24 image digest
+# and public artifact hashes before any controlled deployment.
+ARG NODE_IMAGE
+FROM ${NODE_IMAGE}
+RUN npm install --global pnpm@10.33.0
+WORKDIR /opt/email-runtime
+COPY runtime-artifact.tgz /tmp/runtime-artifact.tgz
+RUN tar -xzf /tmp/runtime-artifact.tgz --strip-components=1 -C /opt/email-runtime \
+ && rm /tmp/runtime-artifact.tgz \
+ && pnpm install --prod --frozen-lockfile --ignore-scripts \
+ && node verify-provenance.mjs \
+ && chown -R node:node /opt/email-runtime
+USER node
+ENV EMAIL_RUNTIME_CONFIG_FILE=/run/email-runtime/runtime.json
+CMD ["node","server.mjs"]

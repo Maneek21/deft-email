@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+app/app.deft.json
+app/artifact.json
+app/build-result.json
+app/worker.bundle.js
+runtime/state/
+runtime/private/
+coverage/
