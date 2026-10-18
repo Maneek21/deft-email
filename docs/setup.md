@@ -20,9 +20,9 @@ mkdir -p private
 chmod 700 private
 ```
 
-Fill `.env` with fresh `POSTGRES_PASSWORD`, `JWT_SECRET`, `JWT_REFRESH_SECRET` and `ENCRYPTION_KEY`, and set `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` to the browser-reachable rehearsal URLs. Set `DEFT_IMAGE=ghcr.io/maneek21/deft@sha256:...` using the exact `host.image_digest` in the downloaded compatibility manifest. Use the Host release's `self-hosting.md` and [HTTPS routing guide](https://github.com/Maneek21/Deft/blob/v0.3.0-preview.120/docs/self-hosting-vps-domain-https.md). Runtime callbacks and authority URLs require HTTPS; a plain localhost health check is not a connection proof.
+Fill `.env` with fresh `POSTGRES_PASSWORD`, `JWT_SECRET`, `JWT_REFRESH_SECRET` and `ENCRYPTION_KEY`, and set `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` to the browser-reachable rehearsal URLs. Set `DEFT_IMAGE=ghcr.io/maneek21/deft@sha256:...` using the exact `host.image_digest` in the downloaded compatibility manifest. Use the Host release's `self-hosting.md` and [HTTPS routing guide](https://github.com/Maneek21/Deft/blob/v0.3.0-preview.121/docs/self-hosting-vps-domain-https.md). Runtime callbacks and authority URLs require HTTPS; a plain localhost health check is not a connection proof.
 
-Set `DEFT_RELEASE_VERSION` to the Host's published database-release value from the compatibility record; do not infer it from an unrelated image tag or reuse an older schema value. Set these preview gates in the operator environment. A prebuilt browser bundle must already contain the matching `NEXT_PUBLIC_*` gates and public origin; runtime variables cannot enable a gate omitted from that build:
+Set `DEFT_RELEASE_VERSION` to `host.version` in the compatibility record (`0.3.0-preview.121` for this set). This reports the Host release identity; the independent `host.schema_version` remains `0.3.0-preview.120`. Do not conflate the image release with the database schema. Set these preview gates in the operator environment. A prebuilt browser bundle must already contain the matching `NEXT_PUBLIC_*` gates and public origin; runtime variables cannot enable a gate omitted from that build:
 
 ```dotenv
 DEFT_APPS_ENABLED=true
@@ -219,7 +219,7 @@ Use separate controlled provider accounts for this rehearsal, or a supported ser
 
 ## Task and Knowledge integration
 
-Use the [connected App author guide from the supported Host release](https://github.com/Maneek21/Deft/blob/v0.3.0-preview.120/docs/connected-app-author-guide.md), also included in its corresponding source. The manifest identifies the exact Host commit if consulting source before tag publication. In that guide, follow **Email source-to-Task readiness** with this installation's current IDs:
+Use the [connected App author guide from the supported Host release](https://github.com/Maneek21/Deft/blob/v0.3.0-preview.121/docs/connected-app-author-guide.md), also included in its corresponding source. The manifest identifies the exact Host commit if consulting source before tag publication. In that guide, follow **Email source-to-Task readiness** with this installation's current IDs:
 
 1. Review and activate scalar observation under the current owner resource binding. It is separate from foreground Read and does not grant provider actions, attachment transfer or Knowledge destination access.
 2. Issue the current v3 sync session and install its private `resource_sync_channel_files` entry using the public `/api/app-resource-sync-channel/v3` and observation-authority endpoints. Preserve its issued technical renewal metadata and finite lease, plus publication consent's separately reviewed finite deadline or explicit `until_revoked` lifetime; an action-channel credential is not a sync credential.
