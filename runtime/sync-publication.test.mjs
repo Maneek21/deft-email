@@ -37,6 +37,30 @@ test('foreground partitions hand off immutable ordered pages without changing na
 
 test('query cache writes neither allocate publication pages nor claim native completion',async()=>{const f=fixture(),p=nativePage(f,1);p.state_updates=[];await f.mailbox.commit(f.scope,p,current);assert.equal((await f.mailbox.syncHead(f.scope,current)).last,0);assert.equal(await f.mailbox.cursor(f.scope,current),null);assert.equal((await f.mailbox.list(f.scope,{},current)).freshness.complete,false);});
 
+test('an authorized query-only received message publishes its exact partial source without moving native coverage',async()=>{
+ const f=fixture();await commit(f,nativePage(f,1));const first=await publish(f),before=(await f.mailbox.list(f.scope,{},current)).freshness,cursor=await f.mailbox.cursor(f.scope,current);
+ const query={...nativePage(f,2),state_updates:[],tombstones:[],complete:false,next_cursor:'query-continuation'};
+ await f.mailbox.commit(f.scope,query,current,{sync_producer:f.producer,publication_intent:'partial_observation'});
+ const second=await publish(f,first.next_cursor),resource=resourceView(await f.mailbox.getLogical(f.scope,query.items[0].logical_message_id,current));
+ assert.equal(second.items[0].logical_message_id,query.items[0].logical_message_id);assert.equal(second.complete,false);assert.deepEqual(second.tombstones,[]);assert.deepEqual(second.state_updates,[]);
+ const projected=integrationSourceProjection(f.scope,second.items[0],second.observed_at,{record_id_field:'source_record_id',content_digest_field:'source_content_digest',observed_at_field:'source_observed_at'});
+ assert.equal(projected.data.source_record_id,resource.record_id);assert.equal(projected.data.source_content_digest,resource.content_digest);
+ assert.equal(await f.mailbox.cursor(f.scope,current),cursor);const after=(await f.mailbox.list(f.scope,{},current)).freshness;
+ assert.equal(after.checkpoint_generation,before.checkpoint_generation);assert.equal(after.coverage_generation,before.coverage_generation);assert.equal(after.complete,before.complete);
+ const head=await f.mailbox.syncHead(f.scope,current);await f.mailbox.commit(f.scope,{...query,observed_at:'2026-10-11T00:00:00Z'},current,{sync_producer:f.producer,publication_intent:'partial_observation'});
+ assert.equal((await f.mailbox.syncHead(f.scope,current)).last,head.last);assert.deepEqual(await publish(f,first.next_cursor),second);
+});
+
+test('partial observations reject inferred deletions and changed producer or owner, and revocation emits no publication',async()=>{
+ for(const change of [p=>({...p,tombstones:[logical(3)]}),p=>({...p,state_updates:[{state_key:'native',generation:'g2',value:{}}]})]){
+  const f=fixture(),page={...nativePage(f,2),state_updates:[],tombstones:[],complete:false};await assert.rejects(f.mailbox.commit(f.scope,change(page),current,{sync_producer:f.producer,publication_intent:'partial_observation'}));
+ }
+ const f=fixture(),page={...nativePage(f,2),state_updates:[],tombstones:[],complete:false};await f.mailbox.commit(f.scope,page,current,{sync_producer:f.producer,publication_intent:'partial_observation'});
+ await assert.rejects(f.mailbox.syncNext(f.scope,0,{...f.producer,custody_generation:2},current));
+ await assert.rejects(publish(f,null,{scope:{...f.scope,owner_user_id:randomUUID()}}));
+ await assert.rejects(publish(f,null,{check:async()=>{throw Error('REVOKED');}}),/REVOKED/);
+});
+
 test('legacy cache bootstrap is bounded, does not infer deletion/completeness, then uses the retained current native cursor',async()=>{const f=fixture(),p=nativePage(f,1,{count:25}),q=nativePage(f,2,{count:15});await f.mailbox.commit(f.scope,p,current);await f.mailbox.commit(f.scope,q,current);const native=await f.mailbox.cursor(f.scope,current);let calls=0;const a=await publish(f,null);assert.equal(a.items.length,25);assert.equal(a.complete,false);assert.deepEqual(a.tombstones,[]);const b=await publish(f,a.next_cursor);assert.equal(b.items.length,15);assert.equal(b.complete,false);const c=await publish(f,b.next_cursor,{readNative:async()=>{calls++;assert.equal(await f.mailbox.cursor(f.scope,current),native);await commit(f,nativePage(f,3));}});assert.equal(calls,1);assert.equal(c.items[0].logical_message_id,logical(75));});
 
 test('cached tombstone scanning advances with a fixed per-page deletion budget and does not publish inferred tombstones',async()=>{const f=fixture();for(let n=1;n<=3;n++)await f.mailbox.commit(f.scope,nativePage(f,n,{count:25}),current);const ids=Array.from({length:3},(_,n)=>Array.from({length:25},(_,i)=>logical((n+1)*25+i))).flat();await f.mailbox.commit(f.scope,{...nativePage(f,4,{count:0}),tombstones:ids},current);let checks=0;const a=await f.mailbox.publicationCachePage(f.scope,{limit:25},async()=>{checks++;});assert.deepEqual(a.page.items,[]);assert.deepEqual(a.page.tombstones,[]);assert.ok(a.after);assert.equal(checks,27);const b=await f.mailbox.publicationCachePage(f.scope,{after:a.after,limit:25},current);assert.ok(b.after);const c=await f.mailbox.publicationCachePage(f.scope,{after:b.after,limit:25},current);assert.equal(c.after,null);});
