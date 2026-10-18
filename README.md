@@ -18,7 +18,7 @@ Email builds without a Deft source checkout or private Deft imports. Operators u
 
 The manifest entry point is [`release/compatibility.json`](release/compatibility.json). Its `authoritative_release_manifest` URL points to the detached public release record, which identifies the Host version/commit/image/schema, App and Runtime versions, each component's Kit, public assets, checksums and corresponding source. Use its verified publication state and release assets; a candidate record or open PR does not establish that downloads are available.
 
-This source builds App **1.9.0-preview.13** with Kit **0.1.0-alpha.38** and Runtime **0.4.0-preview.15** with Kit **0.1.0-alpha.35**. Their different Kit versions are intentional. The supported Host requires schema **120** and the exact generic contracts in the manifest. An older stable Host or a matching schema number alone is insufficient.
+This source builds App **1.9.0-preview.13** with Kit **0.1.0-alpha.38** and Runtime **0.4.0-preview.16** with Kit **0.1.0-alpha.35**. Their different Kit versions are intentional. The supported Host requires schema **120** and the exact generic contracts in the manifest. An older stable Host or a matching schema number alone is insufficient.
 
 ## Build independently
 

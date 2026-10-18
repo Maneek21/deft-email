@@ -10,6 +10,7 @@ const verified = await verifyDeftAppPackageJson(json);
 const manifest = verified.package.manifest;
 const metadata = JSON.parse(readFileSync(new URL('./package.json', import.meta.url)));
 const rootMetadata = JSON.parse(readFileSync(new URL('../package.json', import.meta.url)));
+const compatibility = JSON.parse(readFileSync(new URL('../release/compatibility.json', import.meta.url)));
 
 test('packed public Kit keeps the displayed target on a mailbox refresh', async () => {
   const sent=[],port={onmessage:null,postMessage:value=>sent.push(value),close(){}},sdk=createDeftExperienceSdk(port,'packed-refresh');
@@ -22,7 +23,8 @@ test('packed public Kit keeps the displayed target on a mailbox refresh', async 
 test('fresh package authenticates its manifest and worker artifact against public Kit38', () => {
   assert.equal(DEFT_APP_KIT_VERSION, '0.1.0-alpha.38');
   assert.equal(metadata.version, '1.9.0-preview.13');
-  assert.equal(rootMetadata.version, metadata.version);
+  assert.equal(compatibility.email.tag, 'v' + rootMetadata.version);
+  assert.equal(compatibility.email.app_version, metadata.version);
   assert.equal(manifest.id, 'io.deft.email');
   assert.equal(manifest.version, metadata.version);
   assert.equal(manifest.license, metadata.license);
