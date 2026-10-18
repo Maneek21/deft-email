@@ -1,4 +1,4 @@
-"""Deterministic Runtime15/App13 source candidate. Local artifacts only; never deploys a service.
+"""Deterministic Runtime16/App13 source candidate. Local artifacts only; never deploys a service.
 
 freeze uses the maintained package-source.py, exact committed Git blobs and the
 current App13/Kit38 package plus unchanged Runtime Kit35 pins. build defaults to validation only; explicit execute
@@ -9,7 +9,7 @@ from pathlib import Path,PurePosixPath
 import argparse,hashlib,json,shutil,subprocess,tarfile,threading
 
 ROOT=Path(__file__).resolve().parent.parent
-VERSION='0.4.0-preview.15'
+VERSION='0.4.0-preview.16'
 BASE='sha256:65a99b8f95836d91f6d36d4b0723772b622264b6d52dfb186fea944746f07215'
 BASE_TAG='deft-email-runtime:0.4.0-preview.12-4af03db9'
 KIT='82c2d5bff2776e423b58647fad0f4a6a6430535f4e60c8146fed737d83f33ad5'
@@ -63,7 +63,7 @@ def freeze(commit,out):
  require_space(ROOT/'dist',budget);require_space(out,2*budget)
  subprocess.run(['node',str(ROOT/'runtime/verify-provenance.mjs')],cwd=ROOT,check=True)
  subprocess.run(['python',str(ROOT/'scripts/package-source.py')],cwd=ROOT,check=True)
- source=ROOT/'dist/email-1.9.0-preview.13-source.tar.gz';members=files(source)
+ source=ROOT/('dist/email-'+json.loads((ROOT/'package.json').read_text())['version']+'-source.tar.gz');members=files(source)
  need(set(members)==intended,'COMPLETE_SELECTED_GIT_MEMBERSHIP_REQUIRED')
  for name,raw in members.items():
   need(name in tree,'UNTRACKED_SOURCE_DENIED');mode,kind,blob=tree[name]

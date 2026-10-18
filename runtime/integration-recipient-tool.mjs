@@ -1,8 +1,8 @@
 import {createHash} from 'node:crypto';import {canonical,fail} from './contract.mjs';
 import {recentAcceptedSuggestions} from './integration-recipient-projection.mjs';
 import {AppIntegrationToolRuntimeAuthorityResultSchema,AppIntegrationToolRuntimeResultSchema} from '@deft/app-kit';
-export {EMAIL_RECIPIENT_TOOL_DECLARATION} from '../app/recipient-tool-schema.mjs';
-import {EMAIL_RECIPIENT_TOOL_DECLARATION} from '../app/recipient-tool-schema.mjs';
+export {EMAIL_RECIPIENT_TOOL_DECLARATION} from './domain/recipient-tool-schema.mjs';
+import {EMAIL_RECIPIENT_TOOL_DECLARATION} from './domain/recipient-tool-schema.mjs';
 const hash=v=>'sha256:'+createHash('sha256').update(canonical(v)).digest('hex');
 export async function executeRecipientSuggestions({outer,createDataRuntime,assertCurrent,signal,now=Date.now}){
  const {input,schema_version,...pins}=outer;if(outer.tool_key!==EMAIL_RECIPIENT_TOOL_DECLARATION.key||outer.tool_operation!=='read'||outer.store_key!=='drafts'||outer.source_refs.length||outer.prepare_expires_at||input.account_id!==outer.connection.account_ref)fail('EMAIL_RECIPIENT_INPUT_INVALID');

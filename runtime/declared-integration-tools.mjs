@@ -3,8 +3,8 @@ import {createHash} from 'node:crypto';
 import {executeRecipientSuggestions} from './integration-recipient-tool.mjs';
 import {canonical,fail} from './contract.mjs';
 import {dataInputDigest,validateDataRequest,validateDataResult} from './data-contract.mjs';
-import {emailReadToolInput} from '../app/tool-data-input.mjs';
-import {EMAIL_INTEGRATION_TOOL_DECLARATIONS} from '../app/ten-tool-schema.mjs';
+import {emailReadToolInput} from './domain/tool-data-input.mjs';
+import {EMAIL_INTEGRATION_TOOL_DECLARATIONS} from './domain/ten-tool-schema.mjs';
 const hash=value=>'sha256:'+createHash('sha256').update(canonical(value)).digest('hex');
 /** Each original invocation has its own data checker. No mutable global actor
  * context, provider executor, effect retry or second permission lifecycle. */

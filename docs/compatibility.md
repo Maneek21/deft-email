@@ -8,7 +8,7 @@
 |---|---|
 | Email App | `1.9.0-preview.13` |
 | App Author Kit | `0.1.0-alpha.38` |
-| Email Runtime | `0.4.0-preview.15` |
+| Email Runtime | `0.4.0-preview.16` |
 | Runtime Author Kit | `0.1.0-alpha.35` |
 | Deft Host | Apps-enabled developer-preview image specified in the manifest; schema `120` plus the listed generic contracts |
 | App protocol | Manifest protocol 7; experience bundle v4; bridge v1; trusted renderer v2 |
