@@ -22,7 +22,7 @@ chmod 700 private
 
 Fill `.env` with fresh `POSTGRES_PASSWORD`, `JWT_SECRET`, `JWT_REFRESH_SECRET` and `ENCRYPTION_KEY`, and set `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` to the browser-reachable rehearsal URLs. Set `DEFT_IMAGE=ghcr.io/maneek21/deft@sha256:...` using the exact `host.image_digest` in the downloaded compatibility manifest. Use the Host release's `self-hosting.md` and [HTTPS routing guide](https://github.com/Maneek21/Deft/blob/v0.3.0-preview.121/docs/self-hosting-vps-domain-https.md). Runtime callbacks and authority URLs require HTTPS; a plain localhost health check is not a connection proof.
 
-Set `DEFT_RELEASE_VERSION` to the Host's published database-release value from the compatibility record; do not infer it from an unrelated image tag or reuse an older schema value. Set these preview gates in the operator environment. A prebuilt browser bundle must already contain the matching `NEXT_PUBLIC_*` gates and public origin; runtime variables cannot enable a gate omitted from that build:
+Set `DEFT_RELEASE_VERSION` to `host.version` in the compatibility record (`0.3.0-preview.121` for this set). This reports the Host release identity; the independent `host.schema_version` remains `0.3.0-preview.120`. Do not conflate the image release with the database schema. Set these preview gates in the operator environment. A prebuilt browser bundle must already contain the matching `NEXT_PUBLIC_*` gates and public origin; runtime variables cannot enable a gate omitted from that build:
 
 ```dotenv
 DEFT_APPS_ENABLED=true
