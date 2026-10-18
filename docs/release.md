@@ -1,6 +1,6 @@
 # Developer-preview release procedure
 
-This release demonstrates an independently built connected App using public Author Kit contracts. It does not certify a production mail service or add roadmap features. [The compatibility manifest](../release/compatibility.json) is authoritative for the final integrated source and artifacts; [limitations](limitations.md) must accompany the prerelease.
+This release demonstrates an independently built connected App using public Author Kit contracts. It does not certify a production mail service or add roadmap features. [The compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.16/compatibility.json) is authoritative for the final integrated source and artifacts; [limitations](limitations.md) must accompany the prerelease.
 
 ## Freeze and integrate
 
