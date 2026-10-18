@@ -26,5 +26,5 @@
     { "version": "0.1.0-alpha.35", "asset": "deft-app-kit-0.1.0-alpha.35.tgz", "sha256": "82c2d5bff2776e423b58647fad0f4a6a6430535f4e60c8146fed737d83f33ad5", "consumer": "email-runtime" }
   ],
   "supported_environment": { "host_platform": "linux/amd64", "runtime_instances": 1, "runtime_platform": "POSIX with durable private storage and HTTPS", "node": ">=22.13.0", "npm": "11.9.0", "pnpm": "10.33.0" },
-  "limitations": ["Operator-managed developer preview, not production Gmail/Outlook parity.", "Refresh can take tens of seconds; repeated latency campaigns are outside release acceptance.", "OAuth configuration, purpose-specific Host gates/keys, reviewed grants and durable Runtime custody are required.", "Resource publication for Task/Knowledge integration has a separately managed finite operator lifecycle."]
+  "limitations": ["Operator-managed developer preview, not production Gmail/Outlook parity.", "Refresh can take tens of seconds; repeated latency campaigns are outside release acceptance.", "OAuth configuration, purpose-specific Host gates/keys, reviewed grants and durable Runtime custody are required.", "Resource publication for Task/Knowledge integration needs separate reviewed finite or explicitly Host-issued until_revoked consent; technical renewal alone does not grant it."]
 }
