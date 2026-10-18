@@ -15,12 +15,12 @@ The current Host allows initial organization signup only while its database has 
 A separate physical server or new DNS name is not required. An operator may serially route an existing approved HTTPS origin to the isolated Host, using the same allowlisted OAuth callback/client, while the original Host and its Runtime have no active work. Keep the original database, configuration and custody intact, route only one Host at a time, and restore the original routing afterwards. Keep the isolated Compose network private; if attaching a proxy network, use unique Host/database service names and explicit upstreams so service aliases cannot collide with the original deployment. Record that this is a fresh database and installation on shared infrastructure; do not claim a second workspace in the original database or concurrent account writers.
 
 ```sh
-cp .env.example .env
+cp default.env.example .env
 mkdir -p private
 chmod 700 private
 ```
 
-Fill `.env` with fresh `POSTGRES_PASSWORD`, `JWT_SECRET`, `JWT_REFRESH_SECRET` and `ENCRYPTION_KEY`, and set `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` to the browser-reachable rehearsal URLs. Use the Host's `docs/self-hosting.md` and `docs/self-hosting-vps-domain-https.md` for HTTPS routing. Runtime callbacks and authority URLs require HTTPS; a plain localhost health check is not a connection proof.
+Fill `.env` with fresh `POSTGRES_PASSWORD`, `JWT_SECRET`, `JWT_REFRESH_SECRET` and `ENCRYPTION_KEY`, and set `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` to the browser-reachable rehearsal URLs. Set `DEFT_IMAGE=ghcr.io/maneek21/deft@sha256:...` using the exact `host.image_digest` in the downloaded compatibility manifest. Use the Host release's `self-hosting.md` and [HTTPS routing guide](https://github.com/Maneek21/Deft/blob/v0.3.0-preview.120/docs/self-hosting-vps-domain-https.md). Runtime callbacks and authority URLs require HTTPS; a plain localhost health check is not a connection proof.
 
 Set `DEFT_RELEASE_VERSION` to the Host's published database-release value from the compatibility record; do not infer it from an unrelated image tag or reuse an older schema value. Set these preview gates in the operator environment. A prebuilt browser bundle must already contain the matching `NEXT_PUBLIC_*` gates and public origin; runtime variables cannot enable a gate omitted from that build:
 
@@ -37,6 +37,7 @@ DEFT_APP_RESOURCE_SYNC_CHANNEL_ENABLED=true
 DEFT_APP_ATTACHMENT_BROKER_ENABLED=true
 DEFT_APP_OWNER_CONNECTIONS_ENABLED=true
 DEFT_APP_EXPERIENCE_RESOURCE_EXPOSURE_ENABLED=true
+DEFT_APP_PRIVATE_STATE_ENABLED=true
 DEFT_APP_RESOURCE_SYNC_SCHEDULER_ENABLED=false
 DEFT_APP_CONNECTION_HTTP_CONFIG=/run/deft-email/connections.json
 ```
@@ -60,16 +61,18 @@ services:
       - ./private:/run/deft-email:ro
 ```
 
-Use the immutable PostgreSQL pin from the selected Host's published deployment assets. Record image and schema separately and require `/health/ready` to report the expected schema. These fresh-database commands must not initialize or downgrade an existing database. A directory bind lets the operator atomically replace the registry file without exposing a truncated file to the Host.
+Use the PostgreSQL 16 image configured in the selected Host's published deployment assets; record its resolved digest separately from the schema. Require `/health/ready` to report the expected schema. These fresh-database commands must not initialize or downgrade an existing database. A directory bind lets the operator atomically replace the registry file without exposing a truncated file to the Host.
 
-Use the selected published recipe to load or pull its exact prebuilt image for `deft`, `init`, `doctor` and `smoke` before these commands; do not silently fall back to a local build. If rebuilding from corresponding source is intentional, run its documented build first. Then use the supported fresh-database init, which asserts freshness, runs `db:push-full`, and applies the production-safe seed. It does not seed demo users or native Email accounts:
+Keep `compose.release.yml` in every command: it removes the source-build context and uses the digest-pinned image for `deft`, `init`, `doctor` and `smoke`. `compose.prod.yml` removes the database's host port. Then use the supported fresh-database init, which asserts freshness, runs `db:push-full`, and applies the production-safe seed. It does not seed demo users or native Email accounts:
 
 ```sh
-docker compose -p email-preview-isolated -f docker-compose.yml -f compose.email-preview.yml up -d postgres
-docker compose -p email-preview-isolated -f docker-compose.yml -f compose.email-preview.yml run --rm init
-docker compose -p email-preview-isolated -f docker-compose.yml -f compose.email-preview.yml up -d deft
-docker compose -p email-preview-isolated -f docker-compose.yml -f compose.email-preview.yml run --rm doctor
-docker compose -p email-preview-isolated -f docker-compose.yml -f compose.email-preview.yml run --rm smoke
+dc() { docker compose -p email-preview-isolated -f docker-compose.yml -f compose.prod.yml -f compose.release.yml -f compose.email-preview.yml "$@"; }
+dc pull
+dc up -d postgres
+dc run --rm init
+dc up -d deft
+dc run --rm doctor
+dc run --rm smoke
 ```
 
 Sign up normally at the rehearsal Host; its first human signup becomes owner. Do not use `db:seed:demo`, restore a demo database, or configure `DEFT_APP_CONNECTION_ADAPTERS_CONFIG`. This Email App uses the external HTTP connection registry below; it does not need a native Email adapter, native account, or copied mailbox/custody rows.
