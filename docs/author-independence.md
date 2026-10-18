@@ -1,13 +1,37 @@
-# Author independence candidate
+# Deft, Author Kit and Email boundaries
 
-The current source candidate App `1.9.0-preview.13` uses packed Kit38 SHA256 `dbb35ea11e2ce192fed72889aee8ea65764aa16dd93ce0b71f5075e2fb655341`; Runtime `0.4.0-preview.15` retains Kit35 SHA256 `82c2d5bff2776e423b58647fad0f4a6a6430535f4e60c8146fed737d83f33ad5`. Generic Host schema120 with the current governed-document menu, target-aware resource refresh and consent-continuation phase gate is required. The App declares reader Task/Knowledge nominations and form controls. Runtime owns current-account image preference/defaults, mailbox validation, MIME, provider identity/custody, bounded continuation journals, Sent-copy semantics and normalized capture nomination v2. Host validates current source, typed task details, destination review, scopes, activation phase and receipts. Exact-message Send review remains unchanged. Source tests and historical receipts do not establish current installed acceptance.
+The developer-preview claim is specific: a developer can build this connected Email App from its public repository and public Author Kit packages, sideload it into a compatible Deft Host, deploy its provider Runtime separately, and update Email without changing that Host. It does not claim that operator setup is automatic or that any older Deft release accepts these contracts.
 
-The normal build is the README's locked App and Runtime install followed by App build/package/UI checks. No Host checkout or copied dependencies are inputs. `runtime/domain/PROVENANCE.json` identifies the retained helper source and adaptations; `PROVENANCE.alpha32.json` preserves the prior provenance bytes. The current provenance checker verifies both the frozen vendor closure and Email-owned domain helpers. Sealed older Kit archives remain unchanged; Kit38 is active for the App and Kit35 for Runtime.
+Use [the compatibility manifest](../release/compatibility.json) for exact artifacts and [verification](verification.md) for acceptance. Historical demo results remain tied to their own versions.
 
-Operator setup remains separate: use a compatible prebuilt Host and published deployment assets, configure HTTPS and a provider client, then perform public protocol7 sideload stage/review/activate, administrative Runtime admission, owner resource/data/action consent and private channel installation. Configuration is not source patching or SQL. Source-offer availability and compatible Host identity must be established before installed acceptance.
+## Ownership
 
-Human consent, Experience exposure and short Runtime leases are separate. Initial enrollment stays finite. A signed policy may offer Until revoked through explicit reviewed continuation/data/observation grants; null or omission alone is never authority. Review, request and technical lease deadlines remain finite. Renewal requires current membership, scope and custody; an expired lease requires supported reissuance, and revocation ends access. Never replay an uncertain Send or revive an expired session ID. Unknown outcomes and retained journals remain evidence.
+| Layer | Owns | Does not supply |
+|---|---|---|
+| Deft Host | Authentication, tenant/account authority, signed declarations, trusted rendering/forms/files, private-access reviews, exact-action review, execution receipts, native Tasks/Knowledge and governed source navigation | Email provider credentials, mailbox/MIME behavior or an embedded Email product |
+| Public Author Kit | Versioned schemas, parsers, packaging, public bridge and Runtime channel transports | Permission grants, approved effects or a running provider service |
+| Email App | Its manifest, views, recipient/draft UI declarations, menu nominations and mailbox presentation requests | Private Host imports or independent authority to send |
+| Email Runtime | Provider OAuth custody, encrypted local state, mailbox/MIME/attachment processing, private drafts, source normalization, provider actions and retained uncertain-outcome journals | Tenant policy or the ability to override Host reviews |
+| Operator | Compatible Host deployment, HTTPS, provider client, private Runtime registry/configuration, persistent storage and supported enrollment | Authority inferred merely from configuration or endpoint health |
 
-Independence acceptance additionally requires a fresh database/custody, ordinary OAuth, read/Refresh, exact save/reopen/files/review/one Send with independent receipt, restart recovery and source-to-Task/backlink. Task/source review separately requires current signed projections from separately reviewed scalar observation and v3 sync; foreground reads alone are insufficient. The retained Email-only note change adds an optional private control for new drafts. Acceptance must demonstrate the change against the same matched Host, Runtime and public SDK baseline, retaining pre-upgrade drafts and their original form without silently adding a field or migrating on read. The preceding preview.3 retained-account demonstration is historical evidence; it did not complete the fresh installation or Email-only variant gates. This candidate's source/build tests alone do not satisfy those live gates.
+The Runtime's bundled domain helpers and frozen dependency provenance belong to this independent distribution. Their source origins are recorded; no private monorepo packages or Deft source checkout are fetched at build or Runtime startup.
 
-Declared text fields always require string values, including collapsed optional controls. `optional` controls visibility, not value presence. Draft fields use `required:false` so a fresh blank draft can open and save; Email Runtime Send preparation still validates recipient syntax and the required destination before any provider effect.
+## One external-author path
+
+1. Obtain the exact compatible public Host image and deployment assets; verify schema, compiled Apps gates and signing/provenance.
+2. Extract Email corresponding source or check out its exact public commit into a separate directory. Use sealed Kit38 for the App and Kit35 for the Runtime, then build `app/app.deft.json` with the [README commands](../README.md#build-independently).
+3. Follow [setup](setup.md): public protocol7 stage/review/activate, operator Runtime admission, HTTPS/OAuth, owner resource/action consent and private draft-store consent. Each installation uses newly issued IDs and its own custody.
+4. Use Email in the trusted Deft surface. Task/Knowledge interactions use generic source nomination and destination review; they require separately configured observation/publication and destination policy.
+5. Make an Email-owned change and follow [the existing private-note upgrade example](independence-upgrade.md). Keep Host source/image/schema fixed and preserve retained draft/Run state. A package upgrade may require current reviewed registrations and same-account reattachment; that is lifecycle configuration, not a Host patch.
+
+The prior built-in Email adapter is not an installation dependency. Do not configure it, copy native mailbox rows or patch SQL to make this example work. The test-only `native-activation-fixture` exercises Host compatibility during integration; its Host fixture paths are not Email production imports or consumer build inputs.
+
+## Permission and action boundaries
+
+Package validity, installation, UI exposure, mailbox access, private record storage and action approval are separate. Review the exact requested scope for the current account and installation. Read does not grant Send; draft storage does not grant provider access; source publication does not grant destination Knowledge access.
+
+Initial account enrollment is finite. Signed policies may offer **Until revoked** through explicit review for account continuation, private storage or observation. An omitted lifetime or a null expiry alone grants nothing. Reviews, requests and technical leases remain finite. Technical renewal checks current membership, scope and custody; expired or revoked authority requires the supported recovery/reissuance path.
+
+Every Send still requires exact-message review. The Runtime consumes only the released reviewed claim, with immutable message/files and current authority. An uncertain provider outcome must be inspected through its original receipt/journal; it must not be replayed as a fresh acceptance send.
+
+App resource nomination identifies the Email source; Deft checks that source, audience, destination and typed native Task details. Knowledge capture additionally uses the reviewed capture policy. Mailbox/provider logic stays here while Deft exposes reusable contracts for other apps.

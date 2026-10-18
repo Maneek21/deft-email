@@ -32,9 +32,9 @@ def require_space(path,growth):
  while not probe.exists():probe=probe.parent
  need(shutil.disk_usage(probe).free>=RESERVE+growth,'LOCAL_OUTPUT_RESERVE_DENIED')
 def selected_git_source(names):
- roots={'app','runtime','scripts','docs','.github','README.md','LICENSE','NOTICE','THIRD-PARTY-LICENSES.md','package.json','.gitignore','.gitattributes','.env.example'}
+ roots={'app','runtime','scripts','docs','.github','README.md','ROADMAP.md','LICENSE','NOTICE','THIRD-PARTY-LICENSES.md','package.json','.gitignore','.gitattributes','.env.example'}
  excluded={'node_modules','.git','state','private','dist','coverage','__pycache__'};generated={'app/app.deft.json','app/artifact.json','app/worker.bundle.js','app/build-result.json'}
- return {name for name in names if name.split('/')[0] in roots and not set(name.split('/'))&excluded and name not in generated and not name.endswith(('.log','.pyc')) and not any(part.startswith('.env') and part!='.env.example' for part in name.split('/'))}
+ return {name for name in names if (name.split('/')[0] in roots or name=='release/compatibility.json') and not set(name.split('/'))&excluded and name not in generated and not name.endswith(('.log','.pyc')) and not any(part.startswith('.env') and part!='.env.example' for part in name.split('/'))}
 def files(path,prefix=None):
  result={}
  with tarfile.open(path,'r:gz') as archive:

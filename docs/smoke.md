@@ -1,20 +1,22 @@
-# Ordinary UI smoke journey
+# Bounded developer-preview acceptance
 
-Use controlled synthetic messages and a known attachment SHA256. Keep unrelated mail and credentials out of public screenshots. Run serially with one Runtime writer and current finite authority; record the exact App/Runtime/Host pins and account deadlines before starting.
+Use controlled synthetic mail and the established test accounts. Keep credentials, unrelated mailbox contents and private evidence out of public artifacts. Record the exact compatibility set before starting, use one Runtime writer, and preserve existing unknown-send journals.
 
-1. Connect both approved accounts through supported setup. Switch between them and confirm separate rows, drafts/files and current From addresses. A foreign-account request must be denied in focused isolation checks.
-2. Arrange a new uniquely titled controlled message from the other account. Observe it absent, click ordinary Refresh, and observe it present with correct source/account identity. Measure the wait while preserving list/reader visibility.
-3. Open text and representative newsletter HTML with tables, long content, links, inline and remote images. Use explicit Load images and verify useful layout. Open/download an attachment and compare its SHA256. Open/Download is an acceptable PDF fallback.
-4. Compose with To/Cc/Bcc controls, save, close and reopen. Add/remove a controlled attachment, then keep the intended one. Verify current From and draft content. Use normal UI Send, review and confirm in Deft once. Independently inspect the recipient mailbox and received attachment bytes. A provider-accepted receipt alone does not prove delivery.
-5. Repeat ordinary sending from the second account. Check reply, reply-all and forward participants before any Send. Use only the controlled conversation for search/read/unread/archive and verify state after Refresh.
-6. Create a native Task from the controlled message, open the Task and follow its original Email source backlink under current authority.
-7. After the actual initial channel expiry, verify the same intended opted-in session renewed within its governing ceiling and perform a new controlled UI Send. Keep draft/data intact through one graceful Runtime restart with that valid configuration, then reopen the saved draft. Never replay an unknown prior send.
-8. Open a fresh browser view and repeat the core journey on the unchanged candidate. Record cold/warm open, Refresh and Send timing separately, plus responsive desktop views and useful loading/denied/expired/failed-send states.
+Reuse existing evidence where it applies to the exact artifacts. Rerun only changed or missing release-critical checks. The release does not require video, a long screenshot tour, repeated latency cycles or broad feature retesting already covered by CI.
 
-The release report links these observed results to the accepted digest, independent receipt evidence and controlled screenshots/continuous walkthrough. Synthetic regressions supplement live evidence; a scripted confirmation or operator mailbox call does not replace ordinary UI Send.
+| Check | Required observable result |
+|---|---|
+| Public consumer inputs | From an empty directory, download and checksum-verify the manifest, Host assets, Email source/package/Runtime and Kit tarballs using public URLs. No private artifacts are needed. |
+| Apps-enabled Host | The actual release browser bundle exposes Apps and required resource-sync/attachment features. Runtime environment flags alone are insufficient. Host ready/schema/source identity matches the manifest. |
+| Independent Email build | Locked App/Runtime installation, provenance and App build succeed without a Deft checkout or copied dependencies. The generated package matches its recorded digest. |
+| Gmail and reading | Connect through supported OAuth/current authority; confirm account identity, read a message and render one representative HTML email with external images. Respect a saved Ask preference or explicit Host policy. |
+| Draft and file | Create a controlled attachment draft, save, close and reopen it; verify its values and attachment identity. |
+| Reviewed Send | Confirm current From/recipients/files, perform one ordinary exact-message review and Send, and independently verify the recipient message and attachment. Never retry an unknown prior Send as a new test. |
+| Task and source | With the reviewed publication lane ready, create a Task from the reader, inspect native details and follow its original Email source backlink. |
+| Restart | Gracefully restart the sole Runtime with its same private store/key and verify retained draft/file state and healthy consumers. |
+| Email-only update | Use the existing private-note upgrade example; retain a pre-upgrade draft and inspect the new form while Host source/image/schema stays unchanged. |
+| Health | Observe database-pool headroom, authority failures, worker readiness, restarts and OOMs during the journey; identify and resolve release-critical failures. |
 
-## Compact mailbox controls
+Task/Knowledge nomination and publication are distinct from foreground mailbox access. Follow [setup](setup.md#task-and-knowledge-integration) before the Task/source check. Knowledge behavior beyond valid retained evidence is disclosed rather than claimed from a mailbox read.
 
-With one connected account, the redundant account-filter row is hidden. Open Select messages: the existing Inbox header becomes a compact selection row, rather than adding another toolbar. Use its selection menu to select up to 100 loaded messages or clear the selection; Exit returns the normal header. Archive and Trash remain compact; read-state and other applicable choices stay in More so the row fits narrow screens without shrinking touch targets. Known read/star states hide their opposing action; mixed states keep clearly labelled alternatives. Restore and Not spam belong to their matching folder views, not Inbox.
-
-In the reader, keep Reply visible and open More for Reply all, Forward, Conversation, Print and remaining applicable organization actions. Menus must support keyboard navigation, Escape, outside dismissal and focus return without expanding an inline action grid. Test desktop and narrow widths. Choosing an organization item still opens the existing exact-source human review; no menu choice grants or automatically performs an effect. Preserve original outcome checks after an uncertain response. These are acceptance instructions, not a claim that the new UI has passed live testing.
+Record pass/fail/unverified, artifact identities, independent recipient verification and the scope of reused receipts. Keep 2–3 decisive screenshots where helpful; no video is required. Publish known slow Refresh and other accepted residuals with the result. The final [release handoff](release.md#publish-and-verify) is complete only after the published downloads and documented installation path have been verified.

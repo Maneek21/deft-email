@@ -1,10 +1,14 @@
-# Foreground preview setup
+# Developer-preview setup
 
-Use the exact compatible candidate in [compatibility](compatibility.md). This is the intended public installation sequence, not a completed installation claim. A compatible Host must include schema 118 supplemental-effect validation and the public generic contracts. The earlier schema 117 refusal is historical; verify the selected Host's actual image/source/schema and supported fresh or retained upgrade before staging. Fresh end-user sideload/OAuth acceptance of the new candidate is still pending. Files under `runtime/` retain historical implementation notes; their e3.x/Kit16 version descriptions are not the current installation recipe.
+Use the exact Apps-enabled Host and public artifacts in [the authoritative compatibility record](../release/compatibility.json). The supported Host requires schema **120** and the matching generic contracts, not merely an older compatible-looking release label. Check the record's publication state and download hashes before starting. [Verification](verification.md) distinguishes previous demo evidence from final public acceptance.
+
+The external consumer path is: obtain compatible Deft → independently build Email → sideload/review it → configure the separately operated Runtime, HTTPS/OAuth and authority → use Email and source integrations → [upgrade Email against the same Host](independence-upgrade.md). This requires operator work; no Deft source checkout, private import, native Email adapter or SQL patch is part of the Email installation.
+
+Build Email in its own extracted public-source directory using the [README commands](../README.md#build-independently). The commands below use the Host's separately downloaded deployment-assets directory until the Runtime section. Keep these two directories distinct. Older E3/Graph implementation notes under `runtime/` are historical references, not this release's version/provider matrix.
 
 ## Start an isolated compatible Deft
 
-Use published deployment assets for the exact prebuilt Host named in the final compatibility record. The author builds Email outside Deft; a Host source checkout is needed only if the operator chooses to rebuild the Host. These commands are for a fresh POSIX Docker installation in the deployment-assets directory. Keep its project name, database, uploads volume and secrets separate from every existing workspace:
+Download and checksum-verify the published deployment assets for the exact prebuilt Host named in the compatibility record. The author builds Email outside Deft; a Host source checkout is needed only if the operator chooses to rebuild the Host. These commands are for a fresh POSIX Docker installation in the deployment-assets directory. Keep its project name, database, uploads volume and secrets separate from every existing workspace:
 
 The current Host allows initial organization signup only while its database has no organization. Inviting another user into an existing organization does not create a fresh workspace. Uploading `io.deft.email` into an organization that already installed it follows the upgrade path, so it cannot prove a fresh installation. Use a separate fresh database and Runtime custody for the new-developer rehearsal.
 
@@ -18,7 +22,7 @@ chmod 700 private
 
 Fill `.env` with fresh `POSTGRES_PASSWORD`, `JWT_SECRET`, `JWT_REFRESH_SECRET` and `ENCRYPTION_KEY`, and set `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` to the browser-reachable rehearsal URLs. Use the Host's `docs/self-hosting.md` and `docs/self-hosting-vps-domain-https.md` for HTTPS routing. Runtime callbacks and authority URLs require HTTPS; a plain localhost health check is not a connection proof.
 
-Set `DEFT_RELEASE_VERSION` to the schema value specified by the verified compatible Host artifact; do not copy image/release metadata or the historical schema 117 value. Set these preview gates in the operator environment. A prebuilt browser bundle must already contain the matching `NEXT_PUBLIC_*` gates and public origin; runtime variables cannot enable a gate omitted from that build:
+Set `DEFT_RELEASE_VERSION` to the Host's published database-release value from the compatibility record; do not infer it from an unrelated image tag or reuse an older schema value. Set these preview gates in the operator environment. A prebuilt browser bundle must already contain the matching `NEXT_PUBLIC_*` gates and public origin; runtime variables cannot enable a gate omitted from that build:
 
 ```dotenv
 DEFT_APPS_ENABLED=true
@@ -51,14 +55,12 @@ Create `compose.email-preview.yml` beside the compatible Host's published deploy
 
 ```yaml
 services:
-  postgres:
-    image: pgvector/pgvector@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
   deft:
     volumes:
       - ./private:/run/deft-email:ro
 ```
 
-The PostgreSQL pin above belongs to the historical clean schema rehearsal (PostgreSQL 160015 / vector 0.8.6). Use it only if the selected Host's published fresh-schema contract requires that same tuple; otherwise use that artifact's tested immutable database pin. Historical image metadata preview16 and schema117 were distinct identities. Record the selected image and schema separately and require `/health/ready` to report its expected schema. None of these settings authorize initializing or downgrading an existing database. A directory bind lets the operator atomically replace the registry file without exposing a truncated file to the Host.
+Use the immutable PostgreSQL pin from the selected Host's published deployment assets. Record image and schema separately and require `/health/ready` to report the expected schema. These fresh-database commands must not initialize or downgrade an existing database. A directory bind lets the operator atomically replace the registry file without exposing a truncated file to the Host.
 
 Use the selected published recipe to load or pull its exact prebuilt image for `deft`, `init`, `doctor` and `smoke` before these commands; do not silently fall back to a local build. If rebuilding from corresponding source is intentional, run its documented build first. Then use the supported fresh-database init, which asserts freshness, runs `db:push-full`, and applies the production-safe seed. It does not seed demo users or native Email accounts:
 
@@ -80,7 +82,7 @@ Sign up normally at the rehearsal Host; its first human signup becomes owner. Do
 4. After activation, obtain the new installation/version/package/grant pins from the Apps UI or its authenticated public context. Read `GET /api/apps/INSTALLATION_ID` for `{app: ...}` and its `active_grant_snapshot_id`, current version and lifecycle pins. `GET /api/apps/INSTALLATION_ID/grants` returns `{grants: {installation, versions, snapshots, ...}}`; read `grants.installation` and select `grants.snapshots` by its active snapshot ID. Do not read `installation` at the response top level. The protocol 7 Runtime setup context also returns the current grant digest/operator pins. Configure the external HTTP registry as below, then perform administrative admission and owner resource review. Bind only the IDs issued for this installation.
 5. Enroll separate Read/data authority, human action consent and Send/Organize channel sessions through their public workflows. Runtime health or an admin declaration cannot grant a human action. Use explicit finite expiries and the issued immutable renewal ceiling.
 
-The final clean sideload rehearsal must exercise this sequence on an isolated compatible installation. A database row copied from the demo or a native Email route is not this workflow. Exact UI labels may change with the compatible Host build.
+The clean consumer acceptance follows this sequence on an isolated compatible installation. A database row copied from the demo or a native Email route is not this workflow. Exact UI labels may change with the compatible Host build.
 
 ## Admit the external connection profile
 
@@ -198,8 +200,20 @@ The inbox account pills filter the messages being read. They do not change the H
 
 Opening Email creates a human Experience session. The normal UI acquires the current private-access exposure and, when necessary, presents its exact review before accepting it. This is separate from Runtime enrollment, account Read consent and human action consent. An API-only client must use `POST /api/app-experiences/sessions/SESSION_ID/access/acquire` with `{}` before a reviewed record action; if it returns `review_required`, use the supported `/access/review` and `/access/accept` workflow with its unmodified current token/digest and `accept_exposure: true`. Reuse existing equivalent consent when offered; never turn an access error into expanded permissions automatically. Draft writes alone do not prove that a session can prepare or submit Send.
 
-## Rehearsal acceptance
+## Verify the installation
 
 Record the exact clean checkout, Host image/source, App/package/experience digests, fresh workspace and current reviewed registration pins. Require: public upload/stage/review/activate; no native Email adapter configured; ordinary account connection; one-click Refresh finds new controlled mail; save/reopen a draft; attach/remove a file; review/confirm Send with independent receipt; open a Task's Email source backlink; restart the sole Runtime with the same private store/key and reopen the draft. Keep private credentials and mailbox evidence outside release artifacts.
 
-Use separate controlled provider accounts for this rehearsal, or a supported serial handover of the approved accounts with one writer. Empty imported history on a fresh Runtime is expected; do not manufacture native history rows. Knowledge capture, notifications, provider draft sync and local jobs do not need enrollment for the foreground read/draft/Send proof. Source-to-Task needs a separately reviewed finite scalar observation and v3 sync publication lane: foreground reads do not produce the signed projections used for source review. Follow the [author guide](https://github.com/Maneek21/Deft/pull/355) before the Task/backlink gate; disable/revoke that temporary lane after settled work. Do not promise continuous recovery from a short operator lease.
+Use separate controlled provider accounts for this rehearsal, or a supported serial handover of the approved accounts with one writer. Empty imported history on a fresh Runtime is expected; do not manufacture native history rows. Knowledge capture, notifications, provider draft sync and local jobs do not need enrollment for the foreground read/draft/Send proof. Source-to-Task needs a separately reviewed scalar observation and v3 sync publication lane: foreground reads do not produce the signed projections used for source review. Configure that lane below before the Task/backlink gate. Do not promise continuous recovery from a short operator lease.
+
+## Task and Knowledge integration
+
+Use the [connected App author guide from the supported Host release](https://github.com/Maneek21/Deft/blob/v0.3.0-preview.120/docs/connected-app-author-guide.md), also included in its corresponding source. The manifest identifies the exact Host commit if consulting source before tag publication. In that guide, follow **Email source-to-Task readiness** with this installation's current IDs:
+
+1. Review and activate scalar observation under the current owner resource binding. It is separate from foreground Read and does not grant provider actions, attachment transfer or Knowledge destination access.
+2. Issue the current v3 sync session and install its private `resource_sync_channel_files` entry using the public `/api/app-resource-sync-channel/v3` and observation-authority endpoints. Preserve issued finite deadlines; an action-channel credential is not a sync credential.
+3. Enable the Host's resource-sync scheduler for this reviewed lane (`DEFT_APP_RESOURCE_SYNC_SCHEDULER_ENABLED=true`), then verify a succeeded committed checkpoint and current signed source projections. Do not copy old projections, reset cursors or replay failed/unknown Runs.
+4. From the message's top **More** menu, create a Task using the native project/owner/details review. Open the Task and follow its original Email source link under the same current access.
+5. For Knowledge, use the message's Knowledge nomination/settings flow to review the intended capture destination and policy. Once configured, capture follows that policy and governed source publication; opening an Inbox or granting draft storage does not provision automatic capture. Confirm the resulting Knowledge item and source return before describing capture as active.
+
+The publication lane is a separately operated capability. Settle its work and revoke a temporary rehearsal observation/session through supported controls when finished, while preserving mailbox access and records. A sustained deployment needs its supported lifecycle configured. See [permission boundaries](author-independence.md#permission-and-action-boundaries), [limitations](limitations.md) and the [bounded acceptance journey](smoke.md).

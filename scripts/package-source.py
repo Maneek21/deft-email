@@ -8,7 +8,7 @@ output.mkdir(exist_ok=True)
 excluded = {'node_modules', '.git', 'state', 'private', 'dist', 'coverage', '__pycache__'}
 generated = {'app/app.deft.json','app/artifact.json','app/worker.bundle.js','app/build-result.json'}
 files = []
-entries = ['app','runtime','scripts','docs','.github','README.md','LICENSE','NOTICE','THIRD-PARTY-LICENSES.md','package.json','.gitignore','.gitattributes','.env.example']
+entries = ['app','runtime','scripts','docs','.github','README.md','ROADMAP.md','release/compatibility.json','LICENSE','NOTICE','THIRD-PARTY-LICENSES.md','package.json','.gitignore','.gitattributes','.env.example']
 for name in entries:
     entry = root/name
     assert not entry.is_symlink(), f'Source links are not allowed: {name}'
