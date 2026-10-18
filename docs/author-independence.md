@@ -32,6 +32,8 @@ Package validity, installation, UI exposure, mailbox access, private record stor
 
 Initial account enrollment is finite. Signed policies may offer **Until revoked** through explicit review for account continuation, private storage or observation. An omitted lifetime or a null expiry alone grants nothing. Reviews, requests and technical leases remain finite. Technical renewal checks current membership, scope and custody; expired or revoked authority requires the supported recovery/reissuance path.
 
+Technical sessions may have a finite immutable renewal ceiling or an explicitly Host-issued `renewal_lifetime: "until_revoked"` with `renewable_until: null`. The latter still uses finite rolling leases and does not infer consent from null, replace initial enrollment or extend the separate finite operator publication lane. Unchanged enrollment-file timestamps record issuance; the current Host lease and authority determine whether renewal may continue. See the [Runtime renewal contract](../runtime/runtime-channel-renewal.md).
+
 Every Send still requires exact-message review. The Runtime consumes only the released reviewed claim, with immutable message/files and current authority. An uncertain provider outcome must be inspected through its original receipt/journal; it must not be replayed as a fresh acceptance send.
 
 App resource nomination identifies the Email source; Deft checks that source, audience, destination and typed native Task details. Knowledge capture additionally uses the reviewed capture policy. Mailbox/provider logic stays here while Deft exposes reusable contracts for other apps.
