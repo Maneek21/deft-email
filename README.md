@@ -20,6 +20,8 @@ The manifest entry point is [`release/compatibility.json`](release/compatibility
 
 This source builds App **1.9.0-preview.13** with Kit **0.1.0-alpha.38** and Runtime **0.4.0-preview.16** with Kit **0.1.0-alpha.35**. Their different Kit versions are intentional. The supported Host requires schema **120** and the exact generic contracts in the manifest. An older stable Host or a matching schema number alone is insufficient.
 
+Release bundle **1.9.0-preview.15** selects Host **0.3.0-preview.121**, which fixes a session-refresh database-pool deadlock. It preserves the App, Runtime and Kit executable artifacts from bundle preview.14. Host preview.121 still uses schema120; no empty schema migration is needed.
+
 ## Build independently
 
 Download and checksum-verify the Email corresponding-source archive named in the compatibility record, extract it into an empty directory, and run the commands below there. The archive includes sealed Kit tarballs and frozen lockfiles. Alternatively, check out the record's exact public Email source commit.

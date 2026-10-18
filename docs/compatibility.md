@@ -10,13 +10,15 @@
 | App Author Kit | `0.1.0-alpha.38` |
 | Email Runtime | `0.4.0-preview.16` |
 | Runtime Author Kit | `0.1.0-alpha.35` |
-| Deft Host | Apps-enabled developer-preview image specified in the manifest; schema `120` plus the listed generic contracts |
+| Deft Host | `0.3.0-preview.121`, Apps-enabled developer-preview image specified in the manifest; schema `120` plus the listed generic contracts |
 | App protocol | Manifest protocol 7; experience bundle v4; bridge v1; trusted renderer v2 |
 | Runtime requirements | Sync-provider channel v3 and mail-provider channel v1; connection protocol v2 |
 
 Kit38 adds the App contracts used by the reader menu and account-targeted Refresh. The Runtime retains its sealed Kit35 transport contract; the supported Host accepts both. Do not force the two components onto one Kit version simply to align version labels. `scripts/verify-pins.mjs` verifies their exact sealed bytes, and the Runtime provenance check verifies its retained source closure.
 
 The Host must also provide generic record-form v3, prepared supplemental effects, inspection v2, source nomination v2, reviewed persistent-permission policy, the consent-continuation phase gate and the resource-refresh contract. Schema120 alone does not prove those later fixes are present; use the manifest's exact Host artifact.
+
+Bundle preview.15 updates the supported Host to preview.121 for its generic session-refresh pool fix. App preview.13, Runtime preview.16 and both Kit packages are unchanged from bundle preview.14. Host release version and database schema version are separate: preview.121 does not add a migration.
 
 ## Verify before installation
 
