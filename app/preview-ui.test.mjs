@@ -8,21 +8,37 @@ import {DeftExperienceRecordFormV3NodeSchema,parseDeftExperienceMenuNode} from '
 const id='11111111-1111-4111-8111-111111111111',digest='sha256:'+'a'.repeat(64);
 const mail={record_id:id,content_digest:digest,label:'Preview message',data:{provider:'gmail',subject:'Preview message',sender:'Sender <sender@example.test>',date:'2026-10-13T10:00:00Z',preview:'A controlled preview message.'}};
 const row={record_id:id,revision:2,content_digest:digest,status:'draft',summary:{subject:'Saved preview draft',to:'recipient@example.test'}};
-async function start({refresh=async()=>({outcome:'completed'}),targets=[{key:'primary',label:'Primary account'}],selectedTarget=targets[0]?.key,messages=[mail],listMailbox,listSaved,createSaved,request}={}){
+async function start({refresh=async()=>({outcome:'completed'}),targets=[{key:'primary',label:'Primary account'}],selectedTarget=targets[0]?.key,messages=[mail],listMailbox,listSaved,createSaved,request,listTargets,timers={setTimeout,clearTimeout}}={}){
  const views=[],listedTargets=[],listedStores=[];let handler;
  const sdk={render:view=>{const ids=new Set();for(const node of nodes(view)){assert.ok(!ids.has(node.id),`Duplicate node ${node.id}`);ids.add(node.id);}views.push(view);},onEvent:event=>handler=event,
-  listAccountTargets:async()=>({targets,selected_target_key:selectedTarget}),
+  listAccountTargets:async()=>listTargets?listTargets():({targets,selected_target_key:selectedTarget}),
   listDataResources:async(_store,_resource,_cursor,_query,target)=>{listedTargets.push(target);return listMailbox?listMailbox(target):{outcome:'completed',items:messages,next_cursor:null,freshness:{complete:true,observed_at:'2026-10-13T10:00:00Z'}};},refreshDataResource:refresh,
   listRecords:async store=>{listedStores.push(store);return listSaved?listSaved(store):{outcome:'completed',items:store==='drafts'?[row]:[],next_cursor:null};},readRecordMeta:async()=>row,
   createRecord:async(store,record_id,value,refs)=>createSaved?createSaved(store,record_id,value,refs):({outcome:'completed',record:{...row,record_id}}),request};
  const source=await readFile(new URL('./worker.mjs',import.meta.url),'utf8'),bindings={};
  for(const match of source.matchAll(/^import \{[^}]+\} from '(\.\/[^']+)';/gm))Object.assign(bindings,await import(match[1]));
- const self={};vm.runInNewContext(source.replace(/^import .*;\r?\n/gm,''),{self,...bindings,createDeftExperienceSdk:()=>sdk,crypto:webcrypto,TextEncoder,Date,Map,setTimeout,clearTimeout});
+ const self={};vm.runInNewContext(source.replace(/^import .*;\r?\n/gm,''),{self,...bindings,createDeftExperienceSdk:()=>sdk,crypto:webcrypto,TextEncoder,Date,Map,setTimeout:timers.setTimeout,clearTimeout:timers.clearTimeout});
  self.onmessage({data:{kind:'start',port:{},session_id:id}});await new Promise(resolve=>setTimeout(resolve,5));
  return {views,listedTargets,listedStores,nodes:()=>nodes(views.at(-1)),event:event=>handler(event),click:node_id=>handler({kind:'click',node_id}),input:event=>handler({kind:'input',...event})};
 }
 function nodes(view){const result=[];const walk=node=>{result.push(node);node.children?.forEach(walk);node.items?.forEach(walk);};walk(view.root);view.navigation?.forEach(walk);return result;}
 const node=(ui,id)=>ui.nodes().find(item=>item.id===id);
+
+test('slow compose account lookup has bounded feedback and same-context retry without a premature draft write',async()=>{
+ let calls=0,finish,expire,created=0;const catalog={targets:[{key:'primary',label:'Primary account'}],selected_target_key:'primary'};
+ const ui=await start({listTargets:()=>++calls===1?catalog:new Promise(resolve=>finish=resolve),createSaved:()=>{created++;throw Error('No write before account resolution');},timers:{setTimeout:(callback,ms)=>{assert.equal(ms,8000);expire=callback;return 1;},clearTimeout:()=>{}}});
+ const opening=ui.click('compose');await new Promise(setImmediate);assert.equal(node(ui,'mail_progress').text,'Checking compose account…');assert.equal(node(ui,'draft_form'),undefined);
+ expire();await opening;assert.match(node(ui,'status').text,/taking longer/);assert.ok(node(ui,'compose_retry'));assert.equal(node(ui,'draft_form'),undefined);assert.equal(created,0);
+ const retry=ui.click('compose_retry');await new Promise(setImmediate);assert.equal(calls,2,'same-context retry shares only the still-inflight read');finish(catalog);await retry;
+ assert.ok(node(ui,'draft_form'));assert.equal(node(ui,'compose_retry'),undefined);assert.equal(created,0);
+});
+
+test('late compose account response cannot open a draft after switching the displayed account',async()=>{
+ let calls=0,finish,expire;const catalog={targets:[{key:'primary',label:'Sender'},{key:'secondary',label:'Recipient'}],selected_target_key:'primary'};
+ const ui=await start({listTargets:()=>++calls===2?new Promise(resolve=>finish=resolve):catalog,timers:{setTimeout:callback=>{expire=callback;return 1;},clearTimeout:()=>{}}});
+ const opening=ui.click('compose');await new Promise(setImmediate);expire();await opening;await ui.click('account_pick_1');finish(catalog);await new Promise(setImmediate);
+ assert.equal(node(ui,'draft_form'),undefined);assert.equal(node(ui,'account_pick_1').selected,true);
+});
 
 test('Email opens the current account with Compose ready; all-account fanout is explicit',async()=>{
  const ui=await start({targets:[{key:'first',label:'First account'},{key:'current',label:'Current account'}],selectedTarget:'current',messages:[]});
