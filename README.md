@@ -16,11 +16,11 @@ Email builds without a Deft source checkout or private Deft imports. Operators u
 
 ## Supported compatibility set
 
-The [published compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.16/compatibility.json) is the authoritative detached public release record. The repository [`release/compatibility.json`](release/compatibility.json) is its source template and also records that URL. The published record identifies the Host version/commit/image/schema, App and Runtime versions, each component's Kit, public assets, checksums and corresponding source. Use its verified publication state and release assets; a candidate record or open PR does not establish that downloads are available.
+The [published compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.17/compatibility.json) is the authoritative detached public release record. The repository [`release/compatibility.json`](release/compatibility.json) is its source template and also records that URL. The published record identifies the Host version/commit/image/schema, App and Runtime versions, each component's Kit, public assets, checksums and corresponding source. Use its verified publication state and release assets; a candidate record or open PR does not establish that downloads are available.
 
-This source builds App **1.9.0-preview.13** with Kit **0.1.0-alpha.38** and Runtime **0.4.0-preview.16** with Kit **0.1.0-alpha.35**. Their different Kit versions are intentional. The supported Host requires schema **120** and the exact generic contracts in the manifest. An older stable Host or a matching schema number alone is insufficient.
+This source builds App **1.9.0-preview.14** with Kit **0.1.0-alpha.38** and Runtime **0.4.0-preview.17** with Kit **0.1.0-alpha.35**. Their different Kit versions are intentional. The supported Host requires schema **120** and the exact generic contracts in the manifest. An older stable Host or a matching schema number alone is insufficient.
 
-Release bundle **1.9.0-preview.16** selects Host **0.3.0-preview.122**, which includes the session-refresh database-pool fix, production JWT-secret validation, and the checked browser-verifier teardown fix. It preserves the App, Runtime and Kit executable artifacts from bundle preview.14. Host preview.122 still uses schema120; no empty schema migration is needed.
+Release bundle **1.9.0-preview.17** selects Host **0.3.0-preview.123**. It fixes Email → Task for newly searched messages, bounds draft opening, and pairs with the Host fixes from the 18 October release rehearsal. Both Kit packages are unchanged. Host preview.123 still uses schema120; no schema migration is needed.
 
 ## Build independently
 

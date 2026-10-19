@@ -22,7 +22,7 @@ test('packed public Kit keeps the displayed target on a mailbox refresh', async 
 
 test('fresh package authenticates its manifest and worker artifact against public Kit38', () => {
   assert.equal(DEFT_APP_KIT_VERSION, '0.1.0-alpha.38');
-  assert.equal(metadata.version, '1.9.0-preview.13');
+  assert.equal(metadata.version, '1.9.0-preview.14');
   assert.equal(compatibility.email.tag, 'v' + rootMetadata.version);
   assert.equal(compatibility.email.app_version, metadata.version);
   assert.equal(manifest.id, 'io.deft.email');

@@ -1,6 +1,6 @@
 # Independent Runtime operator container
 
-The supported Runtime source is `0.4.0-preview.16` with public Kit `0.1.0-alpha.35`. Use the exact source/archive/Node base image pins in the [compatibility manifest](../release/compatibility.json); the App independently uses Kit38. The complete [setup guide](../docs/setup.md) is the current operator path.
+The supported Runtime source is `0.4.0-preview.17` with public Kit `0.1.0-alpha.35`. Use the exact source/archive/Node base image pins in the [compatibility manifest](../release/compatibility.json); the App independently uses Kit38. The complete [setup guide](../docs/setup.md) is the current operator path.
 
 ## Build from public source
 
@@ -9,7 +9,7 @@ Use `Dockerfile.operator` with the deterministic `runtime-artifact.tgz`. The arc
 ```sh
 docker build -f runtime/Dockerfile.operator \
   --build-arg NODE_IMAGE='node:24.14.0-bookworm-slim@sha256:4bd6219054c8bebcd26a66bfd8ca0bd6e1024b4b97474c59bb7ee3bbcbef4fe8' \
-  -t deft-email-runtime:0.4.0-preview.16 .
+  -t deft-email-runtime:0.4.0-preview.17 .
 ```
 
 The command pins the registry-verified Node24.14.0 Debian slim linux/amd64 platform image. The final release record binds its Runtime build to the selected base and evidence; do not substitute a different platform or floating tag.
