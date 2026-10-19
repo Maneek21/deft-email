@@ -9,7 +9,7 @@ from pathlib import Path,PurePosixPath
 import argparse,hashlib,json,shutil,subprocess,tarfile,threading
 
 ROOT=Path(__file__).resolve().parent.parent
-VERSION='0.4.0-preview.16'
+VERSION='0.4.0-preview.17'
 BASE='sha256:65a99b8f95836d91f6d36d4b0723772b622264b6d52dfb186fea944746f07215'
 BASE_TAG='deft-email-runtime:0.4.0-preview.12-4af03db9'
 KIT='82c2d5bff2776e423b58647fad0f4a6a6430535f4e60c8146fed737d83f33ad5'
@@ -74,7 +74,7 @@ def freeze(commit,out):
  out.mkdir(parents=True,exist_ok=False)
  for name in ['runtime-artifact.tgz',source.name,'source-manifest.json']:shutil.copyfile(ROOT/'dist'/name,out/name)
  for name in ['app.deft.json','artifact.json','build-result.json']:shutil.copyfile(ROOT/'app'/name,out/name)
- result={'schema_version':'email.independent_runtime_frozen.v1','source_commit':commit,'runtime_version':VERSION,'app_version':'1.9.0-preview.13','package_digest':'sha256:'+APP,'app_kit_version':'0.1.0-alpha.38','app_kit_sha256':APP_KIT,'kit_sha256':KIT,'runtime_source_sha256':file_sha(out/'runtime-artifact.tgz'),'source_archive_sha256':file_sha(out/source.name),'source_member_count':len(members),'runtime_member_count':len(runtime),'all_source_members_match_exact_git_blobs':True,'archive_modes':'normalized0644','server_mutations':0}
+ result={'schema_version':'email.independent_runtime_frozen.v1','source_commit':commit,'runtime_version':VERSION,'app_version':'1.9.0-preview.14','package_digest':'sha256:'+APP,'app_kit_version':'0.1.0-alpha.38','app_kit_sha256':APP_KIT,'kit_sha256':KIT,'runtime_source_sha256':file_sha(out/'runtime-artifact.tgz'),'source_archive_sha256':file_sha(out/source.name),'source_member_count':len(members),'runtime_member_count':len(runtime),'all_source_members_match_exact_git_blobs':True,'archive_modes':'normalized0644','server_mutations':0}
  write_json(out/'BUILD.json',result);return result
 def recipe(commit,user):
  need(len(commit)==40 and all(c in '0123456789abcdef' for c in commit),'EXACT_COMMIT_REQUIRED')
