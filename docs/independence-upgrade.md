@@ -2,7 +2,11 @@
 
 The existing example is an optional private note on a draft, up to 1000 characters, kept out of outgoing MIME. It is already implemented; no new feature is needed to demonstrate independence. New drafts may use the note, while retained pre-note drafts keep their original form without an on-read migration.
 
-Current App and Runtime identities come from [the compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.19/compatibility.json). This source is App `1.9.0-preview.15` with Kit39 and Runtime `0.4.0-preview.18` with Kit35. Historical App7/Runtime9 upgrade/retention receipts apply only to those frozen versions. [Verification](verification.md) records which final-release evidence was reused and which checks were rerun.
+Current App and Runtime identities come from [the compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.20/compatibility.json). This source is App `1.9.1-preview.1` with Kit39 and Runtime `0.4.0-preview.18` with Kit35. Historical App7/Runtime9 upgrade/retention receipts apply only to those frozen versions. [Verification](verification.md) records which final-release evidence was reused and which checks were rerun.
+
+## Upgrade from the local demo build
+
+The demo previously installed `1.9.0-preview.14-local.20261018`. SemVer treats `14-local` as an alphanumeric prerelease identifier, which sorts above every numeric identifier in `1.9.0-preview.N`. Consequently the published preview.19 bundle (App `1.9.0-preview.15`) cannot upgrade that installation. Bundle preview.20 uses App `1.9.1-preview.1`, whose higher patch version admits the upgrade without changing Host validation or rewriting installed history. Preview.19 assets remain immutable. Runtime preview.18 is unchanged.
 
 ## Demonstrate the boundary
 
