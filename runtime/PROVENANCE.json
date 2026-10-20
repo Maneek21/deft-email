@@ -49,7 +49,7 @@
     {
       "source": "examples/apps/email/providers/custody-encrypted.mjs",
       "target": "vendor/providers/custody-encrypted.mjs",
-      "sha256": "d3f1d704fcd1a70be3a37af4ff3c9c719219a5dcd784727d218ee4142d821927",
+      "sha256": "fe89775f32a37a21d8f38be0fb99a53945f79ff5b9428c972da0cfb999e73779",
       "mode": "reviewed_adaptation",
       "e5_parent_sha256": "dd3b60d0024f31ae316188f5b36175d7660abd15ed9d2133fbb58d8a74fbe022",
       "frozen_source_sha256": "dd3b60d0024f31ae316188f5b36175d7660abd15ed9d2133fbb58d8a74fbe022",

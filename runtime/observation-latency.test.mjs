@@ -120,9 +120,11 @@ test('expired OAuth refresh retains authority, cancellation and uncertain-custod
    }
    if(kind==='identity'&&url==='https://openidconnect.googleapis.com/v1/userinfo')return Response.json({sub:'foreign-synthetic-subject',email:'first@example.test',email_verified:true});
   });
-  assert.equal((await f.runner({onDiagnostic:e=>events.push(e)}).runOnce(controller.signal)).status,'indeterminate');assert.equal(f.recursiveLocks,0);assert.equal(f.resultCalls,0);
-  const custody=createEncryptedEmailCustody({store:f.store,encryption_key:f.encryption_key,key_id:f.key_id}),row=await custody.withAccount(f.binding,tx=>tx.read());assert.equal(row.health,'refresh_pending');
-  // The failed refresh releases both locks; pending custody forbids automatic retry.
+  assert.equal((await f.runner({onDiagnostic:e=>events.push(e)}).runOnce(controller.signal)).status,'indeterminate');assert.equal(f.recursiveLocks,0);assert.equal(f.resultCalls,kind==='lost_response'?1:0);
+  const custody=createEncryptedEmailCustody({store:f.store,encryption_key:f.encryption_key,key_id:f.key_id}),row=await custody.withAccount(f.binding,tx=>tx.read());assert.equal(row.health,kind==='identity'?'reauth_required':'connected');
+  if(kind!=='identity'){assert.ok(row.secret.refresh_reconciliation);assert.equal(row.secret.refresh_reconciliation.phase,kind==='lost_response'?'transport_unavailable':'verification_pending');}
+  // The failed read releases both locks. Its original attempt remains fenced;
+  // credential reconciliation is eligible for a fresh read after its backoff.
   assert.equal((await f.store.withLock({key:'email.runtime.session.'+f.begin.session_id},tx=>tx.read())).value.state,'connected');
   const calls=f.providerCalls;f.allow();f.onProvider(null);assert.equal((await f.runner({onDiagnostic:()=>{}}).runOnce()).status,'indeterminate');assert.equal(f.providerCalls,calls);
   assert.equal(await createMailboxStore({store:f.store}).cursor({org_id:f.scope.org_id,owner_user_id:f.scope.owner_user_id,account_id:f.connected.account.account_ref},()=>{}),null);

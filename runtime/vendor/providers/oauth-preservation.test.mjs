@@ -119,3 +119,11 @@ test('Gmail refresh without replacement retains the last usable refresh token',a
  f.setRefreshMode(()=>response({access_token:'unrotated-access',token_type:'Bearer',expires_in:3600}));
  assert.equal(await f.token(a),'unrotated-access');assert.equal((await row(f)).secret.refresh_token,before);
 });
+
+test('legacy pending projection is restricted to operational read custody',async()=>{
+ const f=fixture();await f.complete();const binding=f.bindings.get('google-a');
+ await f.custody.withAccount(binding,tx=>{const r=tx.read();return tx.write({health:'refresh_pending',secret:r.secret});});
+ const operational=createEncryptedEmailCustody({encryption_key:f.key,key_id:'test-key',store:f.store,now:f.now,recover_gmail_refresh:true});
+ assert.equal((await row(f)).health,'refresh_pending');assert.equal((await operational.withAccount(binding,tx=>tx.read())).health,'connected');
+ assert.equal((await row(f)).health,'refresh_pending','A read projection never promotes the durable state or weakens repair readers');
+});

@@ -23,7 +23,7 @@ const canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof v
  */
 // This is server-only. The injected store must commit each CAS durably, while a
 // fenced cross-process lock covers the callback, including any provider I/O.
-export function createEncryptedEmailCustody({encryption_key,key_id,store,now=Date.now}){
+export function createEncryptedEmailCustody({encryption_key,key_id,store,now=Date.now,recover_gmail_refresh=false}){
  if(!(encryption_key instanceof Uint8Array)||encryption_key.byteLength!==32||!oauthText(key_id,64)||typeof store?.withLock!=='function'||typeof now!=='function')oauthFail('EMAIL_OAUTH_CUSTODY_CONFIG_INVALID');
  const key=Buffer.from(encryption_key);
  const aad=value=>Buffer.from(JSON.stringify(canonical(value)));
@@ -74,7 +74,7 @@ export function createEncryptedEmailCustody({encryption_key,key_id,store,now=Dat
       const value=row?.value;if(!value)return null;
       oauthObject(value,['schema_version','binding','health','setup_generation','envelope'],'EMAIL_OAUTH_CUSTODY_INVALID');const prior=validateOAuthBinding(value.binding);
       if(value.schema_version!=='deft.email_oauth_tokens.v1'||!sameOAuthAccount(prior,binding)||prior.authority_epoch>binding.authority_epoch||!Number.isSafeInteger(value.setup_generation)||value.setup_generation<1||!['connected','refresh_pending','reauth_required','revoked'].includes(value.health))oauthFail('EMAIL_OAUTH_CUSTODY_BINDING_DENIED');
-      const {envelope,...metadata}=value,payload=open(envelope,metadata);oauthObject(payload,['credentials'],'EMAIL_OAUTH_CUSTODY_INVALID');if(!Object.hasOwn(payload,'credentials')||payload.credentials!==null&&(!payload.credentials||typeof payload.credentials!=='object'||Array.isArray(payload.credentials)))oauthFail('EMAIL_OAUTH_CUSTODY_INVALID');return {binding:prior,health:value.health==='refresh_pending'&&prior.provider==='gmail'?'connected':value.health,setup_generation:value.setup_generation,secret:payload.credentials};
+      const {envelope,...metadata}=value,payload=open(envelope,metadata);oauthObject(payload,['credentials'],'EMAIL_OAUTH_CUSTODY_INVALID');if(!Object.hasOwn(payload,'credentials')||payload.credentials!==null&&(!payload.credentials||typeof payload.credentials!=='object'||Array.isArray(payload.credentials)))oauthFail('EMAIL_OAUTH_CUSTODY_INVALID');return {binding:prior,health:recover_gmail_refresh&&value.health==='refresh_pending'&&prior.provider==='gmail'?'connected':value.health,setup_generation:value.setup_generation,secret:payload.credentials};
      },
      async write({health,secret,advance_setup=false}){
       if(!['connected','refresh_pending','reauth_required','revoked'].includes(health)||health!=='revoked'&&(!secret||typeof secret!=='object')||health==='revoked'&&secret!==null&&(!secret||secret.access_token!=='discarded'||secret.refresh_token!=='discarded'||secret.expires_at!==0))oauthFail('EMAIL_OAUTH_CUSTODY_INVALID');
