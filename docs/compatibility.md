@@ -2,13 +2,13 @@
 
 [`release/compatibility.json`](../release/compatibility.json) is the source template and entry point. Follow its `authoritative_release_manifest` URL for the single authoritative detached cross-component release record. Use that resolved record for exact Host and Email commits, versions, image digests, schema/contracts, Kit artifacts, download locations, checksums and corresponding source. The publication state in that record distinguishes a prepared candidate from a verified public release. Do not replace its pins with a branch tip, a similarly named preview or a demo image.
 
-## Unreleased source contract
+## Release preview.19 contract
 
-The source candidate requires Host preview.127 or newer. The linked preview.18 release record remains historical for this candidate; its Host125 and Kit38 pins apply to the already-published bundle. Do not use that record to install this source candidate. No Email release is part of this change.
+Bundle preview.19 requires Host preview.127 or newer and pairs App preview.15 with unchanged Runtime preview.18. The detached release record binds the new App and Kit39 to the published Host127 assets. Preview.18 remains available for rollback.
 
 | Component | Version/contract |
 |---|---|
-| Email App | `1.9.0-preview.14` |
+| Email App | `1.9.0-preview.15` |
 | App Author Kit | `0.1.0-alpha.39` |
 | Email Runtime | `0.4.0-preview.18` |
 | Runtime Author Kit | `0.1.0-alpha.35` |

@@ -1,6 +1,6 @@
 # Developer-preview release procedure
 
-This release demonstrates an independently built connected App using public Author Kit contracts. It does not certify a production mail service or add roadmap features. [The compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.18/compatibility.json) is authoritative for the final integrated source and artifacts; [limitations](limitations.md) must accompany the prerelease.
+This release demonstrates an independently built connected App using public Author Kit contracts. It does not certify a production mail service or add roadmap features. [The compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.19/compatibility.json) is authoritative for the final integrated source and artifacts; [limitations](limitations.md) must accompany the prerelease.
 
 ## Freeze and integrate
 
@@ -14,7 +14,7 @@ Use the final integrated commits, not the pre-merge demo commits, as release sou
 2. Build Email in a clean directory from public source and the pinned Kit tarballs using [README commands](../README.md#build-independently). Verify provenance and focused CI. Build the App twice and compare package bytes when establishing the release package identity.
 3. Record the App package SHA256, canonical manifest digest, experience digest and worker hash from the generated artifacts. The root version identifies the release bundle; the App build reads `app/package.json`. A Runtime-only packaging repair can advance the bundle and Runtime while preserving the exact App version and package bytes. Record each version separately in compatibility metadata. App and Runtime keep their independently versioned Kit pins.
 4. Run `npm run package:source` after source freeze. Retain `dist/source-manifest.json`, `dist/email-<version>-source.tar.gz` and `dist/runtime-artifact.tgz`. Runtime archive entries have one `runtime/` prefix for the documented operator Docker recipe. The deterministic source packager needs Python3's standard library; App and Runtime use Node.
-5. Publish versioned Kit35 and Kit38 tarballs and their corresponding source. Public tarball downloads are sufficient for this preview; npm publishing is not required.
+5. Publish versioned Kit35 and Kit39 tarballs and their corresponding source. Public tarball downloads are sufficient for this preview; npm publishing is not required.
 6. Fill the authoritative compatibility record with final version/commit/digest/schema/contracts and public URLs for every required artifact. Publish the exact manifest and detached checksum file with the prerelease. Do not place an archive's own checksum inside that archive or relabel older assets as a new build.
 
 ## Bounded final acceptance
