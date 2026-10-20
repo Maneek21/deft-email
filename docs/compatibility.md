@@ -2,19 +2,21 @@
 
 [`release/compatibility.json`](../release/compatibility.json) is the source template and entry point. Follow its `authoritative_release_manifest` URL for the single authoritative detached cross-component release record. Use that resolved record for exact Host and Email commits, versions, image digests, schema/contracts, Kit artifacts, download locations, checksums and corresponding source. The publication state in that record distinguishes a prepared candidate from a verified public release. Do not replace its pins with a branch tip, a similarly named preview or a demo image.
 
-## Current source contract
+## Unreleased source contract
+
+The source candidate requires Host preview.127 or newer. The linked preview.18 release record remains historical for this candidate; its Host125 and Kit38 pins apply to the already-published bundle. Do not use that record to install this source candidate. No Email release is part of this change.
 
 | Component | Version/contract |
 |---|---|
 | Email App | `1.9.0-preview.14` |
-| App Author Kit | `0.1.0-alpha.38` |
+| App Author Kit | `0.1.0-alpha.39` |
 | Email Runtime | `0.4.0-preview.18` |
 | Runtime Author Kit | `0.1.0-alpha.35` |
-| Deft Host | `0.3.0-preview.125`, Apps-enabled developer-preview image specified in the manifest; schema `120` plus the listed generic contracts |
+| Deft Host | Minimum `0.3.0-preview.127`, Apps-enabled developer-preview image; schema `120` plus the listed generic contracts |
 | App protocol | Manifest protocol 7; experience bundle v4; bridge v1; trusted renderer v2 |
 | Runtime requirements | Sync-provider channel v3 and mail-provider channel v1; connection protocol v2 |
 
-Kit38 adds the App contracts used by the reader menu and account-targeted Refresh. The Runtime retains its sealed Kit35 transport contract; the supported Host accepts both. Do not force the two components onto one Kit version simply to align version labels. `scripts/verify-pins.mjs` verifies their exact sealed bytes, and the Runtime provenance check verifies its retained source closure.
+Kit39 adds the optional `background_refresh_description` contract to the existing reader-menu and account-targeted Refresh contracts. Email supplies the wording; the generic Host validates and displays it. [Kit provenance](background-refresh-description.md). The Runtime retains its sealed Kit35 transport contract; the supported Host accepts both. Do not force the two components onto one Kit version simply to align version labels. `scripts/verify-pins.mjs` verifies their exact sealed bytes, and the Runtime provenance check verifies its retained source closure.
 
 The Host must also provide generic record-form v3, prepared supplemental effects, inspection v2, source nomination v2, reviewed persistent-permission policy, the consent-continuation phase gate and the resource-refresh contract. Schema120 alone does not prove those later fixes are present; use the manifest's exact Host artifact.
 
