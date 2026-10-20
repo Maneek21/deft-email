@@ -1,4 +1,4 @@
-# Email preview.19 background-refresh description
+# Email preview.20 background-refresh description
 
 Email now owns the explanation displayed in its background-refresh review:
 
@@ -8,4 +8,4 @@ Email now owns the explanation displayed in its background-refresh review:
 
 The App uses sealed Author Kit alpha.39, built and packed from `packages/app-kit` in the public Host preview.127 source. `scripts/verify-pins.mjs`, the npm lockfile, and `release/compatibility.json` pin its exact bytes. Alpha.38 remains retained as a historical input, and the Runtime keeps its unchanged alpha.35 package and source provenance. The Host source tag and source archive allow reconstruction of the new Kit; no local Host checkout is required to build Email from this repository.
 
-Validation includes a fresh App build, package verification of the exact description and Host minimum, App/UI tests, Runtime tests, and provenance checks. Bundle preview.19 allocates App preview.15 and retains unchanged Runtime preview.18. The detached compatibility record resolves published Host127 assets and the exact release commit. Preview.18 remains available for rollback.
+Validation includes a fresh App build, package verification of the exact description and Host minimum, App/UI tests, Runtime tests, and provenance checks. Bundle preview.20 allocates App 1.9.1-preview.1 and retains unchanged Runtime preview.18. The detached compatibility record resolves published Host127 assets and the exact release commit. Preview.18 remains available for rollback.
