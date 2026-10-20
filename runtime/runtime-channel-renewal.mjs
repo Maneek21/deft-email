@@ -1,16 +1,17 @@
 import {setTimeout as delay} from 'node:timers/promises';
 import {exact,fail,isoTime} from './contract.mjs';
 
-const LEASE_MARGIN_MS=90000,CLAIM_LIFETIME_MS=30000,MAX_TECHNICAL_LEASE_MS=900000;
+const LEASE_MARGIN_MS=300000,CLAIM_LIFETIME_MS=30000,MAX_TECHNICAL_LEASE_MS=900000;
 /** Static credentials stay immutable. Only an explicitly delegated technical
  * deadline changes; existing Run/attempt methods are never retried here. */
-export function createRuntimeChannelRenewal({channel,runtime_client,now=Date.now,wait=delay,onDiagnostic=event=>console.info(JSON.stringify(event))}){
+export function createRuntimeChannelRenewal({channel,runtime_client,now=Date.now,wait=delay,random=Math.random,onDiagnostic=event=>console.info(JSON.stringify(event))}){
  exact(channel,['channel_url','credential','registration',...(Object.hasOwn(channel,'technical_renewal')?['technical_renewal']:[])]);
  exact(channel.credential,['session_id','session_token']);
  if(!Object.hasOwn(channel,'technical_renewal'))return {client:runtime_client,renewable:false};
  const metadata=channel.technical_renewal,persistent=metadata.renewal_lifetime==='until_revoked';
  exact(metadata,['expires_at','renewable_until',...(Object.hasOwn(metadata,'renewal_lifetime')?['renewal_lifetime']:[])]);
  if(!isoTime(metadata.expires_at)||(persistent?metadata.renewable_until!==null:Object.hasOwn(metadata,'renewal_lifetime')||!isoTime(metadata.renewable_until))||Date.parse(metadata.expires_at)>(persistent?Infinity:Date.parse(metadata.renewable_until))||persistent&&Date.parse(metadata.expires_at)>now()+MAX_TECHNICAL_LEASE_MS||typeof runtime_client.renew!=='function')fail('EMAIL_RUNTIME_RENEWAL_CONFIG_INVALID');
+ const renewalMargin=LEASE_MARGIN_MS+Math.floor(random()*60000);
  const session_id=channel.credential.session_id,ceiling=metadata.renewable_until;
  const ceilingDeadline=persistent?Infinity:Date.parse(ceiling);
  const stopped=new AbortController();
@@ -61,7 +62,7 @@ export function createRuntimeChannelRenewal({channel,runtime_client,now=Date.now
  return {client,renewable:true,renew:signal=>renew(signal),get expires_at(){return expires_at;},get state(){return closed?'closed':denied?'denied':terminal()?'expired':state;},
   async run(signal){signal=AbortSignal.any([signal,stopped.signal]);let backoff=5000;try{while(!signal.aborted&&!terminal()){
    if(state==='live'&&Date.parse(expires_at)===ceilingDeadline)return;
-   const waitMs=state==='live'?Math.max(0,Date.parse(expires_at)-now()-LEASE_MARGIN_MS):0;
+   const waitMs=state==='live'?Math.max(0,Date.parse(expires_at)-now()-renewalMargin):0;
    if(waitMs)await wait(waitMs,undefined,{signal});
    if(!await renew(signal)){
     if(terminal())break;

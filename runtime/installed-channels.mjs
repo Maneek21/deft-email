@@ -66,12 +66,12 @@ export function createChannelInstaller({store, registrations, allow_loopback_fix
       signal?.throwIfAborted();
       const row = await tx.read(), kept = new Map((row?.value?.channels ?? []).map(entry => [installedChannelKey(entry), entry]));
       for (const {entry} of verified) kept.set(installedChannelKey(entry), entry);
-      if (!await tx.compareAndSwap({expected_revision: row?.revision ?? null, value: {schema_version: 'email.runtime.installed_channels.v1', channels: [...kept.values()]}})) fail('EMAIL_RUNTIME_CONFLICT');
+      if (!await tx.compareAndSwap({expected_revision: row?.revision ?? null, value: {schema_version: 'email.runtime.installed_channels.v1', channels: [...kept.values()], owners: {...(row?.value?.owners??{}),...Object.fromEntries(verified.map(({entry})=>[installedChannelKey(entry),scope.runtime_registration_id]))}}})) fail('EMAIL_RUNTIME_CONFLICT');
     });
     await activate(verified);
     return {schema_version: CHANNEL_INSTALL_RESULT_SCHEMA, installed: verified.map(({entry, verification}) => ({
       kind: entry.kind, runtime_registration_id: entry.channel.registration.runtime_registration_id,
       session_id: entry.channel.credential.session_id, expires_at: verification.renewal.expires_at}))};
   }
-  return Object.freeze({load, request});
+  return Object.freeze({load, request,async owners(){const row=await store.withLock({key:STORE_KEY},tx=>tx.read());return {...(row?.value?.owners??{})};}});
 }

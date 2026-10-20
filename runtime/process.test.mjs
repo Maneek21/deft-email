@@ -14,7 +14,9 @@ test('separate HTTP runtime process validates transport + host introspection and
   const parent = await mkdtemp(join(tmpdir(), 'email-runtime-process-')), root = join(parent, 'state'), configFile = join(parent, 'runtime.json'), clientFile = join(parent, 'google.json'), runtimeToken = randomBytes(32).toString('base64url'), authorityToken = randomBytes(32).toString('base64url');
   const scope = makeScope(); let introspections = 0, revoked = false;
   const host = createServer(async (request, response) => {
-    assert.equal(request.headers.authorization, 'Bearer ' + authorityToken); assert.equal(request.url, '/api/app-connection-sessions/runtime/authority');
+    assert.equal(request.headers.authorization, 'Bearer ' + authorityToken);
+    if(request.url==='/api/app-connection-sessions/runtime/background-access'){response.writeHead(403,{'content-type':'application/json'});response.end('{}');return;}
+    assert.equal(request.url, '/api/app-connection-sessions/runtime/authority');
     const chunks = []; for await (const chunk of request) chunks.push(chunk); const input = JSON.parse(Buffer.concat(chunks).toString('utf8')); introspections++;
     response.writeHead(200, {'content-type': 'application/json'}); response.end(JSON.stringify({...input, allowed: !revoked}));
   });
@@ -36,7 +38,7 @@ test('separate HTTP runtime process validates transport + host introspection and
   revoked = false; assert.equal((await post(port, nextFor(begin, begun, 'disconnect', connected.account))).body.state, 'disconnected');
   assert.ok(introspections >= 12);
 });
-test('process killed during callback stays fenced after explicit dead-writer recovery; no provider replay', async t => {
+test('process killed during callback restarts automatically and preserves uncertain exchange fencing; no provider replay', async t => {
   const parent = await mkdtemp(join(tmpdir(), 'email-runtime-crash-')), root = join(parent, 'state'), configFile = join(parent, 'runtime.json'), clientFile = join(parent, 'google.json'), runtimeToken = randomBytes(32).toString('base64url'), authorityToken = randomBytes(32).toString('base64url'), scope = makeScope();
   const host = createServer(async (request, response) => {assert.equal(request.headers.authorization, 'Bearer ' + authorityToken); const chunks = []; for await (const chunk of request) chunks.push(chunk); response.writeHead(200, {'content-type': 'application/json'}); response.end(JSON.stringify({...JSON.parse(Buffer.concat(chunks).toString('utf8')), allowed: true}));});
   await new Promise(done => host.listen(0, '127.0.0.1', done));
@@ -51,8 +53,7 @@ test('process killed during callback stays fenced after explicit dead-writer rec
   const callbackResponse = post(port, nextFor(begin, begun, 'callback')).catch(() => null); await exchange;
   const exited = new Promise(done => child.once('exit', done)); child.kill('SIGKILL'); await exited; child = null; await callbackResponse;
   assert.equal(providerRequests, 1);
-  // This fixture confirms the old writer exited before removing its lock. Production recovery requires the operator's equivalent proof.
-  await unlink(join(root, '.writer', 'owner.json')); await rmdir(join(root, '.writer'));
+  // The OS releases writer ownership on crash; application effect fences remain.
   ({port} = await boot('normal'));
   assert.deepEqual(await post(port, nextFor(begin, begun, 'status')), {state: 'indeterminate'});
   assert.deepEqual(await post(port, nextFor(begin, begun, 'callback')), {state: 'indeterminate'});

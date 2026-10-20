@@ -37,7 +37,7 @@ export function createOAuthProvider({provider,client,fetch:fetchImpl=globalThis.
  if(!['gmail','microsoft'].includes(provider)||typeof fetchImpl!=='function'||typeof now!=='function')oauthFail('EMAIL_OAUTH_CLIENT_CONFIG_INVALID');client=validateOAuthClient(provider,client);
  const authorize=provider==='gmail'?'https://accounts.google.com/o/oauth2/v2/auth':`https://login.microsoftonline.com/${client.tenant}/oauth2/v2.0/authorize`;
  const token=provider==='gmail'?'https://oauth2.googleapis.com/token':`https://login.microsoftonline.com/${client.tenant}/oauth2/v2.0/token`;
- async function json(url,{method='GET',body,bearer,checkAuthority}){
+ async function json(url,{method='GET',body,bearer,checkAuthority,retainRefreshResponse=false}){
   await checkAuthority();let response;
   try{response=await fetchImpl(url,{method,body,headers:bearer?{Authorization:`Bearer ${bearer}`}:{'Content-Type':'application/x-www-form-urlencoded'},redirect:'error',signal:AbortSignal.timeout(TIMEOUT_MS)});}catch{oauthFail('EMAIL_OAUTH_PROVIDER_UNAVAILABLE',{outcome:method==='POST'?'credential_uncertain':'no_effect'});}
   const chunks=[];let size=0,reader;
@@ -47,7 +47,7 @@ export function createOAuthProvider({provider,client,fetch:fetchImpl=globalThis.
    for(;;){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>MAX_RESPONSE_BYTES){await reader.cancel();oauthFail('EMAIL_OAUTH_PROVIDER_RESPONSE_LIMIT');}chunks.push(Buffer.from(value));}
    let data;try{data=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{oauthFail('EMAIL_OAUTH_PROVIDER_RESPONSE_INVALID');}
    if(!data||typeof data!=='object'||Array.isArray(data))oauthFail('EMAIL_OAUTH_PROVIDER_RESPONSE_INVALID');
-   await checkAuthority();
+   if(!retainRefreshResponse)await checkAuthority();
    if(!response.ok)oauthFail(data.error==='invalid_grant'?'EMAIL_OAUTH_REAUTH_REQUIRED':response.status===401?'EMAIL_OAUTH_PROVIDER_IDENTITY_DENIED':response.status===403?'EMAIL_OAUTH_PROVIDER_SCOPE_DENIED':'EMAIL_OAUTH_PROVIDER_REQUEST_FAILED');
    return data;
   }catch(error){if(error instanceof EmailOAuthError){if(method==='POST'&&error.code.startsWith('EMAIL_OAUTH_PROVIDER_RESPONSE'))oauthFail(error.code,{outcome:'credential_uncertain'});throw error;}oauthFail('EMAIL_OAUTH_PROVIDER_UNAVAILABLE',{outcome:method==='POST'?'credential_uncertain':'no_effect'});}finally{reader?.releaseLock();}
@@ -71,7 +71,7 @@ export function createOAuthProvider({provider,client,fetch:fetchImpl=globalThis.
   },
   async refresh({secret,checkAuthority}){
    const body=new URLSearchParams({grant_type:'refresh_token',client_id:client.client_id,client_secret:client.client_secret,refresh_token:secret.refresh_token,...(provider==='microsoft'?{scope:secret.scopes.filter(scope=>scope!=='offline_access').map(scope=>GRAPH_PREFIX+scope).join(' ')}:{})});
-   return parseTokens(await json(token,{method:'POST',body,checkAuthority}),secret.scopes,secret.refresh_token);
+   return parseTokens(await json(token,{method:'POST',body,checkAuthority,retainRefreshResponse:provider==='gmail'}),secret.scopes,secret.refresh_token);
   },
   async verify({tokens,checkAuthority}){
    if(provider==='microsoft'){

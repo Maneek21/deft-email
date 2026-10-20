@@ -61,22 +61,36 @@ export function createEmailOAuth({clients,host,custody,fetch:fetchImpl=globalThi
    if(['provider','connection_target','resource_binding_id','action_binding_id','authority_epoch'].some(key=>binding[key]!==expected[key])||!binding.capabilities.includes(input.operation))oauthFail('EMAIL_OAUTH_ACCOUNT_BINDING_DENIED');
    const provider=selected(binding),checkAuthority=checker(binding,input.operation);await checkAuthority();
    const access_token=await custody.withAccount(binding,async tx=>{
-    const prior=tx.read();if(!prior||prior.health!=='connected'||!sameOAuthBinding(prior.binding,binding))oauthFail('EMAIL_OAUTH_REAUTH_REQUIRED');let secret=validateSecret(prior.secret);
+    const prior=tx.read();if(!prior||!(prior.health==='connected'||binding.provider==='gmail'&&prior.health==='refresh_pending')||!sameOAuthBinding(prior.binding,binding))oauthFail('EMAIL_OAUTH_REAUTH_REQUIRED');let secret=validateSecret(prior.secret);
     if(secret.client_fingerprint!==provider.client_fingerprint)oauthFail('EMAIL_OAUTH_CLIENT_CHANGED');
     if(!grantedOAuthCapabilities(binding,secret.scopes).includes(input.operation))oauthFail('EMAIL_OAUTH_SCOPE_REDUCED');
-    if(secret.expires_at<=now()+TOKEN_SKEW_MS){
-     await checkAuthority();await tx.write({health:'refresh_pending',secret});
+    if(secret.expires_at<=now()+TOKEN_SKEW_MS||secret.refresh_reconciliation||prior.health==='refresh_pending'){
+     const gmail=binding.provider==='gmail',pending=secret.refresh_reconciliation;
+     if(gmail&&pending?.next_retry_at>now())oauthFail(pending.phase==='verification_pending'?'EMAIL_OAUTH_VERIFICATION_PENDING':'EMAIL_OAUTH_PROVIDER_UNAVAILABLE');
+     await checkAuthority();
+     if(gmail)secret={...secret,refresh_reconciliation:pending??{phase:'transport_unavailable',attempt:0,next_retry_at:0}};
+     await tx.write({health:gmail?'connected':'refresh_pending',secret});
      try{
-      const tokens=await provider.refresh({secret,checkAuthority}),identity=await provider.verify({tokens,checkAuthority});
+      // A received Gmail token is committed before any later authority/identity
+      // GET can fail. Restart resumes verification using the newest credentials.
+      let tokens=secret;
+      if(!gmail||secret.refresh_reconciliation.phase!=='verification_pending'||secret.expires_at<=now()+TOKEN_SKEW_MS){
+       tokens=await provider.refresh({secret,checkAuthority});
+       if(gmail){secret={...secret,...tokens,refresh_reconciliation:{phase:'verification_pending',attempt:0,next_retry_at:0}};await tx.write({health:'connected',secret});}
+      }
+      const identity=await provider.verify({tokens,checkAuthority});
       if(identity.provider_subject!==secret.identity.provider_subject)oauthFail('EMAIL_OAUTH_RECONNECT_IDENTITY_CHANGED');
-      secret={...tokens,identity,client_fingerprint:provider.client_fingerprint};await checkAuthority();await tx.write({health:'connected',secret});
+      secret={...tokens,identity,client_fingerprint:provider.client_fingerprint};delete secret.refresh_reconciliation;
+      await checkAuthority();await tx.write({health:'connected',secret});
      }catch(error){
-      // Only an explicit provider invalid_grant proves these credentials unusable.
-      // Authority/network/verification uncertainty retains encrypted custody and
-      // the durable pending fence; a later call cannot automatically retry it.
-      if(error instanceof EmailOAuthError&&error.code==='EMAIL_OAUTH_REAUTH_REQUIRED')
-       await tx.write({health:'reauth_required',secret:discardTokens(secret)});
-      if(error instanceof EmailOAuthError)throw error;oauthFail('EMAIL_OAUTH_REAUTH_REQUIRED');
+      const permanent=(gmail?['EMAIL_OAUTH_REAUTH_REQUIRED','EMAIL_OAUTH_RECONNECT_IDENTITY_CHANGED','EMAIL_OAUTH_SCOPE_REDUCED','EMAIL_OAUTH_PROVIDER_SCOPE_DENIED','EMAIL_OAUTH_IDENTITY_SCOPE_REQUIRED','EMAIL_OAUTH_PROVIDER_IDENTITY_INVALID']:['EMAIL_OAUTH_REAUTH_REQUIRED']).includes(error?.code);
+      if(permanent)await tx.write({health:'reauth_required',secret:discardTokens(secret)});
+      else if(gmail){
+       const attempt=Math.min(20,(secret.refresh_reconciliation?.attempt??0)+1),delay=Math.min(300000,1000*2**(attempt-1));
+       secret={...secret,refresh_reconciliation:{phase:secret.refresh_reconciliation?.phase??'transport_unavailable',attempt,next_retry_at:now()+Math.ceil(delay*(0.5+Math.random()*0.5))}};
+       await tx.write({health:'connected',secret});
+      }
+      if(error instanceof EmailOAuthError)throw error;oauthFail(gmail?'EMAIL_OAUTH_PROVIDER_UNAVAILABLE':'EMAIL_OAUTH_REAUTH_REQUIRED');
      }
     }
     if(!grantedOAuthCapabilities(binding,secret.scopes).includes(input.operation))oauthFail('EMAIL_OAUTH_SCOPE_REDUCED');

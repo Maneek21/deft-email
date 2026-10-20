@@ -19,7 +19,7 @@
     {
       "source": "examples/apps/email/providers/oauth-account.mjs",
       "target": "vendor/providers/oauth-account.mjs",
-      "sha256": "10c4b0c6202e0ce331dee56e9fed6253f053345f8be7dfe8b30814554d40f564",
+      "sha256": "55d3c6caeeb2f74d2d9a30cfad170bcbfd1211cb671699a58ac0a3f27aa90fd1",
       "mode": "reviewed_adaptation",
       "e5_parent_sha256": "3433d090c0e05617e03312231f17c9b6a7cfcd692907038316e0bb2f51e3cc17",
       "frozen_source_sha256": "3433d090c0e05617e03312231f17c9b6a7cfcd692907038316e0bb2f51e3cc17",
@@ -27,7 +27,9 @@
       "e45_parent_sha256": "4b642c34261e94d85ea9cecc9636d056d056476ebb164c216f0a00986464daf4",
       "e45_merge_reason": "Exact credential repair validates unchanged provider identity/client/granted scopes before credential custody write.",
       "e58_parent_sha256": "723beced6f5aa9aecf9a93dc788914c9fe8f44571a39a8ff366403fa7a3d643c",
-      "e58_merge_reason": "Accepted optional secret-free credential-repair completion stage diagnostics; ordinary OAuth behavior unchanged."
+      "e58_merge_reason": "Accepted optional secret-free credential-repair completion stage diagnostics; ordinary OAuth behavior unchanged.",
+      "p3_parent_sha256": "10c4b0c6202e0ce331dee56e9fed6253f053345f8be7dfe8b30814554d40f564",
+      "p3_adaptation": "Reviewed Gmail-only durable refresh reconciliation: retain last usable refresh token, commit received credentials before identity verification, retry transport/verification with encrypted backoff, and keep identity, scope, live authority and Microsoft uncertain-rotation fences."
     },
     {
       "source": "examples/apps/email/providers/oauth-contract.mjs",
@@ -38,17 +40,22 @@
     {
       "source": "examples/apps/email/providers/oauth-provider.mjs",
       "target": "vendor/providers/oauth-provider.mjs",
-      "sha256": "8144e4db2cf56f9ff2ffa41efcb2a811497778db8d30354ae9c148cc092e85b7",
-      "mode": "byte_copy"
+      "sha256": "af47de79c914518352b34bc70411ca023d056a07c110d7446a37626d82e91db6",
+      "mode": "reviewed_adaptation",
+      "p3_parent_sha256": "8144e4db2cf56f9ff2ffa41efcb2a811497778db8d30354ae9c148cc092e85b7",
+      "frozen_source_sha256": "8144e4db2cf56f9ff2ffa41efcb2a811497778db8d30354ae9c148cc092e85b7",
+      "p3_adaptation": "Reviewed Gmail-only durable refresh reconciliation: retain last usable refresh token, commit received credentials before identity verification, retry transport/verification with encrypted backoff, and keep identity, scope, live authority and Microsoft uncertain-rotation fences."
     },
     {
       "source": "examples/apps/email/providers/custody-encrypted.mjs",
       "target": "vendor/providers/custody-encrypted.mjs",
-      "sha256": "fc67a4833bb7254fe4687318c43243d11c845b836f6bc46bd5851bf848c90e77",
+      "sha256": "d3f1d704fcd1a70be3a37af4ff3c9c719219a5dcd784727d218ee4142d821927",
       "mode": "reviewed_adaptation",
       "e5_parent_sha256": "dd3b60d0024f31ae316188f5b36175d7660abd15ed9d2133fbb58d8a74fbe022",
       "frozen_source_sha256": "dd3b60d0024f31ae316188f5b36175d7660abd15ed9d2133fbb58d8a74fbe022",
-      "e5_merge_reason": "Reviewed original-native import preserves immutable custody, native namespace and inspect-only effect history on exact accepted current E4 parent."
+      "e5_merge_reason": "Reviewed original-native import preserves immutable custody, native namespace and inspect-only effect history on exact accepted current E4 parent.",
+      "p3_parent_sha256": "fc67a4833bb7254fe4687318c43243d11c845b836f6bc46bd5851bf848c90e77",
+      "p3_adaptation": "Reviewed Gmail-only durable refresh reconciliation: retain last usable refresh token, commit received credentials before identity verification, retry transport/verification with encrypted backoff, and keep identity, scope, live authority and Microsoft uncertain-rotation fences."
     },
     {
       "source": "examples/apps/email/providers/custody-file-store.mjs",
