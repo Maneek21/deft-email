@@ -9,7 +9,7 @@ from pathlib import Path,PurePosixPath
 import argparse,hashlib,json,shutil,subprocess,tarfile,threading
 
 ROOT=Path(__file__).resolve().parent.parent
-VERSION='0.4.0-preview.17'
+VERSION='0.4.0-preview.18'
 BASE='sha256:65a99b8f95836d91f6d36d4b0723772b622264b6d52dfb186fea944746f07215'
 BASE_TAG='deft-email-runtime:0.4.0-preview.12-4af03db9'
 KIT='82c2d5bff2776e423b58647fad0f4a6a6430535f4e60c8146fed737d83f33ad5'

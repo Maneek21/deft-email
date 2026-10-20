@@ -8,9 +8,9 @@
 |---|---|
 | Email App | `1.9.0-preview.14` |
 | App Author Kit | `0.1.0-alpha.38` |
-| Email Runtime | `0.4.0-preview.17` |
+| Email Runtime | `0.4.0-preview.18` |
 | Runtime Author Kit | `0.1.0-alpha.35` |
-| Deft Host | `0.3.0-preview.123`, Apps-enabled developer-preview image specified in the manifest; schema `120` plus the listed generic contracts |
+| Deft Host | `0.3.0-preview.125`, Apps-enabled developer-preview image specified in the manifest; schema `120` plus the listed generic contracts |
 | App protocol | Manifest protocol 7; experience bundle v4; bridge v1; trusted renderer v2 |
 | Runtime requirements | Sync-provider channel v3 and mail-provider channel v1; connection protocol v2 |
 
@@ -18,7 +18,7 @@ Kit38 adds the App contracts used by the reader menu and account-targeted Refres
 
 The Host must also provide generic record-form v3, prepared supplemental effects, inspection v2, source nomination v2, reviewed persistent-permission policy, the consent-continuation phase gate and the resource-refresh contract. Schema120 alone does not prove those later fixes are present; use the manifest's exact Host artifact.
 
-Bundle preview.17 pairs App preview.14 and Runtime preview.17 with Host preview.123. Searched and conversation messages are now published as Task sources, so Email → Task works for newly found messages, and draft opening is bounded. Host preview.123 carries the matching Task-review recovery, backend reliability and agent fixes from the 18 October release rehearsal. Both Kit packages are unchanged. Host preview.123 still uses schema120; it adds no migration.
+Bundle preview.17 pairs App preview.14 and Runtime preview.17 with Host preview.125. Searched and conversation messages are now published as Task sources, so Email → Task works for newly found messages, and draft opening is bounded. Host preview.125 carries the matching Task-review recovery, backend reliability and agent fixes from the 18 October release rehearsal. Both Kit packages are unchanged. Host preview.125 still uses schema120; it adds no migration.
 
 ## Verify before installation
 

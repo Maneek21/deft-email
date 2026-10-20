@@ -1,6 +1,6 @@
 # Email roadmap
 
-Email is the reference implementation for a complex, independently deployed Deft App built with the public Author Kit. The current release is a developer preview, not a promise of complete Gmail/Outlook parity. The [published compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.17/compatibility.json) and [verification record](docs/verification.md) determine which exact artifacts are published and accepted. The repository's [compatibility file](release/compatibility.json) is the source template, not proof of publication.
+Email is the reference implementation for a complex, independently deployed Deft App built with the public Author Kit. The current release is a developer preview, not a promise of complete Gmail/Outlook parity. The [published compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.18/compatibility.json) and [verification record](docs/verification.md) determine which exact artifacts are published and accepted. The repository's [compatibility file](release/compatibility.json) is the source template, not proof of publication.
 
 This roadmap separates the preview's implementation from its known limits and possible future work. It promises no dates and does not expand the current release.
 
