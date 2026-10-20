@@ -1,8 +1,8 @@
 {
   "schema": "deft.email.preview.compatibility.v1",
   "publication_state": "source-template",
-  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.18/compatibility.json",
-  "resolution": "Unreleased source changes require Host preview.127; the linked preview.18 manifest describes the previous published bundle and does not certify this candidate. A future detached release asset must resolve exact tagged source commits, Host image digest and asset SHA256 values after packaging. This source template does not certify publication or contain its own archive checksum.",
+  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.19/compatibility.json",
+  "resolution": "The detached preview.19 release asset resolves exact tagged source commits, Host preview.127 image digest and asset SHA256 values after packaging. This source template does not certify publication or contain its own archive checksum.",
   "host": {
     "version": "0.3.0-preview.127",
     "minimum_version": "0.3.0-preview.127",
@@ -14,9 +14,9 @@
     "contracts": { "app_protocol": 7, "connection_protocol": 2, "record_form": 3, "resource_sync_channel": 3 }
   },
   "email": {
-    "tag": "v1.9.0-preview.18",
+    "tag": "v1.9.0-preview.19",
     "repository": "https://github.com/Maneek21/deft-email",
-    "app_version": "1.9.0-preview.14",
+    "app_version": "1.9.0-preview.15",
     "runtime_version": "0.4.0-preview.18",
     "app_kit_version": "0.1.0-alpha.39",
     "runtime_kit_version": "0.1.0-alpha.35",
