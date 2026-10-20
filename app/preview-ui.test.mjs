@@ -294,7 +294,7 @@ test('reader top menu nominates Task and Knowledge through the current governed 
  assert.deepEqual(parseDeftExperienceMenuNode(JSON.parse(JSON.stringify(more))),JSON.parse(JSON.stringify(more)),'the packed public Kit validates native integration nominations');
  assert.deepEqual(JSON.parse(JSON.stringify(more.items.slice(0,2))),[
   {id:'create_task',label:'Create task',integration:{kind:'task',document_id:'mail_body'}},
-  {id:'knowledge',label:'Knowledge',integration:{kind:'knowledge',document_id:'mail_body'}}
+  {id:'knowledge',label:'Save to Knowledge',integration:{kind:'knowledge',document_id:'mail_body'}}
  ]);
  assert.equal(document.record_id,id);assert.equal(document.content_digest,digest);assert.equal(calls.length,0);
  await ui.click('create_task');await ui.click('knowledge');assert.equal(calls.length,0,'Host owns nomination and permission review; Worker calls no integration API');
@@ -335,4 +335,14 @@ test('creating reading preferences preserves the automatic default and never rew
  assert.equal(created.length,1);assert.equal(created[0].store,'preferences');assert.equal(created[0].value.external_images,'always');assert.ok(node(ui,'setting_editor'));
  const saved={...row,store_key:'preferences',summary:{external_images:'ask'}},other=await start({listSaved:async store=>({outcome:'completed',items:store==='preferences'?[saved]:[],next_cursor:null}),createSaved:async()=>{throw Error('Must not rewrite the saved privacy choice');}});
  await other.click('email_settings');await other.click('saved_content');await other.click('settings_preferences');assert.equal(node(other,'new_setting').disabled,true);assert.ok(other.nodes().some(item=>item.description==='Ask before loading'));
+});
+
+test('empty mailbox and search states say what is missing and whether older mail is still syncing',async()=>{
+ const syncing=await start({listMailbox:async()=>({outcome:'completed',items:[],next_cursor:null,freshness:{complete:false,observed_at:'2026-10-13T10:00:00Z'}})});
+ assert.equal(node(syncing,'mail_empty').text,'No messages in Inbox. Older mail is still syncing.');
+ assert.match(node(syncing,'mail_freshness').text,/^Older mail is still syncing · updated \w{3}, Oct 1[23], \d{1,2}:\d{2} [AP]M$/);
+ assert.equal(node(syncing,'reader_empty').text,'Select a message to read it here.');
+ const synced=await start({messages:[]});
+ assert.equal(node(synced,'mail_empty').text,'No messages in Inbox.');
+ assert.match(node(synced,'mail_freshness').text,/^Synced · updated /);
 });

@@ -9,5 +9,5 @@ export function unreadLabel(values){
  if(!values.length||values.some(value=>!value))return 'Unread count unavailable';
  if(values.some(value=>!value.ready))return 'Counting unread messages…';
  const count=values.reduce((sum,value)=>sum+value.count,0);
- return values.every(value=>value.complete)?`${count} unread`:`${count} unread in cached mail · sync incomplete`;
+ return values.every(value=>value.complete)?`${count} unread`:`${count} unread so far · still syncing`;
 }
