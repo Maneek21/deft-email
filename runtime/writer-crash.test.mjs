@@ -10,10 +10,11 @@ test('hard crash releases exclusive writer and retains the last atomic commit',a
  const root=await mkdtemp(join(tmpdir(),'email-writer-crash-'));
  t.after(()=>rm(root,{recursive:true,force:true}));
  const options={root,encryption_key:new Uint8Array(32).fill(1),key_id:'test',allow_windows_fixture:true};
- for(const boundary of ['before_read','after_read','after_commit']){
+ for(const boundary of ['after_lock','before_read','after_read','after_commit']){
   const source=`import {createDurableStore} from ${JSON.stringify(new URL('./durable-store.mjs',import.meta.url).href)};
-   const s=await createDurableStore({...${JSON.stringify({...options,encryption_key:undefined})},encryption_key:new Uint8Array(32).fill(1)});
-   if(${JSON.stringify(boundary)}!=='before_read')await s.withLock({key:'row'},async tx=>{await tx.read();if(${JSON.stringify(boundary)}==='after_commit'){const row=await tx.read();await tx.compareAndSwap({expected_revision:row?.revision??null,value:{committed:true}});}});
+   const {acquireWriterLifetimeLock}=await import(${JSON.stringify(new URL('./writer-lifetime-lock.mjs',import.meta.url).href)});
+   const s=${JSON.stringify(boundary)}==='after_lock'?await acquireWriterLifetimeLock(${JSON.stringify(root)}):await createDurableStore({...${JSON.stringify({...options,encryption_key:undefined})},encryption_key:new Uint8Array(32).fill(1)});
+   if(!['before_read','after_lock'].includes(${JSON.stringify(boundary)}))await s.withLock({key:'row'},async tx=>{await tx.read();if(${JSON.stringify(boundary)}==='after_commit'){const row=await tx.read();await tx.compareAndSwap({expected_revision:row?.revision??null,value:{committed:true}});}});
    process.stdout.write('ready\\n');setInterval(()=>{},1000);`;
   const child=spawn(process.execPath,['--input-type=module','-e',source],{stdio:['ignore','pipe','pipe']});
   let stderr='';child.stderr.on('data',x=>stderr+=x);

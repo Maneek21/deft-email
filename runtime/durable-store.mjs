@@ -10,7 +10,7 @@ import {canonical, digest, exact, fail} from './contract.mjs';
  * Windows mode is only for local restart fixtures, not a production durability claim. */
 export async function createDurableStore({root, encryption_key, key_id, allow_windows_fixture = false}) {
   if (!isAbsolute(root ?? '') || resolve(root) !== root || root === parse(root).root || !(encryption_key instanceof Uint8Array) || encryption_key.byteLength !== 32 || !/^[A-Za-z0-9_-]{1,64}$/u.test(key_id ?? '') || process.platform === 'win32' && !allow_windows_fixture) fail('EMAIL_RUNTIME_STORE_CONFIG_INVALID');
-  const key = Buffer.from(encryption_key), writer = join(root, '.writer'), ownerFile = join(writer, 'owner.json'), nonce = randomBytes(32).toString('hex'), pending = new Map();
+  const key = Buffer.from(encryption_key), writer = join(root, '.writer'), ownerFile = join(writer, 'owner.json'), pending = new Map();
   let closed = false;
   async function checkDirectory(path) {
     const stat = await lstat(path);
@@ -38,19 +38,13 @@ export async function createDurableStore({root, encryption_key, key_id, allow_wi
       }
       await unlink(ownerFile);await rmdir(writer);
     } catch(error) { if(error.code!=='ENOENT')throw error; }
-    try { await mkdir(writer,{mode:0o700}); } catch(error) { if(error.code!=='EEXIST')throw error; }
-    const lease=await open(ownerFile,'wx',0o600);
-    try { await lease.writeFile(JSON.stringify({pid:process.pid,nonce,process_lock:'kernel.v1'}));await lease.sync(); } finally { await lease.close(); }
     await syncDirectory();
   } catch(error) { await lifetime.close();key.fill(0);throw error; }
   async function fence() {
     if (closed) fail('EMAIL_RUNTIME_STORE_CLOSED');
     const currentRoot=await lstat(root);
     if(!await lifetime.held()||currentRoot.dev!==rootIdentity.dev||currentRoot.ino!==rootIdentity.ino)fail('EMAIL_RUNTIME_WRITER_FENCE_LOST');
-    await ancestry(); await checkDirectory(root); await checkDirectory(writer);
-    const stat = await lstat(ownerFile); if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || process.platform !== 'win32' && (stat.uid !== process.getuid() || (stat.mode & 0o077) !== 0)) fail('EMAIL_RUNTIME_WRITER_FENCE_LOST');
-    let owner; try { owner = JSON.parse(await readFile(ownerFile, 'utf8')); } catch { fail('EMAIL_RUNTIME_WRITER_FENCE_LOST'); }
-    if (owner.nonce !== nonce || owner.pid !== process.pid) fail('EMAIL_RUNTIME_WRITER_FENCE_LOST');
+    await ancestry(); await checkDirectory(root);
   }
   const pathFor = id => join(root, digest(id) + '.json');
   // Independently versioned app data budgets; connection/custody retain their
@@ -96,6 +90,6 @@ export async function createDurableStore({root, encryption_key, key_id, allow_wi
       try { await fence(); return await work({read: () => read(id), compareAndSwap: ({expected_revision, value}) => cas(id, expected_revision, value)}); }
       finally { release(); if (pending.get(id) === next) pending.delete(id); }
     },
-    async close() { await Promise.all([...pending.values()]); await fence(); closed = true; await unlink(ownerFile); await rmdir(writer); await syncDirectory(); await lifetime.close(); key.fill(0); }
+    async close() { await Promise.all([...pending.values()]); await fence(); closed = true; await syncDirectory(); await lifetime.close(); key.fill(0); }
   });
 }
