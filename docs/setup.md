@@ -1,6 +1,6 @@
 # Developer-preview setup
 
-Use the exact Apps-enabled Host and public artifacts in [the authoritative compatibility record](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.17/compatibility.json). The supported Host requires schema **120** and the matching generic contracts, not merely an older compatible-looking release label. Check the record's publication state and download hashes before starting. [Verification](verification.md) distinguishes previous demo evidence from final public acceptance.
+Use the exact Apps-enabled Host and public artifacts in [the authoritative compatibility record](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.18/compatibility.json). The supported Host requires schema **120** and the matching generic contracts, not merely an older compatible-looking release label. Check the record's publication state and download hashes before starting. [Verification](verification.md) distinguishes previous demo evidence from final public acceptance.
 
 The external consumer path is: obtain compatible Deft → independently build Email → sideload/review it → configure the separately operated Runtime, HTTPS/OAuth and authority → use Email and source integrations → [upgrade Email against the same Host](independence-upgrade.md). This requires operator work; no Deft source checkout, private import, native Email adapter or SQL patch is part of the Email installation.
 
@@ -22,9 +22,9 @@ chmod 700 private
 
 Use independently generated random `JWT_SECRET` and `JWT_REFRESH_SECRET` values of at least 32 characters each, without surrounding whitespace. They must differ and must not be development defaults or example placeholders; production startup rejects unsafe values. Existing valid keys remain unchanged during an upgrade.
 
-Fill `.env` with fresh `POSTGRES_PASSWORD`, `JWT_SECRET`, `JWT_REFRESH_SECRET` and `ENCRYPTION_KEY`, and set `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` to the browser-reachable rehearsal URLs. Set `DEFT_IMAGE=ghcr.io/maneek21/deft@sha256:...` using the exact `host.image_digest` in the downloaded compatibility manifest. Use the Host release's `self-hosting.md` and [HTTPS routing guide](https://github.com/Maneek21/Deft/blob/v0.3.0-preview.123/docs/self-hosting-vps-domain-https.md). Runtime callbacks and authority URLs require HTTPS; a plain localhost health check is not a connection proof.
+Fill `.env` with fresh `POSTGRES_PASSWORD`, `JWT_SECRET`, `JWT_REFRESH_SECRET` and `ENCRYPTION_KEY`, and set `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` to the browser-reachable rehearsal URLs. Set `DEFT_IMAGE=ghcr.io/maneek21/deft@sha256:...` using the exact `host.image_digest` in the downloaded compatibility manifest. Use the Host release's `self-hosting.md` and [HTTPS routing guide](https://github.com/Maneek21/Deft/blob/v0.3.0-preview.125/docs/self-hosting-vps-domain-https.md). Runtime callbacks and authority URLs require HTTPS; a plain localhost health check is not a connection proof.
 
-Set `DEFT_RELEASE_VERSION` to `host.version` in the compatibility record (`0.3.0-preview.123` for this set). This reports the Host release identity; the independent `host.schema_version` remains `0.3.0-preview.120`. Do not conflate the image release with the database schema. Set these preview gates in the operator environment. A prebuilt browser bundle must already contain the matching `NEXT_PUBLIC_*` gates and public origin; runtime variables cannot enable a gate omitted from that build:
+Set `DEFT_RELEASE_VERSION` to `host.version` in the compatibility record (`0.3.0-preview.125` for this set). This reports the Host release identity; the independent `host.schema_version` remains `0.3.0-preview.120`. Do not conflate the image release with the database schema. Set these preview gates in the operator environment. A prebuilt browser bundle must already contain the matching `NEXT_PUBLIC_*` gates and public origin; runtime variables cannot enable a gate omitted from that build:
 
 ```dotenv
 DEFT_APPS_ENABLED=true
@@ -221,7 +221,7 @@ Use separate controlled provider accounts for this rehearsal, or a supported ser
 
 ## Task and Knowledge integration
 
-Use the [connected App author guide from the supported Host release](https://github.com/Maneek21/Deft/blob/v0.3.0-preview.123/docs/connected-app-author-guide.md), also included in its corresponding source. The manifest identifies the exact Host commit if consulting source before tag publication. In that guide, follow **Email source-to-Task readiness** with this installation's current IDs:
+Use the [connected App author guide from the supported Host release](https://github.com/Maneek21/Deft/blob/v0.3.0-preview.125/docs/connected-app-author-guide.md), also included in its corresponding source. The manifest identifies the exact Host commit if consulting source before tag publication. In that guide, follow **Email source-to-Task readiness** with this installation's current IDs:
 
 1. Review and activate scalar observation under the current owner resource binding. It is separate from foreground Read and does not grant provider actions, attachment transfer or Knowledge destination access.
 2. Issue the current v3 sync session and install its private `resource_sync_channel_files` entry using the public `/api/app-resource-sync-channel/v3` and observation-authority endpoints. Preserve its issued technical renewal metadata and finite lease, plus publication consent's separately reviewed finite deadline or explicit `until_revoked` lifetime; an action-channel credential is not a sync credential.
