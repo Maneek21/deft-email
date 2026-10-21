@@ -1,4 +1,6 @@
-# Email preview.20 background-refresh description
+# Email background-refresh description
+
+Preview.21 retains the description introduced in preview.20. Its current compatibility minimum is Host131 for scoped service reacquisition and trusted upgrade continuity; Kit39 itself remains the original sealed Host127 artifact. The preview.20 details below record that feature's introduction.
 
 Email now owns the explanation displayed in its background-refresh review:
 

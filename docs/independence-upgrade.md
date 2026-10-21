@@ -2,7 +2,11 @@
 
 The existing example is an optional private note on a draft, up to 1000 characters, kept out of outgoing MIME. It is already implemented; no new feature is needed to demonstrate independence. New drafts may use the note, while retained pre-note drafts keep their original form without an on-read migration.
 
-Current App and Runtime identities come from [the compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.20/compatibility.json). This source is App `1.9.1-preview.1` with Kit39 and Runtime `0.4.0-preview.18` with Kit35. Historical App7/Runtime9 upgrade/retention receipts apply only to those frozen versions. [Verification](verification.md) records which final-release evidence was reused and which checks were rerun.
+Current App and Runtime identities come from [the compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.21/compatibility.json). This source is App `1.9.1-preview.2` with Kit39 and Runtime `0.4.0-preview.19` with Kit35. Historical App7/Runtime9 upgrade/retention receipts apply only to those frozen versions. [Verification](verification.md) records which final-release evidence was reused and which checks were rerun.
+
+## Trusted compatible upgrade and restart recovery
+
+On Host131, an administrator can explicitly trust an installation for compatible automatic upgrade continuity. Trust is off by default. Compatible App21 activation carries current reviewed account, background and exact private Experience approvals forward through authenticated fresh bindings and custody receipts. Finite expiry and revocation remain binding; changed authority still requires review. Runtime19 enrolls the receipt-backed successor without editing operator files and reacquires expired short sessions without a browser. Keep App20, Runtime18 and a matched database/encrypted-store backup for rollback. Stop Runtime18 cleanly before Runtime19 opens the same store; never run both writers. See [unattended recovery](../runtime/UNATTENDED-RECOVERY.md).
 
 ## Upgrade from the local demo build
 
