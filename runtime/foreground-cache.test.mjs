@@ -121,7 +121,7 @@ test('presentation image defaults read only the current account preference outsi
  await settings.create(other,'preferences',randomUUID(),{external_images:'ask'},options());
  const first=await f.run(f.request('resource_list',listInput)),source={store_key:'drafts',resource_key:'inbox',record_id:first.items[0].record_id,content_digest:first.items[0].content_digest};
  const view=()=>f.run(f.request('resource_read_presentation',source));
- assert.equal((await view()).presentation.external_images,'always','another account ask preference is never a fallback');
+ assert.equal((await view()).presentation.external_images,'ask','an unset choice hides images independently of another account preference');
  let saved=await settings.create(f.localScope,'preferences',id,{external_images:'ask'},options());
  const before=f.counts().provider;assert.equal((await view()).presentation.external_images,'ask');assert.equal(f.counts().provider,before,'the source memo cannot hide a changed privacy choice');
  saved=await settings.save(f.localScope,'preferences',id,{external_images:'always'},{...options(),expected_revision:saved.revision,expected_content_digest:saved.content_digest});
@@ -129,7 +129,7 @@ test('presentation image defaults read only the current account preference outsi
  const secondPage=await f.run(second.request('resource_list',listInput)),secondSource={...source,record_id:secondPage.items[0].record_id,content_digest:secondPage.items[0].content_digest};
  assert.equal((await f.run(second.request('resource_read_presentation',secondSource))).presentation.external_images,'ask','the second connected account uses its own ask preference, not the first account always choice');
  await settings.archive(f.localScope,'preferences',id,{...options(),expected_revision:saved.revision,expected_content_digest:saved.content_digest});
- assert.equal((await view()).presentation.external_images,'always');
+ assert.equal((await view()).presentation.external_images,'ask','removing a choice restores hidden images');
  assert.equal((await settings.list(other,'preferences',{cursor:null,limit:1},()=>{})).items[0].summary.external_images,'ask','reading never rewrites another account preference');
  f.deny();await assert.rejects(view());
 });

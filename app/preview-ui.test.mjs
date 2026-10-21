@@ -24,20 +24,16 @@ async function start({refresh=async()=>({outcome:'completed'}),targets=[{key:'pr
 function nodes(view){const result=[];const walk=node=>{result.push(node);node.children?.forEach(walk);node.items?.forEach(walk);};walk(view.root);view.navigation?.forEach(walk);return result;}
 const node=(ui,id)=>ui.nodes().find(item=>item.id===id);
 
-test('slow compose account lookup has bounded feedback and same-context retry without a premature draft write',async()=>{
- let calls=0,finish,expire,created=0;const catalog={targets:[{key:'primary',label:'Primary account'}],selected_target_key:'primary'};
- const ui=await start({listTargets:()=>++calls===1?catalog:new Promise(resolve=>finish=resolve),createSaved:()=>{created++;throw Error('No write before account resolution');},timers:{setTimeout:(callback,ms)=>{assert.equal(ms,8000);expire=callback;return 1;},clearTimeout:()=>{}}});
- const opening=ui.click('compose');await new Promise(setImmediate);assert.equal(node(ui,'mail_progress').text,'Checking compose account…');assert.equal(node(ui,'draft_form'),undefined);
- expire();await opening;assert.match(node(ui,'status').text,/taking longer/);assert.ok(node(ui,'compose_retry'));assert.equal(node(ui,'draft_form'),undefined);assert.equal(created,0);
- const retry=ui.click('compose_retry');await new Promise(setImmediate);assert.equal(calls,2,'same-context retry shares only the still-inflight read');finish(catalog);await retry;
- assert.ok(node(ui,'draft_form'));assert.equal(node(ui,'compose_retry'),undefined);assert.equal(created,0);
+test('new Compose opens locally without repeating a slow account lookup or persisting a draft',async()=>{
+ let calls=0,created=0;const catalog={targets:[{key:'primary',label:'Primary account'}],selected_target_key:'primary'};
+ const ui=await start({listTargets:()=>++calls===1?catalog:new Promise(()=>{}),createSaved:()=>{created++;throw Error('No write on open');}});
+ await ui.click('compose');assert.ok(node(ui,'draft_form'));assert.equal(node(ui,'draft_form').expected_revision,0);assert.equal(node(ui,'mail_progress'),undefined);assert.equal(calls,1);assert.equal(created,0);
+ await ui.click('close_draft');assert.equal(node(ui,'compose').disabled,false);
 });
 
-test('late compose account response cannot open a draft after switching the displayed account',async()=>{
- let calls=0,finish,expire;const catalog={targets:[{key:'primary',label:'Sender'},{key:'secondary',label:'Recipient'}],selected_target_key:'primary'};
- const ui=await start({listTargets:()=>++calls===2?new Promise(resolve=>finish=resolve):catalog,timers:{setTimeout:callback=>{expire=callback;return 1;},clearTimeout:()=>{}}});
- const opening=ui.click('compose');await new Promise(setImmediate);expire();await opening;await ui.click('account_pick_1');finish(catalog);await new Promise(setImmediate);
- assert.equal(node(ui,'draft_form'),undefined);assert.equal(node(ui,'account_pick_1').selected,true);
+test('Compose does not open for a different displayed account',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Sender'},{key:'secondary',label:'Recipient'}]});
+ await ui.click('account_pick_1');assert.equal(node(ui,'compose').disabled,true);await ui.click('compose');assert.equal(node(ui,'draft_form'),undefined);
 });
 
 test('Email opens the current account with Compose ready; all-account fanout is explicit',async()=>{
@@ -150,7 +146,7 @@ test('preview omits deferred job and mirror controls while preserving core setti
 });
 test('long author-controlled labels remain inside their UTF8 byte budget with a readable ellipsis',async()=>{
  const ui=await start({targets:[{key:'primary',label:'账户'.repeat(100)}],messages:[{...mail,data:{...mail.data,sender:'账户'.repeat(100),subject:'账户'.repeat(100)}}]});
- const button=node(ui,'mail_'+id.replaceAll('-',''));assert.ok(new TextEncoder().encode(button.label).length<=128);assert.match(button.label,/…$/);assert.doesNotMatch(JSON.stringify(ui.views.at(-1)),/Â·|â€¦/);
+ const button=node(ui,'mail_'+id.replaceAll('-',''));assert.ok(new TextEncoder().encode(button.label).length<=128);assert.match(button.label,/…$/);assert.doesNotMatch(JSON.stringify(ui.views.at(-1)),/·|…/);
 });
 
 const accountSwitch={targets:[{key:'primary',label:'Sender'},{key:'denied',label:'Recipient'}],listMailbox:async target=>{
@@ -270,11 +266,14 @@ test('compact actions still submit exact current sources for human review and bl
  assert.equal(node(ui,'organize_archive').disabled,true);assert.match(node(ui,'status').text,/could not be confirmed/);await ui.click('organize_archive');assert.equal(calls.length,1);
 });
 
-test('reader menu Reply all and Forward preserve exact-source draft creation without a Send',async()=>{
- for(const action of ['reply_all','forward']){
-  const creates=[],requests=[],ui=await start({createSaved:async(store,record_id,value,refs)=>{creates.push({store,value,refs});return {outcome:'completed',record:{...row,record_id}};},request:async(...args)=>requests.push(args)});
-  await ui.click('mail_'+id.replaceAll('-',''));assert.ok(node(ui,'reader_more').items.some(item=>item.id===action));await ui.click(action);
-  assert.equal(creates.length,1);assert.equal(creates[0].store,'drafts');assert.equal(creates[0].value.mode,action);assert.deepEqual(JSON.parse(JSON.stringify(creates[0].refs)),[{resource_key:'inbox',record_id:id,content_digest:digest}]);assert.ok(node(ui,'draft_form'));assert.equal(requests.length,0);
+test('Reply, Reply all and Forward open local source-pinned seeds without a draft write or compose lock',async()=>{
+ for(const action of ['reply','reply_all','forward']){
+  const creates=[],requests=[],ui=await start({createSaved:async(...args)=>{creates.push(args);throw Error('Opening must never create a draft');},request:async(...args)=>requests.push(args)});
+  await ui.click('mail_'+id.replaceAll('-',''));await ui.click(action);
+  const form=node(ui,'draft_form');assert.ok(form);assert.equal(form.expected_revision,0);assert.equal(form.seed.value.mode,action);const admitted=DeftExperienceRecordFormV3NodeSchema.safeParse(JSON.parse(JSON.stringify(form)));assert.equal(admitted.success,true,admitted.success?'':JSON.stringify(admitted.error.issues));assert.equal(form.initial_change,undefined);
+  assert.deepEqual(JSON.parse(JSON.stringify(form.seed.value.record_seed.source)),{resource_key:'inbox',record_id:id,content_digest:digest});
+  assert.equal(creates.length,0);assert.equal(requests.length,0);assert.equal(node(ui,'status'),undefined);
+  await ui.click('close_draft');assert.equal(node(ui,'compose').disabled,false);await ui.click('compose');assert.ok(node(ui,'draft_form'));assert.equal(creates.length,0);
  }
 });
 
@@ -329,10 +328,10 @@ test('Undo is not advertised when the completed source leaves the loaded mailbox
  await ui.click('mail_'+id.replaceAll('-',''));await ui.click('organize_archive');await ui.click('check_mailbox_action');assert.equal(node(ui,'undo_mailbox_action'),undefined);assert.equal(dialogs,1);
 });
 
-test('creating reading preferences preserves the automatic default and never rewrites an existing Ask choice',async()=>{
+test('creating reading preferences starts with Ask and never rewrites an existing Ask choice',async()=>{
  const created=[];const ui=await start({listSaved:async()=>({outcome:'completed',items:[],next_cursor:null}),createSaved:async(store,record_id,value)=>{created.push({store,value});return {outcome:'completed',record:{...row,store_key:store,record_id,summary:value}};}});
  await ui.click('email_settings');await ui.click('saved_content');await ui.click('settings_preferences');await ui.click('new_setting');
- assert.equal(created.length,1);assert.equal(created[0].store,'preferences');assert.equal(created[0].value.external_images,'always');assert.ok(node(ui,'setting_editor'));
+ assert.equal(created.length,1);assert.equal(created[0].store,'preferences');assert.equal(created[0].value.external_images,'ask');assert.ok(node(ui,'setting_editor'));
  const saved={...row,store_key:'preferences',summary:{external_images:'ask'}},other=await start({listSaved:async store=>({outcome:'completed',items:store==='preferences'?[saved]:[],next_cursor:null}),createSaved:async()=>{throw Error('Must not rewrite the saved privacy choice');}});
  await other.click('email_settings');await other.click('saved_content');await other.click('settings_preferences');assert.equal(node(other,'new_setting').disabled,true);assert.ok(other.nodes().some(item=>item.description==='Ask before loading'));
 });
