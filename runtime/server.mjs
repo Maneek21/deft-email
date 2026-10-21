@@ -6,6 +6,7 @@ import {createMirrorClient} from './mirror-client.mjs';
 import {createMirrorCoordinator} from './mirror-coordinator.mjs';
 import {createLocalJobRuntime} from './local-job-runtime.mjs';
 import {createLocalJobClient,createLocalJobRunner} from './local-job-client.mjs';
+import {createRegistrationContinuity} from './registration-continuity.mjs';
 import {createBackgroundAccessReconciler} from './background-access-reconciler.mjs';
 import {createServer} from 'node:http';
 import {runPollingWorker} from './polling-worker.mjs';
@@ -59,17 +60,18 @@ export async function startRuntime(config, options = {}) {
   const encryption_key = Buffer.from(config.encryption_key_hex, 'hex');
   const store = await createDurableStore({root: config.store_root, encryption_key, key_id: config.key_id, allow_windows_fixture: options.allow_windows_fixture ?? false});
   try {
+    const continuity=await createRegistrationContinuity({registrations,store}),getRegistrations=continuity.all;
     const assertCurrent = createAuthorityClient({authority_url: config.authority_url, authority_token: config.authority_token, allow_loopback_fixture: options.allow_loopback_fixture ?? false});
     const assertContinuationCurrent=config.consent_continuation_authority_url?createAuthorityClient({authority_url:config.consent_continuation_authority_url,authority_token:config.authority_token,allow_loopback_fixture:options.allow_loopback_fixture??false}):undefined;
     const assertReattachCurrent=config.reattach_authority_url?createAuthorityClient({authority_url:config.reattach_authority_url,authority_token:config.authority_token,allow_loopback_fixture:options.allow_loopback_fixture??false}):undefined;
     const assertV2Current=config.authority_v2_url?createAuthorityClient({authority_url:config.authority_v2_url,authority_token:config.authority_token,allow_loopback_fixture:options.allow_loopback_fixture??false}):undefined,assertUpgradeCurrent=config.upgrade_authority_url?createAuthorityClient({authority_url:config.upgrade_authority_url,authority_token:config.authority_token,allow_loopback_fixture:options.allow_loopback_fixture??false}):undefined;
-    const runtime = createRegistrationDispatcher({registrations, client, provider, store, encryption_key, key_id: config.key_id, assertCurrent, assertReattachCurrent,assertContinuationCurrent,assertV2Current,assertUpgradeCurrent,fetch: options.fetch});
+    const runtime = createRegistrationDispatcher({registrations,registrationContinuity:continuity, client, provider, store, encryption_key, key_id: config.key_id, assertCurrent, assertReattachCurrent,assertContinuationCurrent,assertV2Current,assertUpgradeCurrent,fetch: options.fetch});
     const dataCurrent=config.data_authority_url?createAuthorityClient({authority_url:config.data_authority_url,authority_token:config.authority_token,allow_loopback_fixture:options.allow_loopback_fixture??false}):undefined;
     const localJobClient=config.local_job_channel_url?createLocalJobClient({channel_url:config.local_job_channel_url,authority_token:config.authority_token,fetch:options.channelFetch,allow_loopback_fixture:options.allow_loopback_fixture??false}):undefined;
-    const local_job_runtime=localJobClient?createLocalJobRuntime({registrations,client,provider,store,encryption_key,key_id:config.key_id,assertInteractive:localJobClient.interactive,assertJob:localJobClient.authorize,assertVisibility:localJobClient.visibility}):undefined;
+    const local_job_runtime=localJobClient?createLocalJobRuntime({registrations,getRegistrations,client,provider,store,encryption_key,key_id:config.key_id,assertInteractive:localJobClient.interactive,assertJob:localJobClient.authorize,assertVisibility:localJobClient.visibility}):undefined;
     const local_job_runner=localJobClient?createLocalJobRunner({runtime:local_job_runtime,client:localJobClient,onDiagnostic:options.localJobDiagnostic}):undefined;
-    let data_runtime=config.data_authority_url?createDataRuntime({registrations,client,provider,store,encryption_key,key_id:config.key_id,assertCurrent:createAuthorityClient({authority_url:config.data_authority_url,authority_token:config.authority_token,allow_loopback_fixture:options.allow_loopback_fixture??false}),fetch:options.fetch,imageDependencies:options.imageDependencies,preparedActions:options.preparedActions}):undefined;
-    const integration_tool_runtime=integrationFields.length?createDeclaredIntegrationToolsRuntime({createDataRuntime:({assertCurrent})=>createDataRuntime({registrations,client,provider,store,encryption_key,key_id:config.key_id,assertCurrent,fetch:options.fetch,imageDependencies:options.imageDependencies,preparedActions:options.preparedActions}),assertCurrent:createAuthorityClient({authority_url:config.integration_tool_authority_url,authority_token:config.authority_token,allow_loopback_fixture:options.allow_loopback_fixture??false,maximum_bytes:614400})}):undefined;
+    let data_runtime=config.data_authority_url?createDataRuntime({registrations,getRegistrations,client,provider,store,encryption_key,key_id:config.key_id,assertCurrent:createAuthorityClient({authority_url:config.data_authority_url,authority_token:config.authority_token,allow_loopback_fixture:options.allow_loopback_fixture??false}),fetch:options.fetch,imageDependencies:options.imageDependencies,preparedActions:options.preparedActions}):undefined;
+    const integration_tool_runtime=integrationFields.length?createDeclaredIntegrationToolsRuntime({createDataRuntime:({assertCurrent})=>createDataRuntime({registrations,getRegistrations,client,provider,store,encryption_key,key_id:config.key_id,assertCurrent,fetch:options.fetch,imageDependencies:options.imageDependencies,preparedActions:options.preparedActions}),assertCurrent:createAuthorityClient({authority_url:config.integration_tool_authority_url,authority_token:config.authority_token,allow_loopback_fixture:options.allow_loopback_fixture??false,maximum_bytes:614400})}):undefined;
     if(local_job_runtime&&data_runtime){const request=data_runtime.request;data_runtime=Object.freeze({...data_runtime,request:async(raw,signal,bytes)=>local_job_runtime.project(raw,await request(raw,signal,bytes),dataCurrent,signal)});}
     const mirror_client=mirrorFields.length?createMirrorClient({channel_url:config.record_mirror_channel_url,authority_token:config.authority_token,fetch:options.channelFetch,allow_loopback_fixture:options.allow_loopback_fixture??false}):undefined;
     const mirror_coordinator=mirror_client?createMirrorCoordinator({store,client,mirror_client,provider,encryption_key,key_id:config.key_id,fetch:options.fetch}):undefined;
@@ -88,7 +90,7 @@ export async function startRuntime(config, options = {}) {
     const allow_loopback=options.allow_loopback_fixture??false;
     const actionRenewal=channel=>{exact(channel,['channel_url','credential','registration',...(Object.hasOwn(channel,'technical_renewal')?['technical_renewal']:[])]);exact(channel.credential,['session_id','session_token']);const runtime_client=createAppRuntimeClient({channel_url:trustedUrl(channel.channel_url,allow_loopback),credential:channel.credential,fetch:options.channelFetch});return {renewal:createRuntimeChannelRenewal({channel,runtime_client})};};
     const observationParts=channel=>{exact(channel,['channel_url','observation_authority_url','credential','registration',...(Object.hasOwn(channel,'technical_renewal')?['technical_renewal']:[])]);exact(channel.credential,['session_id','session_token']);
-      const registration=validateRegistration(channel.registration);if(!registrations.some(({connection_protocol,...value})=>canonical(value)===canonical(registration)))fail('EMAIL_OBSERVATION_CONFIG_INVALID');
+      const registration=validateRegistration(channel.registration);if(!getRegistrations().some(({connection_protocol,...value})=>canonical(value)===canonical(registration)))fail('EMAIL_OBSERVATION_CONFIG_INVALID');
       const channel_url=trustedUrl(channel.channel_url,allow_loopback),authority_url=trustedUrl(channel.observation_authority_url,allow_loopback);
       if(new URL(channel_url).origin!==new URL(authority_url).origin||new URL(channel_url).pathname!=='/api/app-resource-sync-channel/v3'||new URL(authority_url).pathname!=='/api/app-resource-observations/runtime')fail('EMAIL_OBSERVATION_CONFIG_INVALID');
       const {observation_authority_url,...renewalChannel}=channel,resourceClient=createDeftResourceSyncClientV3({channel_url,credential:channel.credential,fetch:options.channelFetch});
@@ -99,7 +101,7 @@ export async function startRuntime(config, options = {}) {
       const runner=createResourceObservationRunner({repairContinuity:createCredentialRepairPorts({store,registration}).repairContinuity,runtime_client:renewal.client,observation_client,registration:channel.registration,client,provider,store,encryption_key,key_id:config.key_id,fetch:options.fetch});replaceChannel(channel,renewal,'observation',runner);observation_runners.push(runner);return {entry,runner};};
     // Sessions the Host installed replace operator-file channels for the same registration.
     let startInstalled=null;
-    const installer=createChannelInstaller({store,registrations,allow_loopback_fixture:allow_loopback,
+    const installer=createChannelInstaller({store,registrations,getRegistrations,allow_loopback_fixture:allow_loopback,
       verify:async(entry,signal)=>{const parts=entry.kind==='action'?actionRenewal(entry.channel):observationParts(entry.channel);if(!parts.renewal.renewable||!await parts.renewal.renew(signal))fail('EMAIL_RUNTIME_CHANNEL_INSTALL_DENIED');return parts;},
       activate:async verified=>{channelOwners=await installer.owners();if(!startInstalled)fail('EMAIL_RUNTIME_CHANNEL_INSTALL_DENIED');for(const {entry,verification} of verified)startInstalled(entry.kind,entry.kind==='action'?addAction(entry.channel,verification):addObservation(entry.channel,verification));}});
     channelOwners=await installer.owners();
@@ -117,7 +119,7 @@ export async function startRuntime(config, options = {}) {
     server.headersTimeout = 10000; server.requestTimeout = 30000; server.timeout = 35000;
     await new Promise((done, reject) => {server.once('error', reject); server.listen(config.listen_port, '127.0.0.1', done);});
     const worker=(runner,waitMs,maxWaitMs=waitMs)=>runPollingWorker(runner,{signal:runnerStops.has(runner)?AbortSignal.any([stopped.signal,runnerStops.get(runner).signal]):stopped.signal,waitMs,maxWaitMs});
-    const background_reconciler=createBackgroundAccessReconciler({registrations,authority_url:config.authority_url,authority_token:config.authority_token,
+    const background_reconciler=createBackgroundAccessReconciler({registrations,getRegistrations:continuity.current,authority_url:config.authority_url,authority_token:config.authority_token,
       fetch:options.channelFetch,allow_loopback_fixture:allow_loopback,
       needsReconcile:registration=>{const id=registration.runtime_registration_id;
         const channels=[...activeChannels.entries()].filter(([key])=>key.endsWith(':'+id)||channelOwners[key]===id);

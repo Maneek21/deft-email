@@ -5,7 +5,7 @@ import {canonical,exact,fail} from './contract.mjs';
 /** Reconcile only operator-configured registrations. The Host pushes secrets to
  * its reviewed endpoint; this request receives acknowledgements, never tokens.
  * No Run, Send, start or result operation is retried by this supervisor. */
-export function createBackgroundAccessReconciler({registrations,authority_url,authority_token,fetch:fetchImpl=globalThis.fetch,
+export function createBackgroundAccessReconciler({registrations,getRegistrations=()=>registrations,authority_url,authority_token,fetch:fetchImpl=globalThis.fetch,
  needsReconcile,acknowledged,now=Date.now,random=Math.random,wait=delay,allow_loopback_fixture=false,
  onDiagnostic=event=>console.info(JSON.stringify(event))}){
  const base=new URL(trustedUrl(authority_url,allow_loopback_fixture));
@@ -15,7 +15,7 @@ export function createBackgroundAccessReconciler({registrations,authority_url,au
  const emit=(registration,phase,reason)=>{try{onDiagnostic({event:'email_runtime_background_access',runtime_registration_id:registration.runtime_registration_id,phase,reason});}catch{}};
  const reset=registration=>states.delete(key(registration));
  async function runOnce(signal){
-  for(const {connection_protocol,...registration} of registrations){
+  for(const {connection_protocol,...registration} of getRegistrations()){
    signal.throwIfAborted();
    if(!needsReconcile(registration)){reset(registration);continue;}
    const id=key(registration),prior=states.get(id);

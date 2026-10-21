@@ -41,21 +41,21 @@ export function validateInstalledChannel(entry, registrations, allow_loopback_fi
 /** One channel per kind and Runtime registration; a newer install replaces it. */
 export const installedChannelKey = entry => entry.kind + ':' + entry.channel.registration.runtime_registration_id;
 
-export function createChannelInstaller({store, registrations, allow_loopback_fixture = false, verify, activate}) {
+export function createChannelInstaller({store, registrations, getRegistrations=()=>registrations, allow_loopback_fixture = false, verify, activate}) {
   if (typeof verify !== 'function' || typeof activate !== 'function') fail('EMAIL_RUNTIME_CONFIG_INVALID');
   async function load() {
     const row = await store.withLock({key: STORE_KEY}, tx => tx.read());
     const channels = row?.value?.channels ?? [];
-    return channels.map(entry => validateInstalledChannel(entry, registrations, allow_loopback_fixture));
+    return channels.map(entry => validateInstalledChannel(entry, getRegistrations(), allow_loopback_fixture));
   }
   async function request(input, signal) {
     exact(input, ['schema_version', 'scope', 'channels']);
     if (input.schema_version !== CHANNEL_INSTALL_SCHEMA || !Array.isArray(input.channels) || !input.channels.length || input.channels.length > MAX_CHANNELS) denied();
     // The Host addresses one reviewed connection registration of this Runtime.
     const scope = input.scope;
-    if (!scope || typeof scope !== 'object' || !registrations.some(r => r.org_id === scope.org_id
+    if (!scope || typeof scope !== 'object' || !getRegistrations().some(r => r.org_id === scope.org_id
       && r.runtime_registration_id === scope.runtime_registration_id && r.operator_user_id === scope.operator_user_id)) denied();
-    const entries = input.channels.map(entry => validateInstalledChannel(entry, registrations, allow_loopback_fixture));
+    const entries = input.channels.map(entry => validateInstalledChannel(entry, getRegistrations(), allow_loopback_fixture));
     if (entries.some(entry => entry.channel.registration.org_id !== scope.org_id)) denied();
     if (new Set(entries.map(installedChannelKey)).size !== entries.length) denied();
     // Prove each session is genuine before it is kept: only the Host can renew it.

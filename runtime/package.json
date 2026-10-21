@@ -85,6 +85,7 @@
     "writer-lifetime-lock.mjs",
     "writer-crash.test.mjs",
     "oauth-refresh-crash.test.mjs",
+    "registration-continuity.mjs",
     "background-access-reconciler.mjs",
     "background-access-reconciler.test.mjs",
     "background-access-process.test.mjs",
