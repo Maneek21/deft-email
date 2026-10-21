@@ -22,10 +22,10 @@ test('packed public Kit keeps the displayed target on a mailbox refresh', async 
 
 test('fresh package authenticates its manifest and worker artifact against public Kit39', () => {
   assert.equal(DEFT_APP_KIT_VERSION, '0.1.0-alpha.39');
-  assert.equal(metadata.version, '1.9.1-preview.3');
+  assert.equal(metadata.version, '1.9.1-preview.4');
   assert.equal(compatibility.email.tag, 'v' + rootMetadata.version);
   assert.equal(compatibility.email.app_version, metadata.version);
-  assert.equal(compatibility.host.minimum_version, '0.3.0-preview.132');
+  assert.equal(compatibility.host.minimum_version, '0.3.0-preview.133');
   assert.equal(compatibility.host.version, compatibility.host.minimum_version);
   const artifact = JSON.parse(readFileSync(new URL('./artifact.json', import.meta.url)));
   assert.equal(JSON.parse(artifact.content).background_refresh_description, "Keep mailbox metadata current while this app is closed. Turn this on to create Tasks or Knowledge from mail: it is how the app shares messages with Deft.");
