@@ -2,7 +2,7 @@
 
 The developer-preview claim is specific: a developer can build this connected Email App from its public repository and public Author Kit packages, sideload it into a compatible Deft Host, deploy its provider Runtime separately, and update Email without changing that Host. It does not claim that operator setup is automatic or that any older Deft release accepts these contracts.
 
-Use [the compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.23/compatibility.json) for exact artifacts and [verification](verification.md) for acceptance. Historical demo results remain tied to their own versions.
+Use [the compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.24/compatibility.json) for exact artifacts and [verification](verification.md) for acceptance. Historical demo results remain tied to their own versions.
 
 ## Ownership
 

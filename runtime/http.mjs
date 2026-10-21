@@ -37,13 +37,14 @@ async function authoritySlot(host,signal){
   while(host.waiting.length){const next=host.waiting.shift();next.signal.removeEventListener('abort',next.abort);if(next.signal.aborted){next.reject(next.signal.reason);continue;}host.active++;next.resolve();break;}
  };
 }
-export function createAuthorityClient({authority_url, authority_token, fetch: fetchImpl = globalThis.fetch, allow_loopback_fixture = false, maximum_bytes = MAX_HTTP_BYTES}) {
+export function createAuthorityClient({authority_url, authority_token, fetch: fetchImpl = globalThis.fetch, allow_loopback_fixture = false, maximum_bytes = MAX_HTTP_BYTES, timeout_ms = 5000}) {
   if (!Number.isSafeInteger(maximum_bytes) || maximum_bytes < MAX_HTTP_BYTES || maximum_bytes > 614400) fail('EMAIL_RUNTIME_CONFIG_INVALID');
+  if (!Number.isSafeInteger(timeout_ms) || timeout_ms < 1 || timeout_ms > 30000) fail('EMAIL_RUNTIME_CONFIG_INVALID');
   const url = trustedUrl(authority_url, allow_loopback_fixture), secret = token(authority_token);
   const origin=new URL(url).origin;let host=authorityHosts.get(origin);if(!host){host={active:0,waiting:[]};authorityHosts.set(origin,host);}
   return async (input, signal) => {
     const bytes = JSON.stringify(input); if (Buffer.byteLength(bytes) > maximum_bytes) fail('EMAIL_RUNTIME_TRANSPORT_LIMIT');
-    const activeSignal=signal?AbortSignal.any([signal,AbortSignal.timeout(5000)]):AbortSignal.timeout(5000),expires=typeof input?.expires_at==='string'?Date.parse(input.expires_at):Infinity;
+    const activeSignal=signal?AbortSignal.any([signal,AbortSignal.timeout(timeout_ms)]):AbortSignal.timeout(timeout_ms),expires=typeof input?.expires_at==='string'?Date.parse(input.expires_at):Infinity;
     const check=()=>{activeSignal.throwIfAborted();if(expires<=Date.now())fail('EMAIL_RUNTIME_AUTHORITY_DENIED');};check();
     const release=await authoritySlot(host,activeSignal);
     try{check();const result=await boundedJson(await fetchImpl(url, {method: 'POST', headers: {'content-type': 'application/json', authorization: 'Bearer ' + secret}, body: bytes, redirect: 'error', signal:activeSignal}),activeSignal,maximum_bytes);check();return result;}

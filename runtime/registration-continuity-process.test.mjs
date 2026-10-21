@@ -69,12 +69,12 @@ test('actual server enrolls a receipted upgrade, installs channels, and reacquir
  assert.equal(JSON.stringify(config),original);assert.deepEqual(provider.effectCounts,{modify:0,send:0});
 });
 
-test('actual server completes a three-purpose retained handshake with slow healthy authority beyond the default socket timeout',async t=>{
+test('actual server completes a three-purpose retained handshake with a healthy six-second callback and an aggregate beyond the default socket timeout',async t=>{
  const dir=await mkdtemp(join(tmpdir(),'email-connect-once-')),source=makeScope(),clock=Date.now;
  let instance,now=clock(),serviceCalls=0,claims=0,retainedChecks=0;
  const actions=scope=>['mirror_drafts','organize_messages','send_message'].map(action_key=>{const id=randomUUID();return {action_key,action_binding_id:id,consent_id:id,authority_epoch:scope.runtime_epoch,consent_digest:'sha256:'+'d'.repeat(64),expires_at:scope.consent_expires_at};});
  Date.now=()=>now;
- const authority=createServer(async(req,res)=>{let text='';for await(const chunk of req)text+=chunk;res.setHeader('content-type','application/json');const body=JSON.parse(text);if(body.schema_version===REATTACH_V2_VERSION){retainedChecks++;await new Promise(done=>setTimeout(done,3300));}res.end(JSON.stringify({...body,allowed:true}));});
+ const authority=createServer(async(req,res)=>{let text='';for await(const chunk of req)text+=chunk;res.setHeader('content-type','application/json');const body=JSON.parse(text);if(body.schema_version===REATTACH_V2_VERSION){retainedChecks++;await new Promise(done=>setTimeout(done,retainedChecks===7?6000:3300));}res.end(JSON.stringify({...body,allowed:true}));});
  await new Promise(done=>authority.listen(0,'127.0.0.1',done));
  const origin='http://127.0.0.1:'+authority.address().port;
  t.after(async()=>{Date.now=clock;await instance?.close();await new Promise(done=>authority.close(done));await rm(dir,{recursive:true,force:true});});

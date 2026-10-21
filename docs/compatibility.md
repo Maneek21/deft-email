@@ -4,13 +4,13 @@
 
 ## Release preview.23 contract
 
-Bundle preview.23 requires Host preview.132 or newer and pairs App1.9.1-preview.4 with Runtime0.4.0-preview.21. The detached record resolves published Host133 assets. App Kit39 retains its original Host127 corresponding source; Runtime Kit35 is unchanged. Installed App21 and Runtime20 remain available for rollback.
+Bundle preview.23 requires Host preview.132 or newer and pairs App1.9.1-preview.5 with Runtime0.4.0-preview.22. The detached record resolves published Host133 assets. App Kit39 retains its original Host127 corresponding source; Runtime Kit35 is unchanged. Installed App21 and Runtime20 remain available for rollback.
 
 | Component | Version/contract |
 |---|---|
-| Email App | `1.9.1-preview.4` |
+| Email App | `1.9.1-preview.5` |
 | App Author Kit | `0.1.0-alpha.39` |
-| Email Runtime | `0.4.0-preview.21` |
+| Email Runtime | `0.4.0-preview.22` |
 | Runtime Author Kit | `0.1.0-alpha.35` |
 | Deft Host | Minimum `0.3.0-preview.133`, Apps-enabled developer-preview image; schema `131` plus the listed generic contracts |
 | App protocol | Manifest protocol 7; experience bundle v4; bridge v1; trusted renderer v2 |

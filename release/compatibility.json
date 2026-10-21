@@ -1,7 +1,7 @@
 {
   "schema": "deft.email.preview.compatibility.v1",
   "publication_state": "source-template",
-  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.23/compatibility.json",
+  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.24/compatibility.json",
   "resolution": "The detached preview.23 asset resolves the exact tagged source, published Host133 image and hashes. This source template contains no self-referential archive checksum.",
   "host": {
     "version": "0.3.0-preview.133",
@@ -19,10 +19,10 @@
     }
   },
   "email": {
-    "tag": "v1.9.0-preview.23",
+    "tag": "v1.9.0-preview.24",
     "repository": "https://github.com/Maneek21/deft-email",
-    "app_version": "1.9.1-preview.4",
-    "runtime_version": "0.4.0-preview.21",
+    "app_version": "1.9.1-preview.5",
+    "runtime_version": "0.4.0-preview.22",
     "app_kit_version": "0.1.0-alpha.39",
     "runtime_kit_version": "0.1.0-alpha.35",
     "kit_compatibility": "App alpha.39 retains the original Host127 background-refresh-description contract; Runtime alpha.35 is unchanged. Host133 and Runtime21 align bounded retained-reattachment phases for multiple purposes and keep current authority, finite expiry and revocation fences. Short Runtime channel leases remain fifteen minutes."
