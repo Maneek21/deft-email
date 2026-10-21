@@ -23,6 +23,9 @@ test('actual server enrolls a receipted upgrade, installs channels, and reacquir
   authority_url:origin+'/api/app-connection-sessions/runtime/authority',authority_v2_url:origin+'/api/app-connection-sessions/runtime/authority-v2',
   reattach_authority_url:origin+'/api/app-connection-sessions/runtime/reattach-authority',data_authority_url:origin+'/api/app-data/runtime/authority',
   registrations:[{...registrationFor(source),connection_protocol:'v2'}],gmail_client_file:join(dir,'client.json')};
+ const orphan={session_id:randomUUID(),session_token:randomBytes(32).toString('base64url')};
+ config.runtime_channel_files=[join(dir,'legacy-channel.json')];
+ await writeFile(config.runtime_channel_files[0],JSON.stringify({channel_url:origin+'/api/app-runtime/channel',credential:orphan,registration:{org_id:source.org_id,runtime_registration_id:randomUUID(),runtime_epoch:1},technical_renewal:{expires_at:new Date(now-60000).toISOString(),renewable_until:new Date(now+3600000).toISOString()}}),{mode:0o600});
  const original=JSON.stringify(config),provider=twoAccountProviderFixture(),credentials=new Map(),actionRegistration=randomUUID();
  const post=async body=>{const response=await fetch('http://127.0.0.1:'+instance.server.address().port+'/v1/connections',{
   method:'POST',headers:{authorization:'Bearer '+config.runtime_auth_token,'content-type':'application/json'},body:JSON.stringify(body)});
@@ -39,6 +42,7 @@ test('actual server enrolls a receipted upgrade, installs channels, and reacquir
       technical_renewal:{expires_at:new Date(now+900000).toISOString(),renewable_until:null,renewal_lifetime:'until_revoked'}}};});
     const result=await post({schema_version:'deft.app_runtime_channel_install.v1',scope:target,channels});return Response.json({installed:result.installed,skipped:[]});
    }
+   if(body.session_id===orphan.session_id)return Response.json({},{status:403});
    assert.ok(credentials.has(body.session_id));
    if(credentials.get(body.session_id).expires_at<=now)return Response.json({},{status:403});
    if(path.endsWith('/renew'))return Response.json({renewed:{session_id:body.session_id,expires_at:new Date(now+900000).toISOString(),renewable_until:null,renewal_lifetime:'until_revoked'}});
@@ -54,11 +58,12 @@ test('actual server enrolls a receipted upgrade, installs channels, and reacquir
  const {schema_version,session_id,state,...eligibility}=await post(request);assert.equal(state,'eligible');
  assert.equal((await post({...request,operation:'activate',review:{...eligibility,digest:reviewDigest(request,eligibility)}})).state,'connected');
  await instance.background_reconciler.runOnce(new AbortController().signal);
- assert.equal(serviceCalls,1);assert.equal(instance.observation_runners.length,1);assert.equal(instance.send_runners.length,1);
+ assert.equal(serviceCalls,1);assert.equal(instance.observation_runners.length,1);
+ await instance.background_reconciler.runOnce(new AbortController().signal);assert.equal(serviceCalls,1,'an unrelated ended legacy action must not force continuous reinstallation');
  await instance.close();instance=null;now+=20*60000;
  instance=await startRuntime(config,options);
  for(let i=0;i<100&&serviceCalls<2;i++){await instance.background_reconciler.runOnce(new AbortController().signal);await new Promise(done=>setTimeout(done,10));}
- assert.equal(serviceCalls,2);assert.equal(instance.observation_runners.length,1);assert.equal(instance.send_runners.length,1);
+ assert.equal(serviceCalls,2);assert.equal(instance.observation_runners.length,1);
  await instance.background_reconciler.runOnce(new AbortController().signal);assert.equal(serviceCalls,2,'healthy current channels do not reinstall in a loop');
  for(let i=0;i<100&&!claims;i++)await new Promise(done=>setTimeout(done,10));assert.ok(claims>0);
  assert.equal(JSON.stringify(config),original);assert.deepEqual(provider.effectCounts,{modify:0,send:0});
