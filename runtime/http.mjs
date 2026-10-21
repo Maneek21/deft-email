@@ -2,6 +2,7 @@ import {APP_DATA_LIMITS,AppDataRuntimeRequestSchema,AppIntegrationToolRuntimeReq
 import {createHash, timingSafeEqual} from 'node:crypto';
 import {fail, token} from './contract.mjs';
 import {DATA_JSON_BYTES,FILE_FRAME_HEADER_BYTES,FILE_BYTES,decodeFileFrame,encodeFileFrame} from './data-contract.mjs';
+import {REATTACH_VERSION,REATTACH_V2_VERSION,validateReattachRequest,reattachPhaseDeadline} from './reattach-contract.mjs';
 
 export const MAX_HTTP_BYTES = 16384;
 export function trustedUrl(value, allow_loopback_fixture = false) {
@@ -64,7 +65,11 @@ export function createHttpHandler({runtime, data_runtime, local_job_runtime, run
     const requestClosed = () => {if (!request.complete) aborted();};
     const responseClosed = () => {if (!response.writableEnded) aborted();};
     request.on('aborted', aborted); request.on('close', requestClosed); response.on('close', responseClosed);
-    const signal = AbortSignal.any([disconnected.signal, AbortSignal.timeout(30000),...(shutdown_signal?[shutdown_signal]:[])]);
+    const deadlineAbort=new AbortController(),bodyDeadline=Date.now()+30000;let phaseTimer;
+    const armDeadline=deadline=>{clearTimeout(phaseTimer);const expire=()=>deadlineAbort.abort(new DOMException('Runtime request deadline exceeded','TimeoutError'));
+      if(deadline<=Date.now()){expire();return;}phaseTimer=setTimeout(expire,deadline-Date.now());phaseTimer.unref?.();};
+    armDeadline(bodyDeadline);
+    const signal = AbortSignal.any([disconnected.signal, deadlineAbort.signal,...(shutdown_signal?[shutdown_signal]:[])]);
     // Aborting the operation must also wake a body iterator whose peer stopped
     // sending bytes. Merely checking the signal inside the loop cannot do that.
     const cancelBody = () => request.destroy();
@@ -78,6 +83,14 @@ export function createHttpHandler({runtime, data_runtime, local_job_runtime, run
       const chunks = []; let size = 0;
       for await (const chunk of request) { signal.throwIfAborted(); size += chunk.length; if (size > maximum) fail('EMAIL_RUNTIME_INPUT_INVALID'); chunks.push(chunk); }
       let input,bytes;const body=Buffer.concat(chunks);try{if(framed){const frame=decodeFileFrame(body);input=frame.header;bytes=frame.bytes;if(input.operation!=='file_upload')fail('EMAIL_DATA_INPUT_INVALID');}else input=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(body));}catch{fail('EMAIL_RUNTIME_INPUT_INVALID');}
+      signal.throwIfAborted();if(Date.now()>=bodyDeadline){armDeadline(bodyDeadline);signal.throwIfAborted();}
+      if(request.url==='/v1/connections'&&[REATTACH_VERSION,REATTACH_V2_VERSION].includes(input?.schema_version)){
+        const retained=validateReattachRequest(input);
+        // Keep body reads and every other operation at30seconds. Only an
+        // authenticated, validated custody phase uses its bounded live deadline.
+        armDeadline(reattachPhaseDeadline(retained,Date.now()));signal.throwIfAborted();
+        diagnostic={session_id:retained.session_id,operation:'reattach_'+retained.operation};
+      }
       // Diagnostics contain only authenticated, schema-validated request pins.
       const parsed=isData&&input.schema_version==='deft.app_data_runtime.v1'?AppDataRuntimeRequestSchema.safeParse(input):isIntegrationTool?AppIntegrationToolRuntimeRequestSchema.safeParse(input):null;
       if(parsed?.success&&(!isIntegrationTool||parsed.data.tool_key==='email_recipient_suggestions'&&parsed.data.tool_operation==='read'))diagnostic={request_id:parsed.data.request_id,operation:isIntegrationTool?'email_recipient_suggestions':parsed.data.operation};
@@ -101,7 +114,7 @@ export function createHttpHandler({runtime, data_runtime, local_job_runtime, run
       const failureCodes=new Set(['EMAIL_RUNTIME_TRANSPORT_DENIED','EMAIL_RUNTIME_TRANSPORT_LIMIT','EMAIL_DATA_OPERATION_UNAVAILABLE','EMAIL_DATA_RESULT_INVALID','EMAIL_OAUTH_AUTHORITY_DENIED','EMAIL_CONNECTION_AUTHORITY_DENIED','EMAIL_OAUTH_ACCOUNT_BINDING_DENIED','EMAIL_OAUTH_CUSTODY_BINDING_DENIED','EMAIL_OAUTH_CUSTODY_INVALID','EMAIL_OAUTH_CUSTODY_UNAVAILABLE','EMAIL_OAUTH_FILE_STORE_LOCK_BUSY','EMAIL_OAUTH_FILE_STORE_STALE_LOCK','EMAIL_OAUTH_FILE_STORE_FENCE_LOST','EMAIL_OAUTH_FILE_STORE_UNAVAILABLE','EMAIL_OAUTH_REAUTH_REQUIRED','EMAIL_OAUTH_PROVIDER_UNAVAILABLE','EMAIL_OAUTH_PROVIDER_REQUEST_FAILED','EMAIL_OAUTH_PROVIDER_RESPONSE_INVALID','EMAIL_OAUTH_PROVIDER_RESPONSE_LIMIT','EMAIL_PROVIDER_NETWORK_UNAVAILABLE','EMAIL_PROVIDER_PERMISSION_DENIED','EMAIL_PROVIDER_RATE_LIMITED','EMAIL_PROVIDER_REAUTH_REQUIRED','EMAIL_PROVIDER_REQUEST_FAILED','EMAIL_PROVIDER_RESPONSE_INVALID','EMAIL_PROVIDER_RESPONSE_LIMIT','EMAIL_PROVIDER_SCAN_DEADLINE','EMAIL_RUNTIME_STORE_CLOSED','EMAIL_RUNTIME_STORE_KEY_UNAVAILABLE','EMAIL_RUNTIME_STORE_LIMIT','EMAIL_RUNTIME_STORE_ROW_INVALID','EMAIL_RUNTIME_WRITER_FENCE_LOST']);
       if(diagnostic&&status===503){const failureCode=failureCodes.has(error?.code)?error.code:error?.name==='TimeoutError'?'EMAIL_RUNTIME_TIMEOUT':error?.name==='AbortError'?'EMAIL_RUNTIME_ABORTED':'EMAIL_RUNTIME_UNAVAILABLE';try{onFailure({event:'email_runtime_http_failure',...diagnostic,status,code:failureCode});}catch{}}
       if (!response.destroyed && !response.writableEnded) send({error: code}, status);
-    } finally {signal.removeEventListener('abort',cancelBody);request.off('aborted', aborted); request.off('close', requestClosed); response.off('close', responseClosed);}
+    } finally {clearTimeout(phaseTimer);signal.removeEventListener('abort',cancelBody);request.off('aborted', aborted); request.off('close', requestClosed); response.off('close', responseClosed);}
   };
 }
 
