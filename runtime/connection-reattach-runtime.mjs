@@ -45,7 +45,7 @@ async function noEffects(source,check,request){const scope={org_id:source.scope.
        if(source.purpose_set.custody_generation!==current.custody_generation)fail('EMAIL_RUNTIME_REATTACH_DENIED');
        return store.withLock({key:sessionKey(request.session_id)},async ntx=>{
         if(await ntx.read())fail('EMAIL_RUNTIME_REATTACH_DENIED');
-        return withUnreservedTarget({store,request,check},async()=>{
+        return withUnreservedTarget({store,request,check,now},async()=>{
          await persist({schema_version:'email.runtime.reattach_journal.v1',pins:reattachPins(request),state:'closed_unprepared',reason:'prepare_not_started',closed_at:new Date(now()).toISOString(),source_session_id:source.session_id,custody_generation:current.custody_generation,custody_digest:current.custody_digest,lineage_digest:lineage?'sha256:'+digest(lineage):null});
          await check();return {...base,state:'not_connected',reason:'prepare_not_started'};
         });

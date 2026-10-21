@@ -1,6 +1,6 @@
 # Verification and acceptance
 
-Use [the authoritative compatibility record](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.24/compatibility.json) for the exact release source, artifacts, checksums and publication state. A prepared candidate is not published merely because its files build. The final public prerelease must link its acceptance results and disclose unverified behavior.
+Use [the authoritative compatibility record](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.25/compatibility.json) for the exact release source, artifacts, checksums and publication state. A prepared candidate is not published merely because its files build. The final public prerelease must link its acceptance results and disclose unverified behavior.
 
 ## Evidence that can be reused
 
