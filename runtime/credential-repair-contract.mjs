@@ -1,5 +1,5 @@
 import {canonical,digest,exact,fail,validateScope,opaque,isoTime} from './contract.mjs';
-import * as Kit from '@deft/app-kit';
+import * as Kit from '@deft/app-kit/core';
 import {capabilitiesFor} from './purpose-set.mjs';
 export const REPAIR_VERSION='deft.app_connection_credential_repair_runtime.v1';
 export const repairPins=request=>Object.fromEntries(['schema_version','session_id','scope','source','transport_digest','review_expires_at','action_consents','historical_attempts','publication_continuity_digest'].map(k=>[k,request[k]]));

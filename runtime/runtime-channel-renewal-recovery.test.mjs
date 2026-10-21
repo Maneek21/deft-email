@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createAppRuntimeClient,createDeftResourceSyncClientV3} from '@deft/app-kit';
+import {createAppRuntimeClient,createDeftResourceSyncClientV3} from '@deft/app-kit/core';
 import {createRuntimeChannelRenewal} from './runtime-channel-renewal.mjs';
 
 const iso=n=>new Date(n).toISOString();

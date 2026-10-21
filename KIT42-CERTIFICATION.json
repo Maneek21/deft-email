@@ -1,0 +1,17 @@
+{
+  "schema": "deft.email.kit_certification.v1",
+  "version": "0.1.0-alpha.42",
+  "filename": "deft-app-kit-0.1.0-alpha.42.tgz",
+  "sha256": "efbeb9204b6c6a5ba997d67dd6ba995d30e0883aa7477731eee005270e866e06",
+  "integrity": "sha512-VQjgvuF/1zBbbiPtwyOGLJnYkmrO62ql1TdTwQIte6CTc1pVlDFD9p7dKf0L/WqOrnOZihWQA4a6bZ9RRFWqtQ==",
+  "source_repository": "Maneek21/Deft",
+  "source_commit": "b956d9bad093b6b705b88980ff68d01806beff7a",
+  "artifact_origin": "Host release-flow artifact",
+  "expected_release_flow": {
+    "repository": "Maneek21/Deft",
+    "host_release": "0.3.0-preview.134",
+    "kit_version": "0.1.0-alpha.42",
+    "filename": "deft-app-kit-0.1.0-alpha.42.tgz"
+  },
+  "merge_gate": "Published Host134 source and archive verified; immutable publication CI must stay green. No candidate or rebuilt package substitution."
+}

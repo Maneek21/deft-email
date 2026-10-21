@@ -1,4 +1,4 @@
-import * as Kit from '@deft/app-kit';
+import * as Kit from '@deft/app-kit/core';
 import {digest,fail} from './contract.mjs';
 import {createReattachChecker} from './reattach-contract.mjs';
 export const CONTINUATION_VERSION='deft.app_connection_consent_continuation_runtime.v1';

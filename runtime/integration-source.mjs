@@ -7,7 +7,7 @@ const metadataFields=Object.freeze({source_record_id:{type:'string',maxLength:36
 /** Preserve the closed old metadata validator. Only this exact signed extension
  * is compatible; all unrelated descriptor changes still fail the original pin. */
 export async function assertIntegrationSourceDescriptor(descriptor,attested_digest){
- const [{digestResourceSyncDescriptorV2},{assertEmailMetadataDescriptor}]=await Promise.all([import('@deft/app-kit'),import('./vendor/metadata-resource.mjs')]);
+ const [{digestResourceSyncDescriptorV2},{assertEmailMetadataDescriptor}]=await Promise.all([import('@deft/app-kit/core'),import('./vendor/metadata-resource.mjs')]);
  const present=Object.keys(metadataFields).filter(field=>Object.hasOwn(descriptor.record_schema.properties,field));
  if(!present.length){await assertEmailMetadataDescriptor(descriptor,attested_digest);return null;}
  if(present.length!==3||await digestResourceSyncDescriptorV2(descriptor)!==attested_digest

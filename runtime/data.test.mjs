@@ -4,7 +4,7 @@ import {mkdtemp,rm,readdir,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
-import {nativeComposeImageCid,parseNativeSafeComposeHtml} from '@deft/app-kit/experience';
+import {nativeComposeImageCid,parseNativeSafeComposeHtml} from './domain/safe-compose-html.mjs';
 import {createDurableStore} from './durable-store.mjs';
 import {createConnectionRuntime} from './connection-runtime.mjs';
 import {createDataRuntime} from './data-runtime.mjs';
@@ -21,7 +21,7 @@ test('actual query-only arrival is consumable by the unchanged signed Host sync 
  const provider=(url,options)=>{const path=new URL(url).pathname;if(path.endsWith('/messages'))return Response.json({messages:[{id:message.metadata.id}],resultSizeEstimate:1});if(path.endsWith('/messages/'+message.metadata.id))return Response.json(message.metadata);return providerFixture(url,options);};
  const f=await fixture(t,provider),request=f.request('resource_list',{store_key:'drafts',resource_key:'inbox',cursor:null,limit:25,query:'subject:controlled'}),result=await f.run(request);
  assert.equal(result.items.length,1);
- const [{createMailboxStore},{createSyncPublication},{integrationSourceProjection},{EMAIL_METADATA_DESCRIPTOR},{parseSyncPageV2}]=await Promise.all([import('./mailbox-store.mjs'),import('./sync-publication.mjs'),import('./integration-source.mjs'),import('./vendor/metadata-resource.mjs'),import('@deft/app-kit')]);
+ const [{createMailboxStore},{createSyncPublication},{integrationSourceProjection},{EMAIL_METADATA_DESCRIPTOR},{parseSyncPageV2}]=await Promise.all([import('./mailbox-store.mjs'),import('./sync-publication.mjs'),import('./integration-source.mjs'),import('./vendor/metadata-resource.mjs'),import('@deft/app-kit/core')]);
  const scope={org_id:request.scope.org_id,owner_user_id:request.scope.owner_user_id,account_id:request.connection.account_ref},mailbox=createMailboxStore({store:f.store});
  const stored=await f.store.withLock({key:'email.data.sync_handoff.'+digest([scope,'slot:1'])},tx=>tx.read());assert.ok(stored,'foreground query must create a consumable publication');
  const before=await mailbox.cacheSnapshot(scope,[],async()=>{}),cursor=await mailbox.cursor(scope,async()=>{});

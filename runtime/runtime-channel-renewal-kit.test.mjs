@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createAppRuntimeClient} from '@deft/app-kit';
+import {createAppRuntimeClient} from '@deft/app-kit/core';
 import {createRuntimeChannelRenewal} from './runtime-channel-renewal.mjs';
 
 test('actual public Kit renew transport keeps credential/session and does not reserve or dispatch',async()=>{

@@ -3,7 +3,7 @@ import test from 'node:test';
 import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
 import {webcrypto} from 'node:crypto';
-import {DeftExperienceRecordFormV3NodeSchema,parseDeftExperienceMenuNode} from '@deft/app-kit';
+import {DeftExperienceRecordFormV3NodeSchema,parseDeftExperienceMenuNode} from '@deft/app-kit/core';
 
 const id='11111111-1111-4111-8111-111111111111',digest='sha256:'+'a'.repeat(64);
 const mail={record_id:id,content_digest:digest,label:'Preview message',data:{provider:'gmail',subject:'Preview message',sender:'Sender <sender@example.test>',date:'2026-10-13T10:00:00Z',preview:'A controlled preview message.'}};

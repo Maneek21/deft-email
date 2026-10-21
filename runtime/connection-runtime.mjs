@@ -6,7 +6,7 @@ import {createEncryptedEmailCustody} from './vendor/providers/custody-encrypted.
 import {validateOAuthClient, oauthClientFingerprint} from './vendor/providers/oauth-provider.mjs';
 import {consentDeadline,canonical, digest, exact, fail, isoTime, validateRegistration, validateRequest} from './contract.mjs';
 import {reserveTarget,endTarget} from './target-reservation.mjs';
-import * as Kit from '@deft/app-kit';
+import * as Kit from '@deft/app-kit/core';
 import {capabilitiesFor,credentialAnchor,sealPurposeSet} from './purpose-set.mjs';
 
 const started = new Set(['begin_started', 'callback_started', 'disconnect_started']);

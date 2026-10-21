@@ -7,7 +7,7 @@ import {EmailMailboxCrypto} from '/app/apps/api/src/lib/email-mailbox-crypto.ts'
 import {EmailAttachmentCrypto} from '/app/apps/api/src/lib/email-attachment-crypto.ts';
 import {EmailOutboxCrypto} from '/app/apps/api/src/lib/email-outbox-crypto.ts';
 import {materializeEmailDraft,emailDraftContext} from '/app/apps/api/src/lib/email-draft-store.ts';
-import {nativeComposeImageCid,parseNativeSafeComposeHtml} from '@deft/app-kit/experience';
+import {nativeComposeImageCid,parseNativeSafeComposeHtml} from './domain/safe-compose-html.mjs';
 import {createDurableStore} from './durable-store.mjs';
 import {createEncryptedEmailCustody} from './vendor/providers/custody-encrypted.mjs';
 import {createEncryptedEmailCustody as createNativeCustody} from '/host/runtime-provider-stage2/email/providers/custody-encrypted.mjs';

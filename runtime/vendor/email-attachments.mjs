@@ -1,5 +1,5 @@
 import {createHash} from 'node:crypto';
-import {AttachmentPolicySchema} from '@deft/app-kit';
+import {AttachmentPolicySchema} from '@deft/app-kit/core';
 
 export const EMAIL_MEDIA_TYPES=Object.freeze(['text/plain','text/csv','application/json','image/png','image/jpeg','image/gif','image/webp','application/pdf']);
 const fixturePolicy={max_attachment_bytes:2097152,max_attachments_per_record:8,max_attachments_per_run:32,max_attachment_bytes_per_run:8388608,retention_days:1,allowed_media_types:['text/csv']};

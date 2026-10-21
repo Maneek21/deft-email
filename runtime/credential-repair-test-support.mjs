@@ -4,7 +4,7 @@ import {randomUUID} from 'node:crypto';
 import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {digestResourceSyncDescriptorV2} from '@deft/app-kit';
+import {digestResourceSyncDescriptorV2} from '@deft/app-kit/core';
 import {EMAIL_METADATA_DESCRIPTOR} from './vendor/metadata-resource.mjs';
 import {createDurableStore} from './durable-store.mjs';
 import {createConnectionRuntime} from './connection-runtime.mjs';

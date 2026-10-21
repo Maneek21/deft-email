@@ -1,26 +1,34 @@
 {
   "schema_version": "email.domain_helpers.v1",
   "license": "AGPL-3.0-only",
-  "source_commit": "c1c56b10b8d128ee9bf0e5cf035eb348f6e07e5b",
-  "transformation": "TypeScript compiled with existing pinned toolchain; relative mailbox-list suffix adapted from .js to .mjs; source algorithms unchanged",
+  "transformation": "App-owned TypeScript compiled reproducibly with the app pinned esbuild, relative .mjs suffixes and explicit CRLF output. Maintained and tested in deft-email.",
   "copies": [
     {
-      "source": "packages/app-kit/src/mailbox-list.ts",
-      "source_sha256": "18fe66433b1724f1dfe3229156e5e532971b8b2003d3756ddf11215e646137a8",
+      "source": "runtime/domain/source/mailbox-list.ts",
+      "source_sha256": "613c48d2b32ab702c142103b087d5d74cace0f507853e14a73522e220dfb08eb",
       "target": "domain/mailbox-list.mjs",
-      "sha256": "206a2d867af3be58c3c64ae4d567985654977b62d7a0bb70bd61797c0aebda42"
+      "sha256": "1dbca1ad67e498e1648f23f9aa2537b23752cb0f3710800a64a296b23a9c0683",
+      "upstream_source": "packages/app-kit/src/mailbox-list.ts",
+      "upstream_sha256": "18fe66433b1724f1dfe3229156e5e532971b8b2003d3756ddf11215e646137a8"
     },
     {
-      "source": "packages/app-kit/src/safe-compose-html.ts",
-      "source_sha256": "d3bafa67744470305faff9820186cc524bf817df291efb74d6620048315bab74",
+      "source": "runtime/domain/source/safe-compose-html.ts",
+      "source_sha256": "a8caaaf019e1a27340102591d4bfc258c26b92082c46b371baee635cf0673be2",
       "target": "domain/safe-compose-html.mjs",
-      "sha256": "15b9140fc98f5ac2658aa4bdf008378c34bfe1655f2065e186d36371c05642dc"
+      "sha256": "66d65de31cf8fac4c5bdd6bc67443b289389c3bdf91503065f3d01916484a980",
+      "upstream_source": "packages/app-kit/src/safe-compose-html.ts",
+      "upstream_sha256": "d3bafa67744470305faff9820186cc524bf817df291efb74d6620048315bab74"
     },
     {
-      "source": "packages/app-kit/src/native-compose-raster.ts",
+      "source": "runtime/domain/source/native-compose-raster.ts",
       "source_sha256": "5ba3f0e16075d044543c80aeae1254403b5e80d4d24b3e9785c081b45e0115ea",
       "target": "domain/native-compose-raster.mjs",
-      "sha256": "1edf989eae9c34337887ff82a551fb887fca1ec42251c63711661f9d77d37205"
+      "sha256": "267f0cb381a86c95446d8a1f5a53ba99a1a804b98fe17a8fa7f5e0b873483960",
+      "upstream_source": "packages/app-kit/src/native-compose-raster.ts",
+      "upstream_sha256": "5ba3f0e16075d044543c80aeae1254403b5e80d4d24b3e9785c081b45e0115ea"
     }
-  ]
+  ],
+  "ownership": "deft-email author/runtime library",
+  "upstream_repository": "Maneek21/Deft",
+  "upstream_commit": "4df841c4"
 }

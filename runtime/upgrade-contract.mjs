@@ -1,4 +1,4 @@
-import * as Kit from '@deft/app-kit';
+import * as Kit from '@deft/app-kit/core';
 import {consentDeadline,canonical,digest,exact,fail,isoTime} from './contract.mjs';
 import {capabilitiesFor} from './purpose-set.mjs';
 export const UPGRADE_VERSION='deft.app_connection_upgrade_runtime.v1';

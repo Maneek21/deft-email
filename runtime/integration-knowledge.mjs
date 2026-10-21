@@ -1,4 +1,4 @@
-import {AppIntegrationCaptureNominationV2Schema,APP_INTEGRATION_CAPTURE_NOMINATION_BYTES} from '@deft/app-kit';
+import {AppIntegrationCaptureNominationV2Schema,APP_INTEGRATION_CAPTURE_NOMINATION_BYTES} from '@deft/app-kit/core';
 import {createHash} from 'node:crypto';
 import {canonical,fail} from './contract.mjs';
 import {resourceView} from './mailbox-store.mjs';

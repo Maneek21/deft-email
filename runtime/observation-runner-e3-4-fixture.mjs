@@ -1,4 +1,4 @@
-import {parseResourceSyncStartForClaimV3,parseSyncPageV2,ResourceObservationAuthorityResultSchema} from '@deft/app-kit';
+import {parseResourceSyncStartForClaimV3,parseSyncPageV2,ResourceObservationAuthorityResultSchema} from '@deft/app-kit/core';
 import {createNativeEmailBridge} from './vendor/providers/native-mailbox.mjs';
 import {createEncryptedEmailCustody} from './vendor/providers/custody-encrypted.mjs';
 import {grantedOAuthCapabilities,validateOAuthClient,oauthClientFingerprint} from './vendor/providers/oauth-provider.mjs';

@@ -1,5 +1,5 @@
 import {createHash} from 'node:crypto';
-import {SyncDescriptorV2Schema,parseRuntimeObjectInput,digestResourceSyncDescriptorV2} from '@deft/app-kit';
+import {SyncDescriptorV2Schema,parseRuntimeObjectInput,digestResourceSyncDescriptorV2} from '@deft/app-kit/core';
 import {validateProviderLocator} from './logical-mail-index.mjs';
 
 export const EMAIL_METADATA_VERSION='deft.email_message_metadata.v1';

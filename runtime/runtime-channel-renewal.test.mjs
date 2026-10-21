@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRuntimeChannelRenewal} from './runtime-channel-renewal.mjs';
-import {createDeftResourceSyncClientV3} from '@deft/app-kit';
+import {createDeftResourceSyncClientV3} from '@deft/app-kit/core';
 import {ResourceSyncClientError} from '@deft/app-kit/experimental/resource-sync';
 
 const iso=n=>new Date(n).toISOString(),signal=()=>new AbortController().signal;

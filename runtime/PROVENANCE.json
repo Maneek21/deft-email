@@ -112,8 +112,10 @@
     {
       "source": "examples/apps/email/metadata-resource.mjs",
       "target": "vendor/metadata-resource.mjs",
-      "sha256": "99bc0048214bc2fcd4f50383f33f565fa03a3f880e30dc66d3bfe538e953debf",
-      "mode": "byte_copy"
+      "sha256": "64b8b865bfb911d836fffbb0e8304a6a1bd2ca22ed5dcbfa53120190c48f53dc",
+      "mode": "reviewed_adaptation",
+      "kit42_parent_sha256": "99bc0048214bc2fcd4f50383f33f565fa03a3f880e30dc66d3bfe538e953debf",
+      "kit42_adaptation": "App-owned domain helpers compiled with pinned esbuild and CRLF output, or clean /core public Kit import only; preserve the current Email22 provider, authority, recovery and deadline behavior."
     },
     {
       "source": "examples/apps/email/providers/provider-browser.mjs",
@@ -154,8 +156,10 @@
     {
       "source": "examples/apps/email/email-attachments.mjs",
       "target": "vendor/email-attachments.mjs",
-      "sha256": "db77600e9c6917ff1351112c1a430c5b328b2d61fe275e72faa3dd27743553ed",
-      "mode": "byte_copy"
+      "sha256": "09bceb0d11eb6296af4544df897ed6b26f0d16d820c295dab1660ae412953d8d",
+      "mode": "reviewed_adaptation",
+      "kit42_parent_sha256": "db77600e9c6917ff1351112c1a430c5b328b2d61fe275e72faa3dd27743553ed",
+      "kit42_adaptation": "App-owned domain helpers compiled with pinned esbuild and CRLF output, or clean /core public Kit import only; preserve the current Email22 provider, authority, recovery and deadline behavior."
     },
     {
       "source": "examples/apps/email/providers/remote-image-proxy.mjs",

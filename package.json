@@ -1,6 +1,6 @@
 {
   "name": "deft-email-preview",
-  "version": "1.9.0-preview.26",
+  "version": "1.9.0-preview.27",
   "private": true,
   "license": "AGPL-3.0-only",
   "type": "module",
@@ -15,6 +15,8 @@
     "verify:provenance": "node scripts/verify-pins.mjs && pnpm --dir runtime verify:provenance",
     "package:source": "node scripts/package-source.mjs",
     "test:runtime:preview": "pnpm --dir runtime run test:preview",
-    "test:runtime:artifact": "node --test scripts/runtime-artifact.test.mjs"
+    "test:runtime:artifact": "node --test scripts/runtime-artifact.test.mjs",
+    "build:domain": "node scripts/build-domain.mjs",
+    "test:domain": "npm run build:domain && node --test runtime/domain/test/*.test.mjs"
   }
 }

@@ -1,4 +1,4 @@
-import {AppIntegrationToolRuntimeRequestSchema,AppIntegrationToolRuntimeAuthorityResultSchema,AppIntegrationToolRuntimeResultSchema,parseAppIntegrationToolDeclaredInput} from '@deft/app-kit';
+import {AppIntegrationToolRuntimeRequestSchema,AppIntegrationToolRuntimeAuthorityResultSchema,AppIntegrationToolRuntimeResultSchema,parseAppIntegrationToolDeclaredInput} from '@deft/app-kit/core';
 import {createHash} from 'node:crypto';
 import {executeRecipientSuggestions} from './integration-recipient-tool.mjs';
 import {canonical,fail} from './contract.mjs';

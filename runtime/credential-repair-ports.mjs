@@ -3,7 +3,7 @@ import {lineageKey,validateLineage} from './account-lineage.mjs';
 import {commitCredentialRepairLineage,commitCredentialRepairClosureLineage} from './credential-repair-lineage.mjs';
 import {createRepairPublicationContinuity,repairPublicationDigest} from './credential-repair-continuity.mjs';
 import {repairPins} from './credential-repair-contract.mjs';
-import {parseResourceSyncStartForClaimV3} from '@deft/app-kit';
+import {parseResourceSyncStartForClaimV3} from '@deft/app-kit/core';
 const same=(a,b)=>canonical(a)===canonical(b),deny=()=>fail('EMAIL_RUNTIME_CREDENTIAL_REPAIR_DENIED');
 const proofKey=id=>'email.runtime.credential_repair_publication_proof.'+id;
 const publicationKey=(scope,consumer)=>'email.data.sync_publication.'+digest([scope,digest(consumer)]);

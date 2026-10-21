@@ -6,7 +6,7 @@ import {createReattachRuntime} from './connection-reattach-runtime.mjs';
 import {REATTACH_VERSION,REATTACH_V2_VERSION,validateReattachRequest} from './reattach-contract.mjs';
 import {createUpgradeRuntime} from './connection-upgrade-runtime.mjs';
 import {UPGRADE_VERSION,validateUpgradeRequest} from './upgrade-contract.mjs';
-import * as Kit from '@deft/app-kit';
+import * as Kit from '@deft/app-kit/core';
 import {createCredentialRepairRuntime} from './connection-credential-repair-runtime.mjs';
 import {createCredentialRepairPorts} from './credential-repair-ports.mjs';
 import {REPAIR_VERSION,validateRepairRequest} from './credential-repair-contract.mjs';
