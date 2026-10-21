@@ -28,7 +28,7 @@ test('fresh package authenticates its manifest and worker artifact against publi
   assert.equal(compatibility.host.minimum_version, '0.3.0-preview.136');
   assert.equal(compatibility.host.version, compatibility.host.minimum_version);
   const artifact = JSON.parse(readFileSync(new URL('./artifact.json', import.meta.url)));
-  assert.equal(JSON.parse(artifact.content).background_refresh_description, "Keep mailbox metadata current while this app is closed. Turn this on to create Tasks or Knowledge from mail: it is how the app shares messages with Deft.");
+  assert.equal(JSON.parse(artifact.content).background_refresh_description, "Keep mailbox metadata current while Email is closed. Background refresh makes new messages available for Tasks and Knowledge; each action keeps its own review.");
   assert.equal(manifest.id, 'io.deft.email');
   assert.equal(manifest.version, metadata.version);
   assert.equal(manifest.license, metadata.license);

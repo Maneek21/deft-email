@@ -19,7 +19,7 @@ const bundled=await build({entryPoints:['worker.mjs'],outfile:'worker.bundle.js'
 assert.ok(!Object.keys(bundled.metafile.inputs).some(path=>path.endsWith('/dist/index.js')||path.includes('/node_modules/zod/')));
 const capabilities=['menu.v1','record_form_seed.v1','record_mirror.v1','keyboard_controls.v1','local_job.v1','record_document.v1','record_document_policy.v1','record_form.v1','record_form.v2','record_form.v3','repeated_fields.v1','record_initial_change.v1','record_change_parameters.v1','record_form_presentation.v1','record_intake.mailto.v1'];
 const artifact=await prepareDeftExperienceArtifact('experiences/main.json',{
- background_refresh_description:"Keep mailbox metadata current while this app is closed. Turn this on to create Tasks or Knowledge from mail: it is how the app shares messages with Deft.",
+ background_refresh_description:"Keep mailbox metadata current while Email is closed. Background refresh makes new messages available for Tasks and Knowledge; each action keeps its own review.",
  schema_version:'deft.experience_bundle.v4',record_intakes:[{key:'new_message',store_key:'drafts',format:'mailto',profile:EMAIL_RECORD_FORM_PROFILE,seed:emptyEmailRecord(),fields:{to:'to',cc:'cc',bcc:'bcc',subject:'subject',plain:'body',html:'body_html'}}],state_keys:[],record_store_keys:['native_history','rules','rules_order','drafts','preferences','signatures','templates','smtp_preferences','mailbox_status','folders','folder_preferences'].sort(),search_resource_keys:['inbox'],
  worker_source:readFileSync('worker.bundle.js','utf8'),entry_view:'main',resource_keys:['inbox'],action_keys:['mirror_drafts','organize_messages','send_message'],
 });

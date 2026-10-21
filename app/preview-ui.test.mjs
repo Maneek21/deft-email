@@ -4,6 +4,7 @@ import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
 import {webcrypto} from 'node:crypto';
 import {DeftExperienceRecordFormV3NodeSchema,parseDeftExperienceMenuNode} from '@deft/app-kit/core';
+import {senderDisplay} from './mail-presentation.mjs';
 
 const id='11111111-1111-4111-8111-111111111111',digest='sha256:'+'a'.repeat(64);
 const mail={record_id:id,content_digest:digest,label:'Preview message',data:{provider:'gmail',subject:'Preview message',sender:'Sender <sender@example.test>',date:'2026-10-13T10:00:00Z',preview:'A controlled preview message.'}};
@@ -97,13 +98,38 @@ test('folder departure removes the old reader before pending work and retains lo
 test('reader keeps date context without placing optional jobs before the body',async()=>{
  const ui=await start();await ui.click('mail_'+id.replaceAll('-',''));
  const children=node(ui,'reader_panel').children,body=children.findIndex(item=>item.kind==='record_document');
- assert.ok(node(ui,'mail_date')?.text);assert.equal(node(ui,'mail_'+id.replaceAll('-','')).eyebrow,mail.data.sender);
+ assert.ok(node(ui,'mail_date')?.text);assert.equal(node(ui,'mail_'+id.replaceAll('-','')).eyebrow,'Sender');
  assert.ok(children.filter(item=>item.kind==='local_job_schedule').every(item=>children.indexOf(item)>body));
 });
 
 test('reader Sent metadata shows actual From To and Cc separately from subject and mailbox account',async()=>{
  const data={...mail.data,subject:'Synthetic sent subject',sender:'Sender <sender@example.test>',recipients:'Receiver <receiver@example.test>',cc:'Copy <copy@example.test>'},ui=await start({targets:[{key:'primary',label:'sender-mailbox@example.test'}],messages:[{...mail,label:'Subject plus descriptive account label',data}]});await ui.click('mail_'+id.replaceAll('-',''));
  assert.equal(node(ui,'mail_subject').text,data.subject);assert.equal(node(ui,'mail_sender').text,'From: '+data.sender);assert.equal(node(ui,'mail_recipients').text,'To: '+data.recipients);assert.equal(node(ui,'mail_cc').text,'Cc: '+data.cc);assert.ok(node(ui,'mail_date').text);assert.ok(!node(ui,'reader_metadata').children.some(item=>item.text?.includes('sender-mailbox@example.test')));
+});
+
+test('inbox sender summaries show display names or a single address and keep full reader headers',async()=>{
+ for(const [sender,display] of[
+  ['"maneek.hyprcstm@gmail.com" <maneek.hyprcstm@gmail.com>','maneek.hyprcstm@gmail.com'],
+  ['Maneek Mohan <maneek.mohan21@gmail.com>','Maneek Mohan'],
+  ['"Grant from Tella" <grant@tella.tv>','Grant from Tella'],
+  ['<sender@example.test>','sender@example.test'],
+  ['sender@example.test','sender@example.test'],
+  ['"Sender, Person" <sender@example.test>','Sender, Person'],
+ ]){
+  assert.equal(senderDisplay(sender),display);
+  const ui=await start({messages:[{...mail,data:{...mail.data,sender}}]});
+  assert.equal(node(ui,'mail_'+id.replaceAll('-','')).eyebrow,display);
+  await ui.click('mail_'+id.replaceAll('-',''));assert.equal(node(ui,'mail_sender').text,'From: '+sender);
+ }
+});
+
+test('reader addresses have their full row before the date and Reply controls on narrow screens',async()=>{
+ const data={...mail.data,sender:'Maneek Mohan <maneek.mohan21@gmail.com>',recipients:'maneek.hyprcstm@gmail.com',cc:'Copy <copy@example.test>'},ui=await start({messages:[{...mail,data}]});
+ await ui.click('mail_'+id.replaceAll('-',''));
+ assert.equal(node(ui,'reader_metadata').layout,'vertical');
+ assert.deepEqual(Array.from(node(ui,'reader_metadata').children,item=>item.id),['reader_addresses','reader_date_actions']);
+ assert.deepEqual(Array.from(node(ui,'reader_addresses').children,item=>item.text),['From: '+data.sender,'To: '+data.recipients,'Cc: '+data.cc]);
+ assert.equal(node(ui,'reader_date_actions').layout,'horizontal');assert.equal(node(ui,'reply').disabled,false);
 });
 
 test('reader all-account selection retains exact child recipients and never substitutes account labels for missing headers',async()=>{
@@ -205,7 +231,7 @@ test('another account reader never nominates the current compose account image p
 
 
 test('daily navigation keeps settings out of the mailbox and opening its hub does not read private stores',async()=>{
- const ui=await start();assert.deepEqual(Array.from(ui.views.at(-1).navigation,item=>item.label),['Inbox','Sent','Drafts','Starred','Archive','Spam','Trash','Settings']);
+ const ui=await start();assert.deepEqual(Array.from(ui.views.at(-1).navigation,item=>item.label),['Inbox','Sent','Drafts','Starred','Archive','Spam','Trash','Mail preferences']);
  const before=[...ui.listedStores];await ui.click('email_settings');assert.ok(node(ui,'email_settings_title'));assert.ok(node(ui,'saved_content'));assert.ok(node(ui,'manual_rules'));assert.ok(node(ui,'folder_catalog'));assert.ok(node(ui,'imported_history'));
  assert.deepEqual(ui.listedStores,before);assert.equal(node(ui,'provider_setup_help'),undefined);
  await ui.click('provider_help');assert.ok(node(ui,'provider_setup_help'));await ui.click('provider_help');assert.equal(node(ui,'provider_setup_help'),undefined);
