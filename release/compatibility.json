@@ -1,8 +1,8 @@
 {
   "schema": "deft.email.preview.compatibility.v1",
   "publication_state": "source-template",
-  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.25/compatibility.json",
-  "resolution": "Unpublished Email25 source template. Publication waits for Host134 Kit alpha.42 release-flow bytes; includes published Email24 socket and retained authority-callback fixes.",
+  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.27/compatibility.json",
+  "resolution": "Email27 release preparation. Requires exact published Host134 Kit alpha.42 artifacts. Retains all published Email26 transport, stale-reservation and bounded observation fixes.",
   "host": {
     "version": "0.3.0-preview.134",
     "minimum_version": "0.3.0-preview.134",
@@ -19,13 +19,13 @@
     }
   },
   "email": {
-    "tag": "v1.9.0-preview.25",
+    "tag": "v1.9.0-preview.27",
     "repository": "https://github.com/Maneek21/deft-email",
-    "app_version": "1.9.1-preview.6",
-    "runtime_version": "0.4.0-preview.23",
+    "app_version": "1.9.1-preview.8",
+    "runtime_version": "0.4.0-preview.25",
     "app_kit_version": "0.1.0-alpha.42",
     "runtime_kit_version": "0.1.0-alpha.42",
-    "kit_compatibility": "Both consumers adopt clean Kit alpha.42 entries and app-owned domain helpers after Host134 publication. Preserves published Email24 authenticated retained response-socket and authority-callback budgets, ordinary transport limits, fresh authority, finite expiry and revocation."
+    "kit_compatibility": "Both consumers use app-owned domain modules and clean Kit alpha.42 entries after verified Host134 publication. Preserve Email26 retained HTTP and authority callback bounds, negative-status stale reservation recovery, bounded metadata observation, ordinary client limits, fresh authority, cancellation and finite expiry."
   },
   "kits": [
     {

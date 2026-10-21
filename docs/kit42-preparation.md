@@ -1,7 +1,7 @@
 # Kit alpha.42 preparation (not published)
 
-This branch prepares Email24 (App 1.9.1-preview.5, Runtime
-0.4.0-preview.22) on I1's Email23 transport behavior. Both consumers use the
+This branch prepares Email27 (App 1.9.1-preview.8, Runtime
+0.4.0-preview.25) on I1's published Email26 transport behavior. Both consumers use the
 clean Kit alpha.42 entry points and deft-email's own domain library. The
 supported minimum becomes Host134, schema131. Previous release artifacts
 and their Kit39/Kit35 archives remain unchanged.
@@ -14,7 +14,7 @@ preview checks still exercise the candidate's complete App/Runtime path.
 
 ## Remaining publication gate
 
-1. First let I1 finish Host133 and Email23 (#17); preserve that socket-budget fix.
+1. I1 has published Host133 and Email26; retain socket, authority-callback, stale-reservation and observation-budget fixes.
    Merge Deft #393, #394 and #407 only after current required CI and a separate
    landing instruction. Release Host 0.3.0-preview.134 through its normal flow.
    That flow must emit `deft-app-kit-0.1.0-alpha.42.tgz`,
@@ -37,8 +37,8 @@ preview checks still exercise the candidate's complete App/Runtime path.
    it verifies both local archives and the downloaded archive against the
    exact release metadata. Obtain green preview and publication CI.
 7. Only then land this PR under a separate instruction and coordinate the
-   Email24 release. Land Deft #385 last, with its final exact exception review.
+   Email27 release. Land Deft #385 last, with its final exact exception review.
 
-If another release owner allocates Host134 or Email24 before these branches
+If another release owner allocates Host134 or Email27 before these branches
 land, allocate new unused release identities and update all expected release
 pins together. Never replace an existing release or sealed Kit version.
