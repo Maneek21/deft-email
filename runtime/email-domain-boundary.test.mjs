@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {AppDataResultSchema} from '@deft/app-kit';
+import {AppDataResultSchema} from '@deft/app-kit/core';
 import {validateDataResult,dataInputDigest} from './data-contract.mjs';
 const id='11111111-1111-4111-8111-111111111111';
 test('generic principal admission never substitutes for Email mailbox validation',()=>{

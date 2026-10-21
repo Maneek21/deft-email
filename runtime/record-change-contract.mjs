@@ -1,6 +1,6 @@
 import {consentFields,consentDeadline,canonical,digest,exact,fail,isoTime,opaque,validateScope,hostUuid} from './contract.mjs';
 import {uuid} from './draft-store.mjs';
-import {AppDataRecordSchema,AppPreparedRecordChangeSchema,AppRecordChangeParametersSchema} from '@deft/app-kit';
+import {AppDataRecordSchema,AppPreparedRecordChangeSchema,AppRecordChangeParametersSchema} from '@deft/app-kit/core';
 import {validateDraftContent} from './draft-store.mjs';
 const hash=value=>typeof value==='string'&&/^sha256:[a-f0-9]{64}$/u.test(value);
 const key=value=>typeof value==='string'&&/^[a-z][a-z0-9_]{0,47}$/u.test(value)&&!['constructor','prototype','__proto__'].includes(value);

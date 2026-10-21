@@ -3,7 +3,7 @@ import {assertNativeSessionVisible} from './native-adoption-activation.mjs';
 import {assertNoCredentialRepair,wrapCredentialProviderBridge} from './credential-repair-reservation.mjs';
 import {createNativeIdentityScopeResolver} from './native-adoption-identity.mjs';
 import {createImapReadPorts} from './imap-runtime-ports.mjs';
-import {parseResourceSyncStartForClaimV3,parseSyncPageV2,ResourceObservationAuthorityResultSchema} from '@deft/app-kit';
+import {parseResourceSyncStartForClaimV3,parseSyncPageV2,ResourceObservationAuthorityResultSchema} from '@deft/app-kit/core';
 import {createNativeEmailBridge as createUnfencedNativeEmailBridge} from './vendor/providers/native-mailbox.mjs';
 const createNativeEmailBridge=options=>wrapCredentialProviderBridge({bridge:createUnfencedNativeEmailBridge(options),store:options.store,scope:{...options.selected.scope,resource_binding_id:options.selected.resource_binding_id}});
 import {createEncryptedEmailCustody} from './vendor/providers/custody-encrypted.mjs';

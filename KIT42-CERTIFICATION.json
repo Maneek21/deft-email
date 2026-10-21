@@ -1,0 +1,17 @@
+{
+  "schema": "deft.email.kit_certification.v1",
+  "version": "0.1.0-alpha.42",
+  "filename": "deft-app-kit-0.1.0-alpha.42.tgz",
+  "sha256": "1d4c68ef5964b5ed8a44e485e0c8d6f7767bdf12e591e17a6aab6b5036145a9a",
+  "integrity": "sha512-N1HZ6ogU2AsUCL8cg+9KFvwmJKkTaxCvfAlcqHK75Zct1BfgGSVxmzE7yCvsRYfL1+qEsCqghlLt4mnyTj0JGQ==",
+  "source_repository": "Maneek21/Deft",
+  "source_commit": "01e15b9e4f17c48c359e22ba87cfcabf7f0acb84",
+  "artifact_origin": "local packed certification candidate; not published",
+  "expected_release_flow": {
+    "repository": "Maneek21/Deft",
+    "host_release": "0.3.0-preview.134",
+    "kit_version": "0.1.0-alpha.42",
+    "filename": "deft-app-kit-0.1.0-alpha.42.tgz"
+  },
+  "merge_gate": "Do not merge: replace both candidates with the Host134 released archive, update certificate source_commit/sha256/integrity and artifact_origin to Host release-flow artifact, refresh both locks, immutable pins and release compatibility; Published Kit alpha.42 CI must pass."
+}

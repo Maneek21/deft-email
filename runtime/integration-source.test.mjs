@@ -4,7 +4,7 @@ import {integrationSourceProjection,assertIntegrationSourceDescriptor} from './i
 import {resourceUuid,resourceView} from './mailbox-store.mjs';
 import {integrationKnowledgeEvidence,integrationKnowledgePresentation} from './integration-knowledge.mjs';
 import {EMAIL_METADATA_DESCRIPTOR} from './vendor/metadata-resource.mjs';
-import {digestResourceSyncDescriptorV2} from '@deft/app-kit';
+import {digestResourceSyncDescriptorV2} from '@deft/app-kit/core';
 const scope={org_id:'org_a',owner_user_id:'user_a',account_id:'account_a'};
 const item={account_id:scope.account_id,logical_message_id:'mail_'+'a'.repeat(64),revision:'provider_revision_1',provider_source:{provider:'gmail',id:'opaque_native'},data:{label:'Decision',subject:'Planning decision',from:'Person',folder:'inbox'}};
 const mapping={record_id_field:'source_record_id',content_digest_field:'source_content_digest',observed_at_field:'source_observed_at'};

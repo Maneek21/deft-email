@@ -1,4 +1,4 @@
-import {AppRecordChangeParametersSchema} from '@deft/app-kit';
+import {AppRecordChangeParametersSchema} from '@deft/app-kit/core';
 import {parseNativeSafeComposeHtml} from './domain/safe-compose-html.mjs';
 import {validateSettingValue} from './settings-store.mjs';
 import {fail} from './contract.mjs';

@@ -1,5 +1,6 @@
-/** Closed compose grammar shared by the host editor and payload capture.
- * It never repairs HTML or loads external content: noncanonical input is invalid. */
+/** Email-owned grammar for draft/signature bodies and payload capture.
+ * Host output safety is checked independently; this parser never repairs HTML
+ * or loads external content. Noncanonical input is invalid. */
 import {parseMailboxList} from './mailbox-list.js';
 export type SafeComposeDocument = Readonly<{ html: string; plainText: string }>;
 /** Native body budgets mirror existing saved fields. The complete draft still

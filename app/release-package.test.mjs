@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash, randomUUID} from 'node:crypto';
-import {verifyDeftAppPackageJson, parseRuntimeObjectInput, RuntimeObjectSchema, DEFT_APP_KIT_VERSION} from '@deft/app-kit';
+import {verifyDeftAppPackageJson, parseRuntimeObjectInput, RuntimeObjectSchema, DEFT_APP_KIT_VERSION} from '@deft/app-kit/core';
 import {createDeftExperienceSdk} from '@deft/app-kit/experience';
 
 const json = readFileSync(new URL('./app.deft.json', import.meta.url), 'utf8');
@@ -20,12 +20,12 @@ test('packed public Kit keeps the displayed target on a mailbox refresh', async 
   assert.equal((await pending).outcome,'completed');sdk.close();
 });
 
-test('fresh package authenticates its manifest and worker artifact against public Kit39', () => {
-  assert.equal(DEFT_APP_KIT_VERSION, '0.1.0-alpha.39');
-  assert.equal(metadata.version, '1.9.1-preview.7');
+test('fresh package authenticates its manifest and worker artifact against public Kit42', () => {
+  assert.equal(DEFT_APP_KIT_VERSION, '0.1.0-alpha.42');
+  assert.equal(metadata.version, '1.9.1-preview.6');
   assert.equal(compatibility.email.tag, 'v' + rootMetadata.version);
   assert.equal(compatibility.email.app_version, metadata.version);
-  assert.equal(compatibility.host.minimum_version, '0.3.0-preview.133');
+  assert.equal(compatibility.host.minimum_version, '0.3.0-preview.134');
   assert.equal(compatibility.host.version, compatibility.host.minimum_version);
   const artifact = JSON.parse(readFileSync(new URL('./artifact.json', import.meta.url)));
   assert.equal(JSON.parse(artifact.content).background_refresh_description, "Keep mailbox metadata current while this app is closed. Turn this on to create Tasks or Knowledge from mail: it is how the app shares messages with Deft.");

@@ -1,4 +1,4 @@
-import {APP_DATA_LIMITS,AppDataRuntimeRequestSchema,AppIntegrationToolRuntimeRequestSchema} from '@deft/app-kit';
+import {APP_DATA_LIMITS,AppDataRuntimeRequestSchema,AppIntegrationToolRuntimeRequestSchema} from '@deft/app-kit/core';
 import {createHash, timingSafeEqual} from 'node:crypto';
 import {fail, token} from './contract.mjs';
 import {DATA_JSON_BYTES,FILE_FRAME_HEADER_BYTES,FILE_BYTES,decodeFileFrame,encodeFileFrame} from './data-contract.mjs';

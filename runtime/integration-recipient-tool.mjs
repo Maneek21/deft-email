@@ -1,6 +1,6 @@
 import {createHash} from 'node:crypto';import {canonical,fail} from './contract.mjs';
 import {recentAcceptedSuggestions} from './integration-recipient-projection.mjs';
-import {AppIntegrationToolRuntimeAuthorityResultSchema,AppIntegrationToolRuntimeResultSchema} from '@deft/app-kit';
+import {AppIntegrationToolRuntimeAuthorityResultSchema,AppIntegrationToolRuntimeResultSchema} from '@deft/app-kit/core';
 export {EMAIL_RECIPIENT_TOOL_DECLARATION} from './domain/recipient-tool-schema.mjs';
 import {EMAIL_RECIPIENT_TOOL_DECLARATION} from './domain/recipient-tool-schema.mjs';
 const hash=v=>'sha256:'+createHash('sha256').update(canonical(v)).digest('hex');

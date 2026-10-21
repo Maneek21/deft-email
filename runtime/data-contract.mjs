@@ -1,6 +1,6 @@
 import {consentDeadline,canonical,digest,exact,fail,isoTime,opaque,validateScope,hostUuid} from './contract.mjs';
 import {uuid} from './draft-store.mjs';
-import {APP_DATA_LIMITS,AppDataRuntimeRequestSchema,AppDataResultSchema,AppDataBinaryMetadataSchema,canonicalAppDataJson} from '@deft/app-kit';
+import {APP_DATA_LIMITS,AppDataRuntimeRequestSchema,AppDataResultSchema,AppDataBinaryMetadataSchema,canonicalAppDataJson} from '@deft/app-kit/core';
 import {createHash} from 'node:crypto';
 import {validateChangeReceiptStatus} from './record-change-contract.mjs';
 

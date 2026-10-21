@@ -11,6 +11,7 @@ Kit30 and Kit32 source offers accompany the release; the npm lockfiles retain ex
 | `@deft/app-kit` | `0.1.0-alpha.35` | AGPL-3.0-only |
 | `@deft/app-kit` | `0.1.0-alpha.36` | AGPL-3.0-only |
 | `@deft/app-kit` | `0.1.0-alpha.38` | AGPL-3.0-only |
+| `@deft/app-kit` | `0.1.0-alpha.42` | AGPL-3.0-only |
 | `@esbuild/win32-x64` | `0.28.2` | MIT |
 | `@pinojs/redact` | `0.4.0` | MIT |
 | `@selderee/plugin-htmlparser2` | `0.12.0` | MIT |
@@ -64,4 +65,4 @@ Kit30 and Kit32 source offers accompany the release; the npm lockfiles retain ex
 | `thread-stream` | `4.2.0` | MIT |
 | `tlds` | `1.261.0` | MIT |
 | `uc.micro` | `2.1.0` | MIT |
-| `zod` | `4.6.5` | MIT |
+| `zod` | `4.6.7` | MIT |

@@ -17,7 +17,7 @@
     "test:independence": "node --test prepared-effect.test.mjs email-domain-boundary.test.mjs integration-source.test.mjs capture-transport.test.mjs smtp-send-runner.test.mjs run-inspection-runtime.test.mjs"
   },
   "dependencies": {
-    "@deft/app-kit": "file:deft-app-kit-0.1.0-alpha.35.tgz",
+    "@deft/app-kit": "file:deft-app-kit-0.1.0-alpha.42.tgz",
     "domutils": "3.2.2",
     "htmlparser2": "10.1.0",
     "imapflow": "2.0.7",
@@ -353,6 +353,7 @@
     "lifecycle-fetch.mjs",
     "shutdown-channel.test.mjs",
     "artifact-startup-smoke.mjs",
-    "RUNTIME16.md"
+    "RUNTIME16.md",
+    "deft-app-kit-0.1.0-alpha.42.tgz"
   ]
 }

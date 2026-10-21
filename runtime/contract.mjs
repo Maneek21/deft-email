@@ -1,4 +1,4 @@
-import {appConsentDeadline} from '@deft/app-kit';
+import {appConsentDeadline} from '@deft/app-kit/core';
 import {createHash} from 'node:crypto';
 
 export const fail = code => { throw Object.assign(new Error(code), {code}); };

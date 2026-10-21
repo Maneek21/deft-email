@@ -1,4 +1,4 @@
-import * as Kit from '@deft/app-kit';
+import * as Kit from '@deft/app-kit/core';
 import {consentFields,consentDeadline,canonical,digest,exact,fail,isoTime,opaque,validateScope} from './contract.mjs';
 const id=v=>typeof v==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu.test(v);
 const hash=v=>typeof v==='string'&&/^sha256:[a-f0-9]{64}$/u.test(v);

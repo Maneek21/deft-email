@@ -1,3 +1,4 @@
+import '../scripts/build-domain.mjs';
 import {EMAIL_SENT_COPY_EFFECT} from '../runtime/prepared-effect.mjs';
 import {EMAIL_INTEGRATION_TOOL_DECLARATIONS} from './ten-tool-schema.mjs';
 import {EMAIL_FUTURE_SEND_POLICY} from './future-record-action-policy.mjs';
@@ -7,7 +8,7 @@ import {readFileSync,writeFileSync,realpathSync} from 'node:fs';
 import {resolve,sep} from 'node:path';
 import {createHash} from 'node:crypto';
 import {build} from 'esbuild';
-import {prepareDeftExperienceArtifact,buildDeftAppPackage} from '@deft/app-kit';
+import {prepareDeftExperienceArtifact,buildDeftAppPackage} from '@deft/app-kit/core';
 import {EMAIL_PROVIDER_CONNECTIONS} from './provider-admission.mjs';
 import {EMAIL_RECORD_FORM_PROFILE,emptyEmailRecord} from './record-ui.mjs';
 import {EMAIL_METADATA_DESCRIPTOR} from './metadata-resource.mjs';

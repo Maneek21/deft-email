@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@deft/app-kit':
-        specifier: file:deft-app-kit-0.1.0-alpha.35.tgz
-        version: file:deft-app-kit-0.1.0-alpha.35.tgz
+        specifier: file:deft-app-kit-0.1.0-alpha.42.tgz
+        version: file:deft-app-kit-0.1.0-alpha.42.tgz
       domutils:
         specifier: 3.2.2
         version: 3.2.2
@@ -32,14 +32,10 @@ importers:
 
 packages:
 
-  '@deft/app-kit@file:deft-app-kit-0.1.0-alpha.35.tgz':
-    resolution: {integrity: sha512-mDeCnemwgL1nKxC0RYp/L+dGvc286gXU471P2aMcnohz19Uyejg5o93UXKAzvfmHWNtKkQWNcJZ4lmXmQX+VDQ==, tarball: file:deft-app-kit-0.1.0-alpha.35.tgz}
-    version: 0.1.0-alpha.35
+  '@deft/app-kit@file:deft-app-kit-0.1.0-alpha.42.tgz':
+    resolution: {integrity: sha512-N1HZ6ogU2AsUCL8cg+9KFvwmJKkTaxCvfAlcqHK75Zct1BfgGSVxmzE7yCvsRYfL1+qEsCqghlLt4mnyTj0JGQ==, tarball: file:deft-app-kit-0.1.0-alpha.42.tgz}
+    version: 0.1.0-alpha.42
     hasBin: true
-
-  node-ical@0.27.2:
-    resolution: {integrity: sha512-RCjSxeNZN9Btv+xAZzB/GAet1FLcbmhcImLyynxU0LXyM7SgiQ1RnEitBsPgFTjMelUn6cw3GAjYc6w9MA5sIg==}
-    version: 0.27.2
 
   '@pinojs/redact@0.4.0':
     resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
@@ -127,6 +123,10 @@ packages:
     resolution: {integrity: sha512-O7oCYzWW9YH5lHk/y3Z8R8dFnUq8wqaH146BuU2NDt/3MGjdfMLzGF2Ft7WksTCeq00covNKpwxQabcG3zJFqQ==}
     engines: {node: '>=20.0.0'}
 
+  node-ical@0.27.2:
+    resolution: {integrity: sha512-RCjSxeNZN9Btv+xAZzB/GAet1FLcbmhcImLyynxU0LXyM7SgiQ1RnEitBsPgFTjMelUn6cw3GAjYc6w9MA5sIg==}
+    engines: {node: '>=22'}
+
   nodemailer@10.0.10:
     resolution: {integrity: sha512-He9XskOFms62SyAKkLu8CcGcYHAo+BSHSsORI8s4PJH8qZgZY4L4lDfvyN0twvmbpyG+eGrxpyBlskj9d9rJ8A==}
     engines: {node: '>=20.0.0'}
@@ -168,6 +168,9 @@ packages:
   real-require@1.0.0:
     resolution: {integrity: sha512-P4nbQYQfePJxRSmY+v/KINxVucm4NF3p3s7pJveMTtom52FR4YGltUQLB8idDXwDDWW+eYrWDFbuzUnjoWHF7g==}
 
+  rrule-temporal@2.2.5:
+    resolution: {integrity: sha512-jBa4T38+6LslTJv/calJiphIRrcU6vFV2Icx3XCe377uz79IT7Fr4h/chLWifYERvXjQkR/6BeQPKl89O1s5Vw==}
+
   safe-stable-stringify@2.5.0:
     resolution: {integrity: sha512-b3rppTKm9T+PsVCBEOUR46GWI7fdOs00VKZ1+9c1EWDaDMvjQc6tUwuFyIprgGgTcWoVHSKrU8H31ZHA2e0RHA==}
     engines: {node: '>=10'}
@@ -193,6 +196,15 @@ packages:
     resolution: {integrity: sha512-UcjcJOWknrNkF6PLX83qcHM6KHgVKNkV62Y8a5uYDVv9ydGQVwAHMKqHdJje1VTWpljG0WYpCDhrCdAOYH4TWg==}
     engines: {node: '>= 10.x'}
 
+  temporal-polyfill@1.0.5:
+    resolution: {integrity: sha512-+H/mmY74i6wXCMcjIhGuSnODcyZnc4eois2myhOyX0UqRAKNXQY5m9iB1en5jQ/n4SXtjLXo1ElBI5bmn8tZwQ==}
+
+  temporal-spec@1.0.1:
+    resolution: {integrity: sha512-wxVoanmDeavXie1vu2JaQ3WIc3JZnWAOYFBsJyATaVsXsycKYUflGsyBmrRSnoCpZJpwPyr38VpgSUlQ8CbFxg==}
+
+  temporal-utils@1.0.3:
+    resolution: {integrity: sha512-9jbTSX3HvkOWvDpNpFzwX/d1mkCrgQgwLmVTOEiuocZGKHsrQJtttGZFmybJ2zYP5zCSZuU5ZyeS8+eOEPABiQ==}
+
   thread-stream@4.2.0:
     resolution: {integrity: sha512-e2zZ96wSChazBsbENf/Pcm/4swHt2cEKQ92rhUjkL9GCKiTDJIaTBenjE/m9DXi0QBmTMDkFDdOomUy20A1tDQ==}
     engines: {node: '>=20'}
@@ -204,49 +216,14 @@ packages:
   uc.micro@2.1.0:
     resolution: {integrity: sha512-ARDJmphmdvUk6Glw7y9DQ2bFkKBHwQHLi2lsaH6PPmz/Ka9sFOBsBluozhDltWmnv9u/cF6Rt87znRTPV+yp/A==}
 
-  zod@4.6.5:
-    resolution: {integrity: sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q==}
-
-  rrule-temporal@2.2.5:
-    resolution: {integrity: sha512-jBa4T38+6LslTJv/calJiphIRrcU6vFV2Icx3XCe377uz79IT7Fr4h/chLWifYERvXjQkR/6BeQPKl89O1s5Vw==}
-
-  temporal-polyfill@1.0.5:
-    resolution: {integrity: sha512-+H/mmY74i6wXCMcjIhGuSnODcyZnc4eois2myhOyX0UqRAKNXQY5m9iB1en5jQ/n4SXtjLXo1ElBI5bmn8tZwQ==}
-
-  temporal-spec@1.0.1:
-    resolution: {integrity: sha512-wxVoanmDeavXie1vu2JaQ3WIc3JZnWAOYFBsJyATaVsXsycKYUflGsyBmrRSnoCpZJpwPyr38VpgSUlQ8CbFxg==}
-
-  temporal-utils@1.0.3:
-    resolution: {integrity: sha512-9jbTSX3HvkOWvDpNpFzwX/d1mkCrgQgwLmVTOEiuocZGKHsrQJtttGZFmybJ2zYP5zCSZuU5ZyeS8+eOEPABiQ==}
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
 
 snapshots:
 
-  node-ical@0.27.2:
+  '@deft/app-kit@file:deft-app-kit-0.1.0-alpha.42.tgz':
     dependencies:
-      rrule-temporal: 2.2.5
-      temporal-polyfill: 1.0.5
-
-
-  rrule-temporal@2.2.5:
-    dependencies:
-      temporal-spec: 1.0.1
-
-
-  temporal-polyfill@1.0.5:
-    dependencies:
-      temporal-spec: 1.0.1
-      temporal-utils: 1.0.3
-
-
-  temporal-spec@1.0.1: {}
-
-
-  temporal-utils@1.0.3: {}
-
-
-  '@deft/app-kit@file:deft-app-kit-0.1.0-alpha.35.tgz':
-    dependencies:
-      zod: 4.6.5
+      zod: 4.6.7
 
   '@pinojs/redact@0.4.0': {}
 
@@ -354,6 +331,11 @@ snapshots:
       punycode.js: 2.3.1
       tlds: 1.261.0
 
+  node-ical@0.27.2:
+    dependencies:
+      rrule-temporal: 2.2.5
+      temporal-polyfill: 1.0.5
+
   nodemailer@10.0.10: {}
 
   on-exit-leak-free@2.1.2: {}
@@ -395,6 +377,10 @@ snapshots:
 
   real-require@1.0.0: {}
 
+  rrule-temporal@2.2.5:
+    dependencies:
+      temporal-spec: 1.0.1
+
   safe-stable-stringify@2.5.0: {}
 
   safer-buffer@2.1.2: {}
@@ -416,6 +402,15 @@ snapshots:
 
   split2@4.2.0: {}
 
+  temporal-polyfill@1.0.5:
+    dependencies:
+      temporal-spec: 1.0.1
+      temporal-utils: 1.0.3
+
+  temporal-spec@1.0.1: {}
+
+  temporal-utils@1.0.3: {}
+
   thread-stream@4.2.0:
     dependencies:
       real-require: 1.0.0
@@ -424,5 +419,4 @@ snapshots:
 
   uc.micro@2.1.0: {}
 
-  zod@4.6.5: {}
-
+  zod@4.6.7: {}

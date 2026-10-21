@@ -20,7 +20,7 @@ import {createDeclaredIntegrationToolsRuntime} from './declared-integration-tool
 import {createDataRuntime} from './data-runtime.mjs';
 import {createAppActionRunner} from './action-runner.mjs';
 import {createResourceObservationRunner,createResourceObservationPoller} from './observation-runner.mjs';
-import {createAppRuntimeClient,createDeftResourceSyncClientV3,createResourceObservationClient} from '@deft/app-kit';
+import {createAppRuntimeClient,createDeftResourceSyncClientV3,createResourceObservationClient} from '@deft/app-kit/core';
 import {createAuthorityClient, createHttpHandler,trustedUrl} from './http.mjs';
 import {exact, fail,canonical,validateRegistration} from './contract.mjs';
 import {resolveProviderConfig} from './provider-config.mjs';

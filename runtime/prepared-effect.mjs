@@ -1,5 +1,5 @@
 import {createHash} from 'node:crypto';
-import {AppPreparedEffectReceiptSchema,canonicalAppPreparedEffectJson,parseAppPreparedEffectDetails} from '@deft/app-kit';
+import {AppPreparedEffectReceiptSchema,canonicalAppPreparedEffectJson,parseAppPreparedEffectDetails} from '@deft/app-kit/core';
 import {canonical,fail} from './contract.mjs';
 
 export const EMAIL_SENT_COPY_EFFECT=Object.freeze({key:'sent_copy',action_key:'send_message',version:'email.sent_copy.v1',details_schema:{type:'object',additionalProperties:false,

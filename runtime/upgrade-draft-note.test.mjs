@@ -9,7 +9,7 @@ import {createDraftStore,validateDraftContent} from './draft-store.mjs';
 import {buildEmailActionPayload} from './vendor/outgoing-payload-builder.mjs';
 import {EMAIL_RECORD_FORM_PROFILE,emailRecordForm,emptyEmailRecord} from '../app/record-ui.mjs';
 import {recordView} from './data-runtime.mjs';
-import {DeftExperienceRecordFormV3ProfileSchema} from '@deft/app-kit';
+import {DeftExperienceRecordFormV3ProfileSchema} from '@deft/app-kit/core';
 
 test('declared draft-only note survives actual encrypted restart and never enters MIME',async t=>{
  const parent=await mkdtemp(join(tmpdir(),'email-author-upgrade-')),root=join(parent,'state'),encryption_key=Buffer.alloc(32,42),scope={org_id:randomUUID(),owner_user_id:randomUUID(),account_id:randomUUID()},check=async()=>{};

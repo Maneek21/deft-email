@@ -4,7 +4,7 @@ import {randomUUID,createHash} from 'node:crypto';
 import {mkdtemp,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
-import {parseNativeSafeComposeHtml} from '@deft/app-kit/experience';
+import {parseNativeSafeComposeHtml} from './domain/safe-compose-html.mjs';
 import {createDurableStore} from './durable-store.mjs';
 import {createConnectionRuntime} from './connection-runtime.mjs';
 import {createDataRuntime} from './data-runtime.mjs';

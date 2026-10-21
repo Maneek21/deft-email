@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {appConsentDeadline, appConsentExpiryValid, DEFT_APP_KIT_VERSION} from '@deft/app-kit';
+import {appConsentDeadline, appConsentExpiryValid, DEFT_APP_KIT_VERSION} from '@deft/app-kit/core';
 import {validateScope, canonical} from './contract.mjs';
 import {makeScope} from './test-support.mjs';
 import {createDataChecker} from './data-contract.mjs';
@@ -42,7 +42,7 @@ test('persistent technical delegation never admits a missing or oversized techni
 
 // Exercise the installed packed public Kit, including the offset fix absent in Kit34.
 test('packed Kit35 admits ISO offsets and rejects malformed or ambiguous consent lifetimes',()=>{
- assert.equal(DEFT_APP_KIT_VERSION,'0.1.0-alpha.35');
+ assert.equal(DEFT_APP_KIT_VERSION,'0.1.0-alpha.40');
  const offset='2046-10-15T17:30:00+05:30',utc='2046-10-15T12:00:00Z';
  assert.equal(appConsentDeadline(offset),Date.parse(utc));
  assert.equal(appConsentDeadline(utc),Date.parse(utc));

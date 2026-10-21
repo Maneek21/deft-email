@@ -5,7 +5,7 @@ import {emailSearchHelp,emailSearchUnsupportedReason} from './search-help.mjs';
 import {sentReceiptNotice} from './sent-status.mjs';
 import {emailProviderSupport,emailRowsProvider,emailOrganizeAvailable} from './provider-admission.mjs';
 import {settingMeta,settingRecordForm,settingRecordEvent,verifiedSettingIdentities,providerSettingsNodes} from './settings-ui.mjs';
-import {createDeftExperienceSdk} from '@deft/app-kit/experience';
+import {createDeftExperienceSdk} from '@deft/app-kit/experience/core';
 import {emailRecordForm,emailRecordDocument,emptyEmailRecord,emailRecordEvent} from './record-ui.mjs';
 
 // Existing Email App entry: full body/draft/file bytes stay inside the trusted

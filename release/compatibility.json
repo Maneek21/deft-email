@@ -1,14 +1,14 @@
 {
   "schema": "deft.email.preview.compatibility.v1",
   "publication_state": "source-template",
-  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.26/compatibility.json",
-  "resolution": "The detached preview.23 asset resolves the exact tagged source, published Host133 image and hashes. This source template contains no self-referential archive checksum.",
+  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.25/compatibility.json",
+  "resolution": "Unpublished Email25 source template. Publication waits for Host134 Kit alpha.42 release-flow bytes; includes published Email24 socket and retained authority-callback fixes.",
   "host": {
-    "version": "0.3.0-preview.133",
-    "minimum_version": "0.3.0-preview.133",
-    "tag": "v0.3.0-preview.133",
+    "version": "0.3.0-preview.134",
+    "minimum_version": "0.3.0-preview.134",
+    "tag": "v0.3.0-preview.134",
     "repository": "https://github.com/Maneek21/Deft",
-    "release_manifest": "https://github.com/Maneek21/Deft/releases/download/v0.3.0-preview.133/release-manifest.json",
+    "release_manifest": "https://github.com/Maneek21/Deft/releases/download/v0.3.0-preview.134/release-manifest.json",
     "browser_profile": "apps-developer-preview",
     "schema_version": "0.3.0-preview.131",
     "contracts": {
@@ -19,28 +19,32 @@
     }
   },
   "email": {
-    "tag": "v1.9.0-preview.26",
+    "tag": "v1.9.0-preview.25",
     "repository": "https://github.com/Maneek21/deft-email",
-    "app_version": "1.9.1-preview.7",
-    "runtime_version": "0.4.0-preview.24",
-    "app_kit_version": "0.1.0-alpha.39",
-    "runtime_kit_version": "0.1.0-alpha.35",
-    "kit_compatibility": "App alpha.39 retains the original Host127 background-refresh-description contract; Runtime alpha.35 is unchanged. Host133 and Runtime21 align bounded retained-reattachment phases for multiple purposes and keep current authority, finite expiry and revocation fences. Short Runtime channel leases remain fifteen minutes."
+    "app_version": "1.9.1-preview.6",
+    "runtime_version": "0.4.0-preview.23",
+    "app_kit_version": "0.1.0-alpha.42",
+    "runtime_kit_version": "0.1.0-alpha.42",
+    "kit_compatibility": "Both consumers adopt clean Kit alpha.42 entries and app-owned domain helpers after Host134 publication. Preserves published Email24 authenticated retained response-socket and authority-callback budgets, ordinary transport limits, fresh authority, finite expiry and revocation."
   },
   "kits": [
     {
-      "version": "0.1.0-alpha.39",
-      "asset": "deft-app-kit-0.1.0-alpha.39.tgz",
-      "sha256": "5d45f6cb9cdf4ffc238e1137609dda5f32bbf48f2ebd2d0e47fb50ac62622a5f",
+      "version": "0.1.0-alpha.42",
+      "asset": "deft-app-kit-0.1.0-alpha.42.tgz",
+      "sha256": "1d4c68ef5964b5ed8a44e485e0c8d6f7767bdf12e591e17a6aab6b5036145a9a",
       "consumer": "email-app",
-      "source_tag": "v0.3.0-preview.127",
-      "source_repository": "https://github.com/Maneek21/Deft"
+      "source_tag": "v0.3.0-preview.134",
+      "source_repository": "https://github.com/Maneek21/Deft",
+      "artifact_origin": "local packed certification candidate; not published"
     },
     {
-      "version": "0.1.0-alpha.35",
-      "asset": "deft-app-kit-0.1.0-alpha.35.tgz",
-      "sha256": "82c2d5bff2776e423b58647fad0f4a6a6430535f4e60c8146fed737d83f33ad5",
-      "consumer": "email-runtime"
+      "version": "0.1.0-alpha.42",
+      "asset": "deft-app-kit-0.1.0-alpha.42.tgz",
+      "sha256": "1d4c68ef5964b5ed8a44e485e0c8d6f7767bdf12e591e17a6aab6b5036145a9a",
+      "consumer": "email-runtime",
+      "source_tag": "v0.3.0-preview.134",
+      "source_repository": "https://github.com/Maneek21/Deft",
+      "artifact_origin": "local packed certification candidate; not published"
     }
   ],
   "supported_environment": {

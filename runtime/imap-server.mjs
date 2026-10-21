@@ -6,7 +6,7 @@ import {createLocalJobClient,createLocalJobRunner} from './local-job-client.mjs'
 import {createServer} from 'node:http';
 import {setTimeout as delay} from 'node:timers/promises';
 import {readOperatorJson} from './server.mjs';
-import {createAppRuntimeClient,createDeftResourceSyncClientV3,createResourceObservationClient} from '@deft/app-kit';
+import {createAppRuntimeClient,createDeftResourceSyncClientV3,createResourceObservationClient} from '@deft/app-kit/core';
 import {createSmtpSendRunner} from './smtp-send-runner.mjs';
 import {createDurableStore} from './durable-store.mjs';
 import {createConnectionFormRuntime} from './connection-form-runtime.mjs';

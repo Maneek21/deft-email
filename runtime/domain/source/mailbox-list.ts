@@ -1,5 +1,5 @@
-/** A bounded mailbox list, not arbitrary RFC headers. Shared unchanged by
- * Runtime validation, native controls and provider payload construction. */
+/** Email-owned bounded mailbox grammar for Runtime and provider payloads.
+ * Host controls use their independent principal/URI safety contract. */
 export type MailboxAddress = Readonly<{ address: string; displayName: string }>;
 export type MailboxListOptions = Readonly<{ maxItems?: number; allowEmpty?: boolean }>;
 export class MailboxListError extends Error {

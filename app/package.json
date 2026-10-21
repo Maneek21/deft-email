@@ -4,7 +4,7 @@
   "type": "module",
   "packageManager": "npm@11.9.0",
   "dependencies": {
-    "@deft/app-kit": "file:deft-app-kit-0.1.0-alpha.39.tgz",
+    "@deft/app-kit": "file:deft-app-kit-0.1.0-alpha.42.tgz",
     "esbuild": "0.28.2"
   },
   "version": "1.9.1-preview.7",
