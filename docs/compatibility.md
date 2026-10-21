@@ -2,17 +2,17 @@
 
 [`release/compatibility.json`](../release/compatibility.json) is the source template and entry point. Follow its `authoritative_release_manifest` URL for the single authoritative detached cross-component release record. Use that resolved record for exact Host and Email commits, versions, image digests, schema/contracts, Kit artifacts, download locations, checksums and corresponding source. The publication state in that record distinguishes a prepared candidate from a verified public release. Do not replace its pins with a branch tip, a similarly named preview or a demo image.
 
-## Release preview.21 contract
+## Release preview.22 contract
 
-Bundle preview.21 requires Host preview.131 or newer and pairs App1.9.1-preview.2 with Runtime0.4.0-preview.19. The detached record resolves published Host131 assets. App Kit39 retains its original Host127 corresponding source; Runtime Kit35 is unchanged. App20 and Runtime18 remain available for rollback.
+Bundle preview.22 requires Host preview.132 or newer and pairs App1.9.1-preview.3 with Runtime0.4.0-preview.20. The detached record resolves published Host132 assets. App Kit39 retains its original Host127 corresponding source; Runtime Kit35 is unchanged. App20 and Runtime18 remain available for rollback.
 
 | Component | Version/contract |
 |---|---|
-| Email App | `1.9.1-preview.2` |
+| Email App | `1.9.1-preview.3` |
 | App Author Kit | `0.1.0-alpha.39` |
-| Email Runtime | `0.4.0-preview.19` |
+| Email Runtime | `0.4.0-preview.20` |
 | Runtime Author Kit | `0.1.0-alpha.35` |
-| Deft Host | Minimum `0.3.0-preview.131`, Apps-enabled developer-preview image; schema `131` plus the listed generic contracts |
+| Deft Host | Minimum `0.3.0-preview.132`, Apps-enabled developer-preview image; schema `131` plus the listed generic contracts |
 | App protocol | Manifest protocol 7; experience bundle v4; bridge v1; trusted renderer v2 |
 | Runtime requirements | Sync-provider channel v3 and mail-provider channel v1; connection protocol v2 |
 

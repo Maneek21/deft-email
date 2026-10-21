@@ -21,14 +21,14 @@ const legacyAction=scope=>({action_binding_id:randomUUID(),action_key:'send_mess
 const upgraded=scope=>({...scope,app_version_id:randomUUID(),grant_snapshot_id:randomUUID(),resource_binding_id:randomUUID(),runtime_registration_id:randomUUID(),lifecycle_epoch:scope.lifecycle_epoch+1,grant_epoch:scope.grant_epoch+1});
 const actions=scope=>['mirror_drafts','organize_messages','send_message'].map(action_key=>{const id=randomUUID();return {action_key,action_binding_id:id,consent_id:id,authority_epoch:scope.runtime_epoch,consent_digest:'sha256:'+'d'.repeat(64),expires_at:scope.consent_expires_at};});
 async function fixture(t,{readOnly=false,automatic=false}={}){
- const root=await mkdtemp(join(tmpdir(),'email-reattach-e3-')),key=Buffer.alloc(32,59),scopes=[makeScope()];let store,runtime,data,continuity,calls=0,allowed=true,crash=null;const provider=twoAccountProviderFixture(),fetch=async(...args)=>{calls++;return provider(...args);};
- const open=async()=>{store=await createDurableStore({root,encryption_key:key,key_id:'reattach-test',allow_windows_fixture:process.platform==='win32'});const wrapped={withLock(options,work){return store.withLock(options,tx=>work({...tx,async compareAndSwap(input){const result=await tx.compareAndSwap(input);if(crash?.(options,input)){crash=null;throw Error('synthetic committed-write crash');}return result;}}));}},deps={store:wrapped,client,encryption_key:key,key_id:'reattach-test',fetch,assertCurrent:authority,assertV2Current:authority};continuity=automatic?await createRegistrationContinuity({registrations:scopes.map(scope=>({...registrationFor(scope),connection_protocol:'v2'})),store:wrapped}):undefined;runtime=createRegistrationDispatcher({...deps,registrationContinuity:continuity,registrations:scopes.map(scope=>({...registrationFor(scope),connection_protocol:'v2'})),assertReattachCurrent:async request=>({...request,allowed})});data=createDataRuntime({...deps,getRegistrations:continuity?.all,registrations:scopes.map(scope=>({...registrationFor(scope),connection_protocol:'v2'}))});};await open();
+ const root=await mkdtemp(join(tmpdir(),'email-reattach-e3-')),key=Buffer.alloc(32,59),scopes=[makeScope()];let store,runtime,data,continuity,calls=0,allowed=true,crash=null,offset=0,authorityLatency=0;const now=()=>Date.now()+offset;const provider=twoAccountProviderFixture(),fetch=async(...args)=>{calls++;return provider(...args);};
+ const open=async()=>{store=await createDurableStore({root,encryption_key:key,key_id:'reattach-test',allow_windows_fixture:process.platform==='win32'});const wrapped={withLock(options,work){return store.withLock(options,tx=>work({...tx,async compareAndSwap(input){const result=await tx.compareAndSwap(input);if(crash?.(options,input)){crash=null;throw Error('synthetic committed-write crash');}return result;}}));}},deps={store:wrapped,client,encryption_key:key,key_id:'reattach-test',fetch,assertCurrent:authority,assertV2Current:authority,now};continuity=automatic?await createRegistrationContinuity({registrations:scopes.map(scope=>({...registrationFor(scope),connection_protocol:'v2'})),store:wrapped}):undefined;runtime=createRegistrationDispatcher({...deps,registrationContinuity:continuity,registrations:scopes.map(scope=>({...registrationFor(scope),connection_protocol:'v2'})),assertReattachCurrent:async request=>{offset+=authorityLatency;return {...request,allowed};}});data=createDataRuntime({...deps,getRegistrations:continuity?.all,registrations:scopes.map(scope=>({...registrationFor(scope),connection_protocol:'v2'}))});};await open();
  const begin={...beginFor(scopes[0]),schema_version:'deft.app_connection_runtime.v2',action_consents:readOnly?[]:actions(scopes[0])},begun=await runtime.request(begin),callback={...begin,operation:'callback',runtime_session_ref:begun.runtime_session_ref,callback:{outcome:'authorized',code:'fixture-first-account-both'}};delete callback.callback_state;const connected=await runtime.request(callback);let session_id=begin.session_id,runtime_session_ref=begun.runtime_session_ref,currentScope=scopes[0],account=connected.account;
  const dataRequest=(operation,input)=>({schema_version:'deft.app_data_runtime.v1',request_id:randomUUID(),scope:currentScope,connection:{session_id,session_revision:5,runtime_session_ref,account_ref:account.account_ref},authority:{consent_id:randomUUID(),consent_digest:'sha256:'+'e'.repeat(64),data_policy_digest:'sha256:'+'f'.repeat(64)},operation,expires_at:new Date(Date.now()+29000).toISOString(),input});
  const next=async(send=false,enroll=true)=>{const target=upgraded(currentScope);if(enroll){scopes.push(target);await store.close();await open();}const request={schema_version:REATTACH_VERSION,session_id:randomUUID(),scope:target,source:{session_id,session_revision:5,scope:currentScope,runtime_session_ref,account_ref:account.account_ref},transport_digest:'sha256:'+'1'.repeat(64),review_expires_at:new Date(Date.now()+60000).toISOString(),expires_at:new Date(Date.now()+29000).toISOString(),operation:'prepare',action_consents:readOnly?[]:actions(target)};return request;};
  const prepare=async request=>{const value=await runtime.request(request);const {schema_version,session_id,state,...eligibility}=value;return {...request,operation:'activate',review:{...eligibility,digest:reviewDigest(request,eligibility)}};};
  const activate=async request=>{const value=await runtime.request(request);currentScope=request.scope;session_id=request.session_id;runtime_session_ref=value.runtime_session_ref;return value;};
- t.after(async()=>{await store.close();await rm(root,{recursive:true,force:true});});return {get enrollment(){return continuity;},get store(){return store;},get runtime(){return runtime;},get data(){return data;},get calls(){return calls;},get scope(){return currentScope;},get id(){return session_id;},get account(){return account;},get ref(){return runtime_session_ref;},dataRequest,next,prepare,activate,deny(){allowed=false;},failWrite(predicate){crash=predicate;},async restart(){await store.close();await open();}};
+ t.after(async()=>{await store.close();await rm(root,{recursive:true,force:true});});return {get enrollment(){return continuity;},get store(){return store;},get runtime(){return runtime;},get data(){return data;},get calls(){return calls;},get scope(){return currentScope;},get id(){return session_id;},get account(){return account;},get ref(){return runtime_session_ref;},dataRequest,next,prepare,activate,now,latency(ms){authorityLatency=ms;},deny(){allowed=false;},failWrite(predicate){crash=predicate;},async restart(){await store.close();await open();}};
 }
 
 test('v2 HTTP reattachment retains exact encrypted secret/account, reseals purposes, and preserves original source history',async t=>{
@@ -119,4 +119,27 @@ test('automatic enrollment rejects changed principals and Host denial without en
  }
  f.deny();await assert.rejects(f.prepare(request));await f.restart();
  assert.equal(f.enrollment.all().length,1);assert.equal(f.calls,before);
+});
+
+test('three-purpose reattachment keeps fresh checks across slow prepare and activate without provider effects',async t=>{
+ const f=await fixture(t,{automatic:true}),before=f.calls,request={...await f.next(false,false),review_expires_at:new Date(f.now()+300000).toISOString(),expires_at:new Date(f.now()+110000).toISOString()};
+ f.latency(3000);
+ const activation=await f.prepare(request);
+ const result=await f.activate({...activation,expires_at:new Date(f.now()+110000).toISOString()});
+ assert.equal(result.state,'connected');assert.equal(f.calls,before);
+ const session=(await f.store.withLock({key:'email.runtime.session.'+request.session_id},tx=>tx.read())).value;
+ const journal=(await f.store.withLock({key:'email.runtime.reattach.'+request.session_id},tx=>tx.read())).value;
+ assert.equal(session.state,'connected');assert.equal(session.action_consents.length,3);
+ assert.equal(journal.state,'connected');assert.equal(journal.receipt_digest,result.receipt_digest);
+ assert.ok(f.enrollment.current().some(r=>r.runtime_registration_id===request.scope.runtime_registration_id));
+});
+
+test('slow reattachment still stops at the original finite account and purpose deadline',async t=>{
+ const f=await fixture(t,{automatic:true}),sourceId=f.id,before=f.calls,expires_at=new Date(f.now()+35000).toISOString();
+ const request={...await f.next(false,false),review_expires_at:new Date(f.now()+300000).toISOString(),expires_at};
+ request.scope.consent_expires_at=expires_at;request.action_consents=request.action_consents.map(c=>({...c,expires_at}));
+ f.latency(5000);await assert.rejects(f.runtime.request(request));
+ assert.equal(f.calls,before);
+ const source=(await f.store.withLock({key:'email.runtime.session.'+sourceId},tx=>tx.read())).value;
+ assert.equal(source.state,'connected');assert.equal(await f.store.withLock({key:'email.runtime.session.'+request.session_id},tx=>tx.read()),null);
 });

@@ -4,6 +4,10 @@ const id=v=>typeof v==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89a
 const hash=v=>typeof v==='string'&&/^sha256:[a-f0-9]{64}$/u.test(v);
 const generation=v=>Number.isInteger(v)&&v>0&&v<=2147483646;
 export const REATTACH_VERSION='deft.app_connection_reattach_runtime.v1',REATTACH_V2_VERSION='deft.app_connection_reattach_runtime.v2';
+// Multi-purpose custody moves revalidate live Host authority at every durable
+// boundary. This is a phase ceiling, never an extension of reviewed authority.
+export const REATTACH_PHASE_MS=120000;
+export const reattachPhaseDeadline=(request,now)=>Math.min(Date.parse(request.expires_at),consentDeadline(request.scope,'consent_expires_at'),request.operation==='status'?Infinity:Date.parse(request.review_expires_at),request.operation!=='status'&&request.action_consent?consentDeadline(request.action_consent):Infinity,...(request.operation==='status'?[]:(request.action_consents??[]).map(consent=>consentDeadline(consent))),now+REATTACH_PHASE_MS);
 export function validateReattachRequest(raw){
  if(raw?.schema_version===REATTACH_V2_VERSION){if(!Kit.AppConnectionReattachV2RuntimeRequestSchema?.safeParse(raw).success)fail('EMAIL_RUNTIME_INPUT_INVALID');return structuredClone(raw);}
  const input=structuredClone(raw),extras={prepare:[],activate:['review'],status:['review']}[input?.operation];
@@ -23,7 +27,7 @@ export const reviewDigest=(request,eligibility)=>'sha256:'+digest({...reattachPi
 export const receiptDigest=(request,review,runtime_session_ref)=>'sha256:'+digest({schema_version:request.action_consents!==undefined?'deft.app_connection_reattach_receipt.v2':'deft.app_connection_reattach_receipt.v1',session_id:request.session_id,scope:request.scope,source:request.source,transport_digest:request.transport_digest,review_digest:review.digest,account_ref:review.account.account_ref,custody_generation:review.custody_generation+1,runtime_session_ref});
 export function createReattachChecker({request,registration,assertCurrent,signal,now}){
  if(typeof assertCurrent!=='function')fail('EMAIL_RUNTIME_AUTHORITY_PORT_REQUIRED');
- let deadline=Math.min(Date.parse(request.expires_at),consentDeadline(request.scope,'consent_expires_at'),request.operation==='status'?Infinity:Date.parse(request.review_expires_at),request.operation!=='status'&&request.action_consent?consentDeadline(request.action_consent):Infinity,...(request.operation==='status'?[]:(request.action_consents??[]).map(consent=>consentDeadline(consent))),now()+30000);
+ let deadline=reattachPhaseDeadline(request,now());
  const expiry=new AbortController(),combined=AbortSignal.any([signal,expiry.signal].filter(Boolean));let timer;
  const arm=()=>{clearTimeout(timer);timer=setTimeout(()=>expiry.abort(new Error('EMAIL_RUNTIME_AUTHORITY_EXPIRED')),Math.max(0,deadline-now()));timer.unref();};arm();
  return {signal:combined,dispose:()=>clearTimeout(timer),async check(){combined.throwIfAborted();if(deadline<=now()||Object.keys(registration).some(k=>registration[k]!==request.scope[k]))fail('EMAIL_RUNTIME_AUTHORITY_DENIED');const expected={...request,expires_at:new Date(deadline).toISOString()},response=await assertCurrent(expected,combined);exact(response,[...Object.keys(expected),'allowed']);const {expires_at,allowed,...pins}=response,{expires_at:ignored,...wanted}=expected;if(allowed!==true||canonical(pins)!==canonical(wanted)||!isoTime(expires_at)||Date.parse(expires_at)<=now()||Date.parse(expires_at)>deadline)fail('EMAIL_RUNTIME_AUTHORITY_DENIED');deadline=Date.parse(expires_at);arm();combined.throwIfAborted();}};

@@ -1,31 +1,60 @@
 {
   "schema": "deft.email.preview.compatibility.v1",
   "publication_state": "source-template",
-  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.21/compatibility.json",
-  "resolution": "The detached preview.21 release asset resolves exact tagged source commits, Host preview.131 image digest and asset SHA256 values after packaging. This source template does not certify publication or contain its own archive checksum.",
+  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.22/compatibility.json",
+  "resolution": "The detached preview.22 asset resolves the exact tagged source, published Host132 image and hashes. This source template contains no self-referential archive checksum.",
   "host": {
-    "version": "0.3.0-preview.131",
-    "minimum_version": "0.3.0-preview.131",
-    "tag": "v0.3.0-preview.131",
+    "version": "0.3.0-preview.132",
+    "minimum_version": "0.3.0-preview.132",
+    "tag": "v0.3.0-preview.132",
     "repository": "https://github.com/Maneek21/Deft",
-    "release_manifest": "https://github.com/Maneek21/Deft/releases/download/v0.3.0-preview.131/release-manifest.json",
+    "release_manifest": "https://github.com/Maneek21/Deft/releases/download/v0.3.0-preview.132/release-manifest.json",
     "browser_profile": "apps-developer-preview",
     "schema_version": "0.3.0-preview.131",
-    "contracts": { "app_protocol": 7, "connection_protocol": 2, "record_form": 3, "resource_sync_channel": 3 }
+    "contracts": {
+      "app_protocol": 7,
+      "connection_protocol": 2,
+      "record_form": 3,
+      "resource_sync_channel": 3
+    }
   },
   "email": {
-    "tag": "v1.9.0-preview.21",
+    "tag": "v1.9.0-preview.22",
     "repository": "https://github.com/Maneek21/deft-email",
-    "app_version": "1.9.1-preview.2",
-    "runtime_version": "0.4.0-preview.19",
+    "app_version": "1.9.1-preview.3",
+    "runtime_version": "0.4.0-preview.20",
     "app_kit_version": "0.1.0-alpha.39",
     "runtime_kit_version": "0.1.0-alpha.35",
-    "kit_compatibility": "App alpha.39 supports the app-owned background_refresh_description field, requiring Host preview.127 or newer. Runtime alpha.35 keeps its existing transport contracts; Host preview.131 supplies scoped service reacquisition and trusted upgrade continuity. Runtime preview.19 renews early and reconciles expired leases using durable receipted registration enrollment. The Kit versions need not match."
+    "kit_compatibility": "App alpha.39 retains the original Host127 background-refresh-description contract; Runtime alpha.35 is unchanged. Host132 and Runtime20 align bounded retained-reattachment phases for multiple purposes and keep current authority, finite expiry and revocation fences. Short Runtime channel leases remain fifteen minutes."
   },
   "kits": [
-    { "version": "0.1.0-alpha.39", "asset": "deft-app-kit-0.1.0-alpha.39.tgz", "sha256": "5d45f6cb9cdf4ffc238e1137609dda5f32bbf48f2ebd2d0e47fb50ac62622a5f", "consumer": "email-app", "source_tag": "v0.3.0-preview.127", "source_repository": "https://github.com/Maneek21/Deft" },
-    { "version": "0.1.0-alpha.35", "asset": "deft-app-kit-0.1.0-alpha.35.tgz", "sha256": "82c2d5bff2776e423b58647fad0f4a6a6430535f4e60c8146fed737d83f33ad5", "consumer": "email-runtime" }
+    {
+      "version": "0.1.0-alpha.39",
+      "asset": "deft-app-kit-0.1.0-alpha.39.tgz",
+      "sha256": "5d45f6cb9cdf4ffc238e1137609dda5f32bbf48f2ebd2d0e47fb50ac62622a5f",
+      "consumer": "email-app",
+      "source_tag": "v0.3.0-preview.127",
+      "source_repository": "https://github.com/Maneek21/Deft"
+    },
+    {
+      "version": "0.1.0-alpha.35",
+      "asset": "deft-app-kit-0.1.0-alpha.35.tgz",
+      "sha256": "82c2d5bff2776e423b58647fad0f4a6a6430535f4e60c8146fed737d83f33ad5",
+      "consumer": "email-runtime"
+    }
   ],
-  "supported_environment": { "host_platform": "linux/amd64", "runtime_instances": 1, "runtime_platform": "POSIX with durable private storage and HTTPS", "node": ">=22.13.0", "npm": "11.9.0", "pnpm": "10.33.0" },
-  "limitations": ["Operator-managed developer preview, not production Gmail/Outlook parity.", "Refresh can take tens of seconds; repeated latency campaigns are outside release acceptance.", "OAuth configuration, purpose-specific Host gates/keys, reviewed grants and durable Runtime custody are required.", "Resource publication for Task/Knowledge integration needs separate reviewed finite or explicitly Host-issued until_revoked consent; technical renewal alone does not grant it."]
+  "supported_environment": {
+    "host_platform": "linux/amd64",
+    "runtime_instances": 1,
+    "runtime_platform": "POSIX with durable private storage and HTTPS",
+    "node": ">=22.13.0",
+    "npm": "11.9.0",
+    "pnpm": "10.33.0"
+  },
+  "limitations": [
+    "Operator-managed developer preview, not production Gmail/Outlook parity.",
+    "Refresh can take tens of seconds; repeated latency campaigns are outside release acceptance.",
+    "OAuth configuration, purpose-specific Host gates/keys, reviewed grants and durable Runtime custody are required.",
+    "Resource publication for Task/Knowledge integration needs separate reviewed finite or explicitly Host-issued until_revoked consent; technical renewal alone does not grant it."
+  ]
 }
