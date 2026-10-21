@@ -1,14 +1,14 @@
 {
   "schema": "deft.email.preview.compatibility.v1",
   "publication_state": "source-template",
-  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.27/compatibility.json",
-  "resolution": "Email27 source template: both Kit42 consumers use exact published Host134 release-flow bytes. The detached Email27 release manifest resolves final source and artifacts without self-reference.",
+  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.28/compatibility.json",
+  "resolution": "Email28 source template: deploy Host136 before enabling the source-seeded App9 flow. Both Kit42 consumers retain exact published Host134 release-flow bytes and provenance. The detached Email28 release manifest resolves final source and artifacts without self-reference.",
   "host": {
-    "version": "0.3.0-preview.134",
-    "minimum_version": "0.3.0-preview.134",
-    "tag": "v0.3.0-preview.134",
+    "version": "0.3.0-preview.136",
+    "minimum_version": "0.3.0-preview.136",
+    "tag": "v0.3.0-preview.136",
     "repository": "https://github.com/Maneek21/Deft",
-    "release_manifest": "https://github.com/Maneek21/Deft/releases/download/v0.3.0-preview.134/release-manifest.json",
+    "release_manifest": "https://github.com/Maneek21/Deft/releases/download/v0.3.0-preview.136/release-manifest.json",
     "browser_profile": "apps-developer-preview",
     "schema_version": "0.3.0-preview.131",
     "contracts": {
@@ -19,13 +19,13 @@
     }
   },
   "email": {
-    "tag": "v1.9.0-preview.27",
+    "tag": "v1.9.0-preview.28",
     "repository": "https://github.com/Maneek21/deft-email",
-    "app_version": "1.9.1-preview.8",
-    "runtime_version": "0.4.0-preview.25",
+    "app_version": "1.9.1-preview.9",
+    "runtime_version": "0.4.0-preview.26",
     "app_kit_version": "0.1.0-alpha.42",
     "runtime_kit_version": "0.1.0-alpha.42",
-    "kit_compatibility": "Both consumers use app-owned domain modules and clean Kit alpha.42 entries after verified Host134 publication. Preserve Email26 retained HTTP and authority callback bounds, negative-status stale reservation recovery, bounded metadata observation, ordinary client limits, fresh authority, cancellation and finite expiry."
+    "kit_compatibility": "Host136 must be deployed before this App: source-seeded compose/reply opening, scoped read recovery, form preflight and hidden-image presentation require its generic contracts. Both consumers retain exact Host134 Kit alpha.42 with app-owned domain modules. Runtime26 retains the old source_refs creation path and preserves authority denials, finite expiry, cancellation and ordinary client limits."
   },
   "kits": [
     {
