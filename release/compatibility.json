@@ -1,8 +1,8 @@
 {
   "schema": "deft.email.preview.compatibility.v1",
   "publication_state": "source-template",
-  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.20/compatibility.json",
-  "resolution": "The detached preview.20 release asset resolves exact tagged source commits, Host preview.127 image digest and asset SHA256 values after packaging. This source template does not certify publication or contain its own archive checksum.",
+  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.21/compatibility.json",
+  "resolution": "The detached preview.21 release asset resolves exact tagged source commits, Host preview.131 image digest and asset SHA256 values after packaging. This source template does not certify publication or contain its own archive checksum.",
   "host": {
     "version": "0.3.0-preview.131",
     "minimum_version": "0.3.0-preview.131",
@@ -14,13 +14,13 @@
     "contracts": { "app_protocol": 7, "connection_protocol": 2, "record_form": 3, "resource_sync_channel": 3 }
   },
   "email": {
-    "tag": "v1.9.0-preview.20",
+    "tag": "v1.9.0-preview.21",
     "repository": "https://github.com/Maneek21/deft-email",
-    "app_version": "1.9.1-preview.1",
-    "runtime_version": "0.4.0-preview.18",
+    "app_version": "1.9.1-preview.2",
+    "runtime_version": "0.4.0-preview.19",
     "app_kit_version": "0.1.0-alpha.39",
     "runtime_kit_version": "0.1.0-alpha.35",
-    "kit_compatibility": "App alpha.39 supports the app-owned background_refresh_description field, requiring Host preview.127 or newer. Runtime alpha.35 keeps its existing transport contracts; Host preview.131 supplies scoped service reacquisition and trusted upgrade continuity. The Kit versions need not match."
+    "kit_compatibility": "App alpha.39 supports the app-owned background_refresh_description field, requiring Host preview.127 or newer. Runtime alpha.35 keeps its existing transport contracts; Host preview.131 supplies scoped service reacquisition and trusted upgrade continuity. Runtime preview.19 renews early and reconciles expired leases using durable receipted registration enrollment. The Kit versions need not match."
   },
   "kits": [
     { "version": "0.1.0-alpha.39", "asset": "deft-app-kit-0.1.0-alpha.39.tgz", "sha256": "5d45f6cb9cdf4ffc238e1137609dda5f32bbf48f2ebd2d0e47fb50ac62622a5f", "consumer": "email-app", "source_tag": "v0.3.0-preview.127", "source_repository": "https://github.com/Maneek21/Deft" },

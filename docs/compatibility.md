@@ -2,25 +2,27 @@
 
 [`release/compatibility.json`](../release/compatibility.json) is the source template and entry point. Follow its `authoritative_release_manifest` URL for the single authoritative detached cross-component release record. Use that resolved record for exact Host and Email commits, versions, image digests, schema/contracts, Kit artifacts, download locations, checksums and corresponding source. The publication state in that record distinguishes a prepared candidate from a verified public release. Do not replace its pins with a branch tip, a similarly named preview or a demo image.
 
-## Release preview.20 contract
+## Release preview.21 contract
 
-Bundle preview.20 requires Host preview.127 or newer and pairs App 1.9.1-preview.1 with unchanged Runtime preview.18. The detached release record binds the new App and Kit39 to the published Host127 assets. Preview.18 remains available for rollback.
+Bundle preview.21 requires Host preview.131 or newer and pairs App1.9.1-preview.2 with Runtime0.4.0-preview.19. The detached record resolves published Host131 assets. App Kit39 retains its original Host127 corresponding source; Runtime Kit35 is unchanged. App20 and Runtime18 remain available for rollback.
 
 | Component | Version/contract |
 |---|---|
-| Email App | `1.9.1-preview.1` |
+| Email App | `1.9.1-preview.2` |
 | App Author Kit | `0.1.0-alpha.39` |
-| Email Runtime | `0.4.0-preview.18` |
+| Email Runtime | `0.4.0-preview.19` |
 | Runtime Author Kit | `0.1.0-alpha.35` |
-| Deft Host | Minimum `0.3.0-preview.127`, Apps-enabled developer-preview image; schema `120` plus the listed generic contracts |
+| Deft Host | Minimum `0.3.0-preview.131`, Apps-enabled developer-preview image; schema `131` plus the listed generic contracts |
 | App protocol | Manifest protocol 7; experience bundle v4; bridge v1; trusted renderer v2 |
 | Runtime requirements | Sync-provider channel v3 and mail-provider channel v1; connection protocol v2 |
 
 Kit39 adds the optional `background_refresh_description` contract to the existing reader-menu and account-targeted Refresh contracts. Email supplies the wording; the generic Host validates and displays it. [Kit provenance](background-refresh-description.md). The Runtime retains its sealed Kit35 transport contract; the supported Host accepts both. Do not force the two components onto one Kit version simply to align version labels. `scripts/verify-pins.mjs` verifies their exact sealed bytes, and the Runtime provenance check verifies its retained source closure.
 
-The Host must also provide generic record-form v3, prepared supplemental effects, inspection v2, source nomination v2, reviewed persistent-permission policy, the consent-continuation phase gate and the resource-refresh contract. Schema120 alone does not prove those later fixes are present; use the manifest's exact Host artifact.
+The Host must also provide generic record-form v3, prepared supplemental effects, inspection v2, source nomination v2, reviewed persistent-permission policy, the consent-continuation phase gate and the resource-refresh contract. Schema131 alone does not prove those later fixes are present; use the manifest's exact Host artifact.
 
 Bundle preview.17 pairs App preview.14 and Runtime preview.17 with Host preview.125. Searched and conversation messages are now published as Task sources, so Email → Task works for newly found messages, and draft opening is bounded. Host preview.125 carries the matching Task-review recovery, backend reliability and agent fixes from the 18 October release rehearsal. Both Kit packages are unchanged. Host preview.125 still uses schema120; it adds no migration.
+
+Runtime19 renews short sessions early and reacquires expired sessions through scoped Host service authority. Trusted compatible upgrades enroll only receipt-backed successor registrations; they do not rewrite operator configuration. Stop the previous Runtime cleanly before starting the new single writer against the same encrypted store and key. [Recovery details](../runtime/UNATTENDED-RECOVERY.md).
 
 ## Verify before installation
 
