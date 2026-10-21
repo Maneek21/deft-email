@@ -28,7 +28,7 @@ async function fixture(t,{readOnly=false,automatic=false}={}){
  const next=async(send=false,enroll=true)=>{const target=upgraded(currentScope);if(enroll){scopes.push(target);await store.close();await open();}const request={schema_version:REATTACH_VERSION,session_id:randomUUID(),scope:target,source:{session_id,session_revision:5,scope:currentScope,runtime_session_ref,account_ref:account.account_ref},transport_digest:'sha256:'+'1'.repeat(64),review_expires_at:new Date(Date.now()+60000).toISOString(),expires_at:new Date(Date.now()+29000).toISOString(),operation:'prepare',action_consents:readOnly?[]:actions(target)};return request;};
  const prepare=async request=>{const value=await runtime.request(request);const {schema_version,session_id,state,...eligibility}=value;return {...request,operation:'activate',review:{...eligibility,digest:reviewDigest(request,eligibility)}};};
  const activate=async request=>{const value=await runtime.request(request);currentScope=request.scope;session_id=request.session_id;runtime_session_ref=value.runtime_session_ref;return value;};
- t.after(async()=>{await store.close();await rm(root,{recursive:true,force:true});});return {get enrollment(){return continuity;},get store(){return store;},get runtime(){return runtime;},get data(){return data;},get calls(){return calls;},get scope(){return currentScope;},get id(){return session_id;},get account(){return account;},get ref(){return runtime_session_ref;},dataRequest,next,prepare,activate,now,latency(ms){authorityLatency=ms;},deny(){allowed=false;},failWrite(predicate){crash=predicate;},async restart(){await store.close();await open();}};
+ t.after(async()=>{await store.close();await rm(root,{recursive:true,force:true});});return {get enrollment(){return continuity;},get store(){return store;},get runtime(){return runtime;},get data(){return data;},get calls(){return calls;},get scope(){return currentScope;},get id(){return session_id;},get account(){return account;},get ref(){return runtime_session_ref;},dataRequest,next,prepare,activate,now,advance(ms){offset+=ms;},latency(ms){authorityLatency=ms;},deny(){allowed=false;},failWrite(predicate){crash=predicate;},async restart(){await store.close();await open();}};
 }
 
 test('v2 HTTP reattachment retains exact encrypted secret/account, reseals purposes, and preserves original source history',async t=>{
@@ -142,4 +142,52 @@ test('slow reattachment still stops at the original finite account and purpose d
  assert.equal(f.calls,before);
  const source=(await f.store.withLock({key:'email.runtime.session.'+sourceId},tx=>tx.read())).value;
  assert.equal(source.state,'connected');assert.equal(await f.store.withLock({key:'email.runtime.session.'+request.session_id},tx=>tx.read()),null);
+});
+
+
+test('v2 absent expired review status survives a foreign expired prepared review without changing custody or its reservation',async t=>{
+ const f=await fixture(t,{automatic:true}),prior=await f.next(false,false),before=f.calls;
+ await f.prepare(prior);
+ const absent={...prior,session_id:randomUUID(),review_expires_at:new Date(f.now()+300000).toISOString()};
+ const reservationKey='email.runtime.target.'+digest(prior.scope);
+ const reservation=await f.store.withLock({key:reservationKey},tx=>tx.read());
+ const source=await f.store.withLock({key:'email.runtime.session.'+prior.source.session_id},tx=>tx.read());
+ const custody=await f.data.custody.withAccount(source.value.binding,tx=>tx.read());
+ f.advance(301000);
+ const request={...absent,operation:'status',review:null,expires_at:new Date(f.now()+29000).toISOString()};
+ const result=await f.runtime.request(request);
+ assert.deepEqual(result,{schema_version:REATTACH_VERSION,session_id:absent.session_id,state:'not_connected',reason:'prepare_not_started'});
+ assert.deepEqual(await f.store.withLock({key:reservationKey},tx=>tx.read()),reservation);
+ assert.deepEqual(await f.store.withLock({key:'email.runtime.session.'+prior.source.session_id},tx=>tx.read()),source);
+ assert.deepEqual(await f.data.custody.withAccount(source.value.binding,tx=>tx.read()),custody);
+ assert.equal(await f.store.withLock({key:'email.runtime.session.'+absent.session_id},tx=>tx.read()),null);
+ const journal=(await f.store.withLock({key:'email.runtime.reattach.'+absent.session_id},tx=>tx.read())).value;
+ assert.equal(journal.state,'closed_unprepared');
+ await f.restart();assert.deepEqual(await f.runtime.request(request),result);
+ await assert.rejects(f.runtime.request(absent),'the expired original prepare cannot replay after the durable status tombstone');
+ f.deny();await assert.rejects(f.runtime.request(request),'even a durable negative status rechecks current Host authority');
+ assert.equal(f.calls,before);
+});
+
+
+test('v2 absent review status never uses own, live, activated, ended, foreign-scope or other-kind reservations as negative proof',async t=>{
+ for(const kind of ['own','live','activating','connected','ended','foreign-scope','other-kind'])await t.test(kind,async t=>{
+  const f=await fixture(t,{automatic:true}),prior=await f.next(false,false);await f.prepare(prior);
+  const absent={...prior,session_id:randomUUID(),operation:'status',review:null};
+  f.advance(301000);absent.expires_at=new Date(f.now()+29000).toISOString();
+  const key='email.runtime.target.'+digest(prior.scope);
+  await f.store.withLock({key},async tx=>{const row=await tx.read(),value=structuredClone(row.value);
+   if(kind==='own')value.session_id=absent.session_id;
+   if(kind==='live')value.review_expires_at=f.now()+60000;
+   if(['activating','connected','ended'].includes(kind))value.state=kind;
+   if(kind==='foreign-scope')value.scope.target_key='foreign';
+   if(kind==='other-kind')value.kind='upgrade';
+   assert.equal(await tx.compareAndSwap({expected_revision:row.revision,value}),true);
+  });
+  const before=await f.store.withLock({key},tx=>tx.read()),calls=f.calls;
+  await assert.rejects(f.runtime.request(absent),{code:'EMAIL_RUNTIME_REATTACH_DENIED'});
+  assert.deepEqual(await f.store.withLock({key},tx=>tx.read()),before);
+  assert.equal(await f.store.withLock({key:'email.runtime.reattach.'+absent.session_id},tx=>tx.read()),null);
+  assert.equal(f.calls,calls);
+ });
 });

@@ -7,7 +7,7 @@
     "@deft/app-kit": "file:deft-app-kit-0.1.0-alpha.39.tgz",
     "esbuild": "0.28.2"
   },
-  "version": "1.9.1-preview.5",
+  "version": "1.9.1-preview.6",
   "scripts": {
     "build": "node build.mjs",
     "test": "node --test release-package.test.mjs imported-history.test.mjs",

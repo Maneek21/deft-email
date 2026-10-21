@@ -25,6 +25,14 @@ export async function reserveUpgradeTarget({store,request,check,now=Date.now}){
 export async function advanceTarget({store,request,from,to,check}){await store.withLock({key:key(request.scope)},async tx=>{await check();const row=await tx.read();if(!row||row.value.session_id!==request.session_id||canonical(row.value.scope)!==canonical(request.scope)||row.value.state!==from)fail('EMAIL_RUNTIME_REATTACH_DENIED');if(!await tx.compareAndSwap({expected_revision:row.revision,value:{...row.value,state:to}}))fail('EMAIL_RUNTIME_CONFLICT');await check();});}
 export async function endTarget({store,request,check}){await store.withLock({key:key(request.scope)},async tx=>{await check();const row=await tx.read();if(!row)return;if(row.value.session_id!==request.session_id||canonical(row.value.scope)!==canonical(request.scope))fail('EMAIL_RUNTIME_REATTACH_DENIED');if(!await tx.compareAndSwap({expected_revision:row.revision,value:{...row.value,state:'ended'}}))fail('EMAIL_RUNTIME_CONFLICT');await check();});}
 
-/** Inspect under the same reservation lock. Absence is required, even for an
- * expired/ended row: status never clears or reuses an original reservation. */
-export async function withUnreservedTarget({store,request,check},work){return store.withLock({key:key(request.scope)},async tx=>{await check();if(await tx.read())fail('EMAIL_RUNTIME_REATTACH_DENIED');return work();});}
+/** Prove this original request never reserved the target. A different expired
+ * prepared reattachment can remain after an earlier abandoned review. Its row
+ * is preserved; an own, live or possibly activated reservation is never proof.
+ * Activation advances prepared -> activating before any custody mutation. */
+export async function withUnreservedTarget({store,request,check,now=Date.now},work){return store.withLock({key:key(request.scope)},async tx=>{
+ await check();const prior=(await tx.read())?.value;
+ if(prior&&!(typeof prior.session_id==='string'&&prior.session_id!==request.session_id
+  &&prior.kind==='reattach'&&prior.state==='prepared'&&canonical(prior.scope)===canonical(request.scope)
+  &&Number.isSafeInteger(prior.review_expires_at)&&prior.review_expires_at>0&&prior.review_expires_at<=now()))fail('EMAIL_RUNTIME_REATTACH_DENIED');
+ return work();
+});}
