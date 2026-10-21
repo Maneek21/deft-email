@@ -33,7 +33,7 @@ importers:
 packages:
 
   '@deft/app-kit@file:deft-app-kit-0.1.0-alpha.42.tgz':
-    resolution: {integrity: sha512-N1HZ6ogU2AsUCL8cg+9KFvwmJKkTaxCvfAlcqHK75Zct1BfgGSVxmzE7yCvsRYfL1+qEsCqghlLt4mnyTj0JGQ==, tarball: file:deft-app-kit-0.1.0-alpha.42.tgz}
+    resolution: {integrity: sha512-VQjgvuF/1zBbbiPtwyOGLJnYkmrO62ql1TdTwQIte6CTc1pVlDFD9p7dKf0L/WqOrnOZihWQA4a6bZ9RRFWqtQ==, tarball: file:deft-app-kit-0.1.0-alpha.42.tgz}
     version: 0.1.0-alpha.42
     hasBin: true
 

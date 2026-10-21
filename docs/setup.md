@@ -1,6 +1,6 @@
 # Developer-preview setup
 
-Use the exact Apps-enabled Host and public artifacts in [the authoritative compatibility record](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.26/compatibility.json). The supported Host requires schema **131** and the matching generic contracts, not merely an older compatible-looking release label. Check the record's publication state and download hashes before starting. [Verification](verification.md) distinguishes previous demo evidence from final public acceptance.
+Use the exact Apps-enabled Host and public artifacts in [the authoritative compatibility record](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.27/compatibility.json). The supported Host requires schema **131** and the matching generic contracts, not merely an older compatible-looking release label. Check the record's publication state and download hashes before starting. [Verification](verification.md) distinguishes previous demo evidence from final public acceptance.
 
 The external consumer path is: obtain compatible Deft → independently build Email → sideload/review it → configure the separately operated Runtime, HTTPS/OAuth and authority → use Email and source integrations → [upgrade Email against the same Host](independence-upgrade.md). This requires operator work; no Deft source checkout, private import, native Email adapter or SQL patch is part of the Email installation.
 

@@ -2,7 +2,7 @@
   "schema": "deft.email.preview.compatibility.v1",
   "publication_state": "source-template",
   "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.27/compatibility.json",
-  "resolution": "Email27 release preparation. Requires exact published Host134 Kit alpha.42 artifacts. Retains all published Email26 transport, stale-reservation and bounded observation fixes.",
+  "resolution": "Email27 source template: both Kit42 consumers use exact published Host134 release-flow bytes. The detached Email27 release manifest resolves final source and artifacts without self-reference.",
   "host": {
     "version": "0.3.0-preview.134",
     "minimum_version": "0.3.0-preview.134",
@@ -31,20 +31,22 @@
     {
       "version": "0.1.0-alpha.42",
       "asset": "deft-app-kit-0.1.0-alpha.42.tgz",
-      "sha256": "1d4c68ef5964b5ed8a44e485e0c8d6f7767bdf12e591e17a6aab6b5036145a9a",
+      "sha256": "efbeb9204b6c6a5ba997d67dd6ba995d30e0883aa7477731eee005270e866e06",
       "consumer": "email-app",
       "source_tag": "v0.3.0-preview.134",
       "source_repository": "https://github.com/Maneek21/Deft",
-      "artifact_origin": "local packed certification candidate; not published"
+      "artifact_origin": "Host release-flow artifact",
+      "source_commit": "b956d9bad093b6b705b88980ff68d01806beff7a"
     },
     {
       "version": "0.1.0-alpha.42",
       "asset": "deft-app-kit-0.1.0-alpha.42.tgz",
-      "sha256": "1d4c68ef5964b5ed8a44e485e0c8d6f7767bdf12e591e17a6aab6b5036145a9a",
+      "sha256": "efbeb9204b6c6a5ba997d67dd6ba995d30e0883aa7477731eee005270e866e06",
       "consumer": "email-runtime",
       "source_tag": "v0.3.0-preview.134",
       "source_repository": "https://github.com/Maneek21/Deft",
-      "artifact_origin": "local packed certification candidate; not published"
+      "artifact_origin": "Host release-flow artifact",
+      "source_commit": "b956d9bad093b6b705b88980ff68d01806beff7a"
     }
   ],
   "supported_environment": {

@@ -2,7 +2,7 @@
 
 The developer-preview claim is specific: a developer can build this connected Email App from its public repository and public Author Kit packages, sideload it into a compatible Deft Host, deploy its provider Runtime separately, and update Email without changing that Host. It does not claim that operator setup is automatic or that any older Deft release accepts these contracts.
 
-Use [the compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.26/compatibility.json) for exact artifacts and [verification](verification.md) for acceptance. Historical demo results remain tied to their own versions.
+Use [the compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.27/compatibility.json) for exact artifacts and [verification](verification.md) for acceptance. Historical demo results remain tied to their own versions.
 
 ## Ownership
 
@@ -19,7 +19,7 @@ The Runtime's bundled domain helpers and frozen dependency provenance belong to 
 ## One external-author path
 
 1. Obtain the exact compatible public Host image and deployment assets; verify schema, compiled Apps gates and signing/provenance.
-2. Extract Email corresponding source or check out its exact public commit into a separate directory. Use sealed Kit38 for the App and Kit35 for the Runtime, then build `app/app.deft.json` with the [README commands](../README.md#build-independently).
+2. Extract Email corresponding source or check out its exact public commit into a separate directory. Use the exact released Kit42 for both App and Runtime on Host134 or newer, then build `app/app.deft.json` with the [README commands](../README.md#build-independently).
 3. Follow [setup](setup.md): public protocol7 stage/review/activate, operator Runtime admission, HTTPS/OAuth, owner resource/action consent and private draft-store consent. Each installation uses newly issued IDs and its own custody.
 4. Use Email in the trusted Deft surface. Task/Knowledge interactions use generic source nomination and destination review; they require separately configured observation/publication and destination policy.
 5. Make an Email-owned change and follow [the existing private-note upgrade example](independence-upgrade.md). Keep Host source/image/schema fixed and preserve retained draft/Run state. A package upgrade may require current reviewed registrations and same-account reattachment; that is lifecycle configuration, not a Host patch.

@@ -2,21 +2,21 @@
 
 [`release/compatibility.json`](../release/compatibility.json) is the source template and entry point. Follow its `authoritative_release_manifest` URL for the single authoritative detached cross-component release record. Use that resolved record for exact Host and Email commits, versions, image digests, schema/contracts, Kit artifacts, download locations, checksums and corresponding source. The publication state in that record distinguishes a prepared candidate from a verified public release. Do not replace its pins with a branch tip, a similarly named preview or a demo image.
 
-## Release preview.23 contract
+## Release preview.27 contract
 
-Bundle preview.23 requires Host preview.132 or newer and pairs App1.9.1-preview.7 with Runtime0.4.0-preview.24. The detached record resolves published Host133 assets. App Kit39 retains its original Host127 corresponding source; Runtime Kit35 is unchanged. Installed App21 and Runtime20 remain available for rollback.
+Bundle preview.27 requires Host134 or newer and pairs App1.9.1-preview.8 with Runtime0.4.0-preview.25. Both use the exact Kit42 archive published by Host134. Historical Kits and their original source offers remain immutable. Rollback requires matched Host/App/Runtime and data snapshots.
 
 | Component | Version/contract |
 |---|---|
-| Email App | `1.9.1-preview.7` |
-| App Author Kit | `0.1.0-alpha.39` |
-| Email Runtime | `0.4.0-preview.24` |
-| Runtime Author Kit | `0.1.0-alpha.35` |
-| Deft Host | Minimum `0.3.0-preview.133`, Apps-enabled developer-preview image; schema `131` plus the listed generic contracts |
+| Email App | `1.9.1-preview.8` |
+| App Author Kit | `0.1.0-alpha.42` |
+| Email Runtime | `0.4.0-preview.25` |
+| Runtime Author Kit | `0.1.0-alpha.42` |
+| Deft Host | Minimum `0.3.0-preview.134`, Apps-enabled developer-preview image; schema `131` plus the listed generic contracts |
 | App protocol | Manifest protocol 7; experience bundle v4; bridge v1; trusted renderer v2 |
 | Runtime requirements | Sync-provider channel v3 and mail-provider channel v1; connection protocol v2 |
 
-Kit39 adds the optional `background_refresh_description` contract to the existing reader-menu and account-targeted Refresh contracts. Email supplies the wording; the generic Host validates and displays it. [Kit provenance](background-refresh-description.md). The Runtime retains its sealed Kit35 transport contract; the supported Host accepts both. Do not force the two components onto one Kit version simply to align version labels. `scripts/verify-pins.mjs` verifies their exact sealed bytes, and the Runtime provenance check verifies its retained source closure.
+Kit42 isolates app-owned domain behavior behind clean core and experience/core entries while retaining deprecated compatibility exports. Both consumers adopt its exact published Host134 bytes; this is a reviewed API/ownership migration. [Release provenance](kit42-preparation.md), immutable pins, both frozen locks, and vendor/domain provenance checks bind the artifact.
 
 The Host must also provide generic record-form v3, prepared supplemental effects, inspection v2, source nomination v2, reviewed persistent-permission policy, the consent-continuation phase gate and the resource-refresh contract. Schema131 alone does not prove those later fixes are present; use the manifest's exact Host artifact.
 
