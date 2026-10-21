@@ -1,6 +1,6 @@
 # Developer-preview limitations
 
-This preview demonstrates a connected, independently deployed Email App using public Deft contracts. It is intended for developers and operators, with Gmail as the accepted provider path. It does not promise effortless onboarding, full Gmail/Outlook parity or production-scale operation. Exact published identities and acceptance belong to [the compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.25/compatibility.json) and [verification](verification.md).
+This preview demonstrates a connected, independently deployed Email App using public Deft contracts. It is intended for developers and operators, with Gmail as the accepted provider path. It does not promise effortless onboarding, full Gmail/Outlook parity or production-scale operation. Exact published identities and acceptance belong to [the compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.26/compatibility.json) and [verification](verification.md).
 
 ## Known behavior
 
@@ -32,3 +32,5 @@ Retained-account handshakes use a bounded120-second phase and matching authentic
 Retained-account authority callbacks have a thirty-second transport cap inside the existing bounded120-second phase. Ordinary authority clients retain five seconds. Queue time, caller cancellation, fresh revocation checks and every permission deadline remain binding. This corrects a live healthy callback returning200 after5.27seconds, after the old client had already timed out.
 
 Negative status for an expired review with no journal/session may tolerate a different expired prepared reattachment for the same exact scope. The prior reservation is preserved. Own, live, activating, connected, ended, other-kind and changed-scope reservations still deny; source custody, lineage and current Host authority remain mandatory.
+
+Metadata observation uses a bounded sixty-second operation phase to finish repeated fresh authorization and disclosure checks under a healthy slower Host. Every current authority expiry, original consent deadline, caller cancellation and Host lease still applies; no provider or result call is retried automatically.
