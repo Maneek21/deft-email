@@ -17,11 +17,11 @@ const result=(row,attempt)=>({schema_version:'deft.app_local_job_result.v1',job:
 /** Local-only timers. No injected provider fetch and no provider effect path.
  * The held connection/session lock preserves mutation/custody serialization.
  * One encrypted row contains intent, local reminder and exact completion. */
-export function createLocalJobRuntime({registrations,client,provider='gmail',forms,store,encryption_key,key_id,assertInteractive,assertJob,assertVisibility,now=Date.now,onPhase}){
+export function createLocalJobRuntime({registrations,getRegistrations,client,provider='gmail',forms,store,encryption_key,key_id,assertInteractive,assertJob,assertVisibility,now=Date.now,onPhase}){
  const formMode=provider==='imap_smtp';if(formMode&&(!forms||client)||!formMode&&forms)fail('EMAIL_LOCAL_JOB_CONFIG_INVALID');
  const pins=registrations.map(({connection_protocol,...rest})=>validateRegistration(rest)),validatedClient=formMode?null:validateOAuthClient(provider,client),fingerprint=formMode?'credential_form.v1':oauthClientFingerprint(provider,validatedClient),custody=formMode?null:createEncryptedEmailCustody({store,encryption_key,key_id,now}),mailbox=createMailboxStore({store,now});
  async function within(context,deadline,work,expectedGeneration=null){
-  const registration=pins.find(row=>row.org_id===context.scope.org_id&&row.runtime_registration_id===context.scope.runtime_registration_id);
+  const registration=(getRegistrations?getRegistrations().map(({connection_protocol,...r})=>validateRegistration(r)):pins).find(row=>row.org_id===context.scope.org_id&&row.runtime_registration_id===context.scope.runtime_registration_id);
   if(!registration||Object.keys(registration).some(key=>registration[key]!==context.scope[key]))fail('EMAIL_RUNTIME_REGISTRATION_DENIED');
   const withSession=work=>formMode?forms.withDataSession(context.connection,context.scope,()=>deadline.check(),work):store.withLock({key:'email.runtime.session.'+context.connection.session_id},work);
   return withSession(async sessionTx=>{

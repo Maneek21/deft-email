@@ -55,9 +55,75 @@ function fixture(){
 const code=expected=>error=>error?.code===expected;
 
 
-async function retained(f,secret){const r=await f.custody.withAccount(f.bindings.get('google-a'),tx=>tx.read());assert.equal(r.health,'refresh_pending');assert.deepEqual(r.secret,secret);assert.equal(JSON.stringify([...f.store.rows.values()]).includes(secret.refresh_token),false);return r;}
+async function row(f,id='google-a'){return f.custody.withAccount(f.bindings.get(id),tx=>tx.read());}
 async function noRetry(f,a){const n=f.calls.length;await assert.rejects(f.token(a),code('EMAIL_OAUTH_REAUTH_REQUIRED'));assert.equal(f.calls.length,n);}
-test('lost refresh response retains encrypted credentials and blocks retry',async()=>{const f=fixture(),a=await f.complete(),s=(await f.custody.withAccount(f.bindings.get('google-a'),tx=>tx.read())).secret;f.advance(100000);f.setRefreshMode(()=>{throw Error('lost');});await assert.rejects(f.token(a),code('EMAIL_OAUTH_PROVIDER_UNAVAILABLE'));await retained(f,s);await noRetry(f,a);});
-test('authority expiry after refresh preserves original custody and blocks retry',async()=>{const f=fixture(),a=await f.complete(),s=(await f.custody.withAccount(f.bindings.get('google-a'),tx=>tx.read())).secret;f.advance(100000);f.setAfterFetch(({init})=>{if(init.body instanceof URLSearchParams&&init.body.get('grant_type')==='refresh_token')f.expire();});await assert.rejects(f.token(a),code('EMAIL_OAUTH_AUTHORITY_DENIED'));await retained(f,s);f.setAfterFetch(null);});
-test('verified identity mismatch preserves credentials without health promotion',async()=>{const f=fixture(),a=await f.complete(),s=(await f.custody.withAccount(f.bindings.get('google-a'),tx=>tx.read())).secret;f.advance(100000);f.setSubject('different');await assert.rejects(f.token(a),code('EMAIL_OAUTH_RECONNECT_IDENTITY_CHANGED'));await retained(f,s);await noRetry(f,a);});
-test('explicit invalid_grant discards credentials and blocks refresh replay',async()=>{const f=fixture(),a=await f.complete();f.advance(100000);f.setRefreshMode(()=>response({error:'invalid_grant'},400));await assert.rejects(f.token(a),code('EMAIL_OAUTH_REAUTH_REQUIRED'));const r=await f.custody.withAccount(f.bindings.get('google-a'),tx=>tx.read());assert.equal(r.health,'reauth_required');assert.equal(r.secret.refresh_token,'discarded');assert.equal(r.secret.access_token,'discarded');await noRetry(f,a);});
+
+test('lost Gmail refresh response retains last usable token and retries after durable backoff',async()=>{
+ const f=fixture(),a=await f.complete(),before=(await row(f)).secret;f.advance(100000);
+ f.setRefreshMode(()=>{throw Error('lost response');});await assert.rejects(f.token(a),code('EMAIL_OAUTH_PROVIDER_UNAVAILABLE'));
+ const pending=await row(f);assert.equal(pending.health,'connected');assert.equal(pending.secret.refresh_token,before.refresh_token);
+ assert.equal(pending.secret.refresh_reconciliation.phase,'transport_unavailable');assert.ok(pending.secret.refresh_reconciliation.next_retry_at>f.now());
+ const count=f.calls.length;await assert.rejects(f.token(a),code('EMAIL_OAUTH_PROVIDER_UNAVAILABLE'));assert.equal(f.calls.length,count);
+ f.setRefreshMode(null);f.advance(1001);assert.ok(await f.token(a));assert.equal((await row(f)).secret.refresh_reconciliation,undefined);
+ assert.equal(JSON.stringify([...f.store.rows.values()]).includes(before.refresh_token),false);
+});
+
+test('received Gmail credentials commit before authority expires, then verification resumes after restart without another refresh',async()=>{
+ const f=fixture(),a=await f.complete(),before=(await row(f)).secret;f.advance(100000);
+ let unavailable=true;const original=f.host.assertAuthority;
+ f.host.assertAuthority=async input=>{if(unavailable&&f.calls.some(c=>c.form?.grant_type==='refresh_token'))throw Error('Host down');return original(input);};
+ await assert.rejects(f.token(a),code('EMAIL_OAUTH_AUTHORITY_DENIED'));
+ const pending=await row(f);assert.notEqual(pending.secret.refresh_token,before.refresh_token);assert.equal(pending.secret.refresh_reconciliation.phase,'verification_pending');
+ unavailable=false;f.advance(1001);const oauth=createEmailOAuth({clients:f.clients,host:f.host,custody:f.custody,fetch:f.fetch,now:f.now});
+ assert.ok(await f.token(a,'read',oauth));assert.equal(f.calls.filter(c=>c.form?.grant_type==='refresh_token').length,1);
+});
+
+test('verification GET failure retries verification with persisted rotated credentials',async()=>{
+ const f=fixture(),a=await f.complete();f.advance(100000);let fail=true;
+ f.setAfterFetch(({url})=>{if(fail&&url.includes('userinfo'))throw Error('GET timeout');});
+ await assert.rejects(f.token(a),code('EMAIL_OAUTH_PROVIDER_UNAVAILABLE'));
+ assert.equal((await row(f)).secret.refresh_reconciliation.phase,'verification_pending');
+ fail=false;f.advance(1001);assert.ok(await f.token(a));assert.equal(f.calls.filter(c=>c.form?.grant_type==='refresh_token').length,1);
+});
+
+test('legacy Gmail refresh_pending state reconciles under the same account lock',async()=>{
+ const f=fixture(),a=await f.complete();f.advance(100000);
+ await f.custody.withAccount(f.bindings.get('google-a'),async tx=>{const r=tx.read();await tx.write({health:'refresh_pending',secret:r.secret});});
+ await Promise.all([f.token(a),f.token(a)]);assert.equal(f.calls.filter(c=>c.form?.grant_type==='refresh_token').length,1);
+});
+
+test('revocation at the live boundary prevents retry and token disclosure',async()=>{
+ const f=fixture(),a=await f.complete();f.advance(100000);f.setRefreshMode(()=>{throw Error('timeout');});
+ await assert.rejects(f.token(a),code('EMAIL_OAUTH_PROVIDER_UNAVAILABLE'));f.advance(300001);f.deny();
+ const count=f.calls.length;await assert.rejects(f.token(a),code('EMAIL_OAUTH_AUTHORITY_DENIED'));assert.equal(f.calls.length,count);
+});
+
+test('verified identity mismatch requires reconnect and never retries provider access',async()=>{
+ const f=fixture(),a=await f.complete();f.advance(100000);f.setSubject('different');
+ await assert.rejects(f.token(a),code('EMAIL_OAUTH_RECONNECT_IDENTITY_CHANGED'));assert.equal((await row(f)).health,'reauth_required');await noRetry(f,a);
+});
+
+test('explicit invalid_grant discards credentials and blocks refresh replay',async()=>{
+ const f=fixture(),a=await f.complete();f.advance(100000);f.setRefreshMode(()=>response({error:'invalid_grant'},400));
+ await assert.rejects(f.token(a),code('EMAIL_OAUTH_REAUTH_REQUIRED'));const r=await row(f);assert.equal(r.health,'reauth_required');assert.equal(r.secret.refresh_token,'discarded');await noRetry(f,a);
+});
+
+test('Microsoft lost rotating refresh response remains fenced',async()=>{
+ const f=fixture(),a=await f.complete('graph-a');f.advance(100000);f.setRefreshMode(()=>{throw Error('lost');});
+ await assert.rejects(f.token(a),code('EMAIL_OAUTH_PROVIDER_UNAVAILABLE'));assert.equal((await row(f,'graph-a')).health,'refresh_pending');await noRetry(f,a);
+});
+
+test('Gmail refresh without replacement retains the last usable refresh token',async()=>{
+ const f=fixture(),a=await f.complete(),before=(await row(f)).secret.refresh_token;f.advance(100000);
+ f.tokens.set('unrotated-access',{account_id:'google-a',subject:'google-a'});
+ f.setRefreshMode(()=>response({access_token:'unrotated-access',token_type:'Bearer',expires_in:3600}));
+ assert.equal(await f.token(a),'unrotated-access');assert.equal((await row(f)).secret.refresh_token,before);
+});
+
+test('legacy pending projection is restricted to operational read custody',async()=>{
+ const f=fixture();await f.complete();const binding=f.bindings.get('google-a');
+ await f.custody.withAccount(binding,tx=>{const r=tx.read();return tx.write({health:'refresh_pending',secret:r.secret});});
+ const operational=createEncryptedEmailCustody({encryption_key:f.key,key_id:'test-key',store:f.store,now:f.now,recover_gmail_refresh:true});
+ assert.equal((await row(f)).health,'refresh_pending');assert.equal((await operational.withAccount(binding,tx=>tx.read())).health,'connected');
+ assert.equal((await row(f)).health,'refresh_pending','A read projection never promotes the durable state or weakens repair readers');
+});

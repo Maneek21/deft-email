@@ -134,3 +134,14 @@ test('throwing diagnostic callbacks cannot change renewal authorization or uncha
  const life=createRuntimeChannelRenewal({channel:f.channel,runtime_client:f.client,now:()=>820000,wait:async()=>{},onDiagnostic:()=>{throw Error('sink unavailable');}});
  assert.equal(await life.renew(signal()),true);assert.equal(JSON.stringify(f.channel),before);life.close();assert.equal(await life.client.claim(),null);
 });
+
+test('recovery: renewal wakeup reserves five minutes plus bounded jitter before session expiry',async()=>{
+ for(const random of [()=>0,()=>1]){
+  const controller=new AbortController(),waits=[];
+  const channel={channel_url:'https://fixture.invalid',credential:{session_id:'session',session_token:'token'},registration:{},
+   technical_renewal:{expires_at:iso(900000),renewable_until:null,renewal_lifetime:'until_revoked'}};
+  const life=createRuntimeChannelRenewal({channel,runtime_client:{claim:async()=>null,renew:async()=>assert.fail('Shutdown precedes renewal')},now:()=>0,random,
+   onDiagnostic:()=>{},wait:async ms=>{waits.push(ms);controller.abort();throw controller.signal.reason;}});
+  await life.run(controller.signal);assert.equal(waits.length,1);assert.ok(waits[0]>=540000&&waits[0]<=600000);
+ }
+});

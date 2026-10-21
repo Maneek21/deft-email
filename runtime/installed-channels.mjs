@@ -41,21 +41,21 @@ export function validateInstalledChannel(entry, registrations, allow_loopback_fi
 /** One channel per kind and Runtime registration; a newer install replaces it. */
 export const installedChannelKey = entry => entry.kind + ':' + entry.channel.registration.runtime_registration_id;
 
-export function createChannelInstaller({store, registrations, allow_loopback_fixture = false, verify, activate}) {
+export function createChannelInstaller({store, registrations, getRegistrations=()=>registrations, allow_loopback_fixture = false, verify, activate}) {
   if (typeof verify !== 'function' || typeof activate !== 'function') fail('EMAIL_RUNTIME_CONFIG_INVALID');
   async function load() {
     const row = await store.withLock({key: STORE_KEY}, tx => tx.read());
     const channels = row?.value?.channels ?? [];
-    return channels.map(entry => validateInstalledChannel(entry, registrations, allow_loopback_fixture));
+    return channels.map(entry => validateInstalledChannel(entry, getRegistrations(), allow_loopback_fixture));
   }
   async function request(input, signal) {
     exact(input, ['schema_version', 'scope', 'channels']);
     if (input.schema_version !== CHANNEL_INSTALL_SCHEMA || !Array.isArray(input.channels) || !input.channels.length || input.channels.length > MAX_CHANNELS) denied();
     // The Host addresses one reviewed connection registration of this Runtime.
     const scope = input.scope;
-    if (!scope || typeof scope !== 'object' || !registrations.some(r => r.org_id === scope.org_id
+    if (!scope || typeof scope !== 'object' || !getRegistrations().some(r => r.org_id === scope.org_id
       && r.runtime_registration_id === scope.runtime_registration_id && r.operator_user_id === scope.operator_user_id)) denied();
-    const entries = input.channels.map(entry => validateInstalledChannel(entry, registrations, allow_loopback_fixture));
+    const entries = input.channels.map(entry => validateInstalledChannel(entry, getRegistrations(), allow_loopback_fixture));
     if (entries.some(entry => entry.channel.registration.org_id !== scope.org_id)) denied();
     if (new Set(entries.map(installedChannelKey)).size !== entries.length) denied();
     // Prove each session is genuine before it is kept: only the Host can renew it.
@@ -66,12 +66,12 @@ export function createChannelInstaller({store, registrations, allow_loopback_fix
       signal?.throwIfAborted();
       const row = await tx.read(), kept = new Map((row?.value?.channels ?? []).map(entry => [installedChannelKey(entry), entry]));
       for (const {entry} of verified) kept.set(installedChannelKey(entry), entry);
-      if (!await tx.compareAndSwap({expected_revision: row?.revision ?? null, value: {schema_version: 'email.runtime.installed_channels.v1', channels: [...kept.values()]}})) fail('EMAIL_RUNTIME_CONFLICT');
+      if (!await tx.compareAndSwap({expected_revision: row?.revision ?? null, value: {schema_version: 'email.runtime.installed_channels.v1', channels: [...kept.values()], owners: {...(row?.value?.owners??{}),...Object.fromEntries(verified.map(({entry})=>[installedChannelKey(entry),scope.runtime_registration_id]))}}})) fail('EMAIL_RUNTIME_CONFLICT');
     });
     await activate(verified);
     return {schema_version: CHANNEL_INSTALL_RESULT_SCHEMA, installed: verified.map(({entry, verification}) => ({
       kind: entry.kind, runtime_registration_id: entry.channel.registration.runtime_registration_id,
       session_id: entry.channel.credential.session_id, expires_at: verification.renewal.expires_at}))};
   }
-  return Object.freeze({load, request});
+  return Object.freeze({load, request,async owners(){const row=await store.withLock({key:STORE_KEY},tx=>tx.read());return {...(row?.value?.owners??{})};}});
 }
