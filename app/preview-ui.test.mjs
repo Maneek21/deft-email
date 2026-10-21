@@ -146,7 +146,7 @@ test('preview omits deferred job and mirror controls while preserving core setti
 });
 test('long author-controlled labels remain inside their UTF8 byte budget with a readable ellipsis',async()=>{
  const ui=await start({targets:[{key:'primary',label:'账户'.repeat(100)}],messages:[{...mail,data:{...mail.data,sender:'账户'.repeat(100),subject:'账户'.repeat(100)}}]});
- const button=node(ui,'mail_'+id.replaceAll('-',''));assert.ok(new TextEncoder().encode(button.label).length<=128);assert.match(button.label,/…$/);assert.doesNotMatch(JSON.stringify(ui.views.at(-1)),/·|…/);
+ const button=node(ui,'mail_'+id.replaceAll('-',''));assert.ok(new TextEncoder().encode(button.label).length<=128);assert.match(button.label,/…$/);assert.doesNotMatch(JSON.stringify(ui.views.at(-1)),/Â·|â€¦/);
 });
 
 const accountSwitch={targets:[{key:'primary',label:'Sender'},{key:'denied',label:'Recipient'}],listMailbox:async target=>{
