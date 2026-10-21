@@ -50,3 +50,22 @@ test('authenticated stalled bodies still terminate at thirty seconds before runt
  t.after(async()=>{client.destroy();server.closeAllConnections();await new Promise(done=>server.close(done));});
  client.write('{');await ready;t.mock.timers.tick(31000);await closed;assert.equal(calls,0);
 });
+
+test('a validated retained response survives the actual Node idle socket timeout without extending ordinary keep-alive requests',async t=>{
+ const token=randomBytes(32).toString('base64url'),source=makeScope();
+ const scope={...source,app_version_id:randomUUID(),grant_snapshot_id:randomUUID(),resource_binding_id:randomUUID(),runtime_registration_id:randomUUID(),lifecycle_epoch:source.lifecycle_epoch+1,grant_epoch:source.grant_epoch+1};
+ const retained={schema_version:'deft.app_connection_reattach_runtime.v2',session_id:randomUUID(),scope,source:{session_id:randomUUID(),session_revision:1,scope:source,runtime_session_ref:'synthetic_source_runtime_reference',account_ref:'synthetic-account'},transport_digest:'sha256:'+'1'.repeat(64),review_expires_at:new Date(Date.now()+300000).toISOString(),expires_at:new Date(Date.now()+110000).toISOString(),operation:'prepare',action_consents:[]};
+ const sockets=[];
+ const handler=createHttpHandler({runtime_auth_token:token,runtime:{async request(input,signal){await new Promise((resolve,reject)=>{const timer=setTimeout(resolve,300);signal.addEventListener('abort',()=>{clearTimeout(timer);reject(signal.reason);},{once:true});});return {ok:true};}}});
+ const server=createServer((request,response)=>{sockets.push(request.socket);void handler(request,response);});server.timeout=100;
+ await new Promise(done=>server.listen(0,'127.0.0.1',done));
+ const {Agent}=await import('node:http'),agent=new Agent({keepAlive:true,maxSockets:1});
+ t.after(async()=>{agent.destroy();server.closeAllConnections();await new Promise(done=>server.close(done));});
+ const post=(body,credential=token)=>new Promise((resolve,reject)=>{const request=httpRequest({hostname:'127.0.0.1',port:server.address().port,path:'/v1/connections',method:'POST',agent,headers:{authorization:'Bearer '+credential,'content-type':'application/json'}},response=>{let text='';response.on('data',chunk=>{text+=chunk;});response.on('end',()=>resolve({status:response.statusCode,body:JSON.parse(text)}));});request.on('error',reject);request.end(JSON.stringify(body));});
+ assert.deepEqual(await post(retained),{status:200,body:{ok:true}});
+ await assert.rejects(post({}),{code:'ECONNRESET'});
+ assert.equal(sockets[0],sockets[1],'the subsequent ordinary operation uses the same socket and regains its ordinary timeout');
+ assert.equal((await post(retained,randomBytes(32).toString('base64url'))).status,401);
+ const malformed={...retained,unexpected:true};assert.equal((await post(malformed)).status,400);
+ assert.equal(server.timeout,100,'the global socket budget is unchanged');
+});

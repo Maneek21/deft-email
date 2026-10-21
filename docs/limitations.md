@@ -1,6 +1,6 @@
 # Developer-preview limitations
 
-This preview demonstrates a connected, independently deployed Email App using public Deft contracts. It is intended for developers and operators, with Gmail as the accepted provider path. It does not promise effortless onboarding, full Gmail/Outlook parity or production-scale operation. Exact published identities and acceptance belong to [the compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.22/compatibility.json) and [verification](verification.md).
+This preview demonstrates a connected, independently deployed Email App using public Deft contracts. It is intended for developers and operators, with Gmail as the accepted provider path. It does not promise effortless onboarding, full Gmail/Outlook parity or production-scale operation. Exact published identities and acceptance belong to [the compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.23/compatibility.json) and [verification](verification.md).
 
 ## Known behavior
 
@@ -26,3 +26,5 @@ Multiple accounts are supported through separately reviewed targets. The Inbox f
 Full Outlook/IMAP/provider parity, broad history migration, notifications, complete mobile design, production scale, optional Calendar/Contacts/delegated-tool workflows, and an independently hosted custom-domain/shared inbox are outside the release acceptance scope. Fixture or dormant provider code does not establish live support. [ROADMAP.md](../ROADMAP.md) describes future directions without dates.
 
 The bounded [release acceptance](smoke.md) reuses valid evidence and checks remaining release-critical gaps. It does not require a broad regression campaign, repeated latency cycles, additional cosmetic work or video production. Historical tests remain historical; they are never relabelled as checks of a changed artifact.
+
+Retained-account handshakes use a bounded120-second phase and matching authenticated response-socket budget; ordinary sockets remain35seconds. Host133 supplies matching UI transport time. Permission deadlines and every online authority/effect fence remain binding.

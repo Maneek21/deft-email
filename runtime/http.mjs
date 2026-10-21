@@ -88,7 +88,13 @@ export function createHttpHandler({runtime, data_runtime, local_job_runtime, run
         const retained=validateReattachRequest(input);
         // Keep body reads and every other operation at30seconds. Only an
         // authenticated, validated custody phase uses its bounded live deadline.
-        armDeadline(reattachPhaseDeadline(retained,Date.now()));signal.throwIfAborted();
+        const phaseDeadline=reattachPhaseDeadline(retained,Date.now());
+        armDeadline(phaseDeadline);signal.throwIfAborted();
+        // Node's idle socket timer is independent of the operation AbortSignal.
+        // Extend only this authenticated, validated response, with1second to
+        // flush an error. Absolute phase/permission timers still abort work.
+        // Node restores server.timeout on keep-alive socket reuse.
+        response.setTimeout(Math.max(1,phaseDeadline-Date.now())+1000);
         diagnostic={session_id:retained.session_id,operation:'reattach_'+retained.operation};
       }
       // Diagnostics contain only authenticated, schema-validated request pins.
