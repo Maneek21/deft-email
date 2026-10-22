@@ -57,9 +57,9 @@ jobs:
           npm run test:runtime:preview
           node --test runtime/observation-latency.test.mjs
           node --test runtime/runtime-channel-renewal-startup.test.mjs runtime/consent-lifetime.test.mjs
-          node --test --test-concurrency=1 --test-name-pattern="until-revoked|persistent observation|reply seed read" runtime/data.test.mjs runtime/observation.test.mjs runtime/observation-process.test.mjs runtime/consent-continuation.test.mjs
+          node --test --test-concurrency=1 --test-name-pattern="until-revoked|persistent observation|reply seed read|whole-operation authority" runtime/data.test.mjs runtime/observation.test.mjs runtime/observation-process.test.mjs runtime/consent-continuation.test.mjs
           node --test runtime/http-failure-diagnostic.test.mjs runtime/sync-handoff-host-uuid.test.mjs
-          node --test runtime/authority-denial.test.mjs runtime/http-authority-concurrency.test.mjs
+          node --test runtime/authority-denial.test.mjs runtime/http-authority-concurrency.test.mjs runtime/authority-diagnostics.test.mjs runtime/http-authority-timing.test.mjs
           node --test runtime/prepared-effect.test.mjs runtime/email-domain-boundary.test.mjs runtime/integration-source.test.mjs runtime/capture-transport.test.mjs
           node --test runtime/smtp-send-runner.test.mjs runtime/run-inspection-runtime.test.mjs
           node --test runtime/installed-channels.test.mjs runtime/runtime-channel-install-process.test.mjs runtime/reattach-v2.test.mjs runtime/registration-continuity-process.test.mjs

@@ -3,6 +3,7 @@ import {createHash, timingSafeEqual} from 'node:crypto';
 import {fail, token} from './contract.mjs';
 import {DATA_JSON_BYTES,FILE_FRAME_HEADER_BYTES,FILE_BYTES,decodeFileFrame,encodeFileFrame} from './data-contract.mjs';
 import {REATTACH_VERSION,REATTACH_V2_VERSION,validateReattachRequest,reattachPhaseDeadline} from './reattach-contract.mjs';
+import {authorityTimingRoute,reportAuthorityTiming} from './authority-diagnostics.mjs';
 
 export const MAX_HTTP_BYTES = 16384;
 export function trustedUrl(value, allow_loopback_fixture = false) {
@@ -37,23 +38,34 @@ async function authoritySlot(host,signal){
   while(host.waiting.length){const next=host.waiting.shift();next.signal.removeEventListener('abort',next.abort);if(next.signal.aborted){next.reject(next.signal.reason);continue;}host.active++;next.resolve();break;}
  };
 }
-export function createAuthorityClient({authority_url, authority_token, fetch: fetchImpl = globalThis.fetch, allow_loopback_fixture = false, maximum_bytes = MAX_HTTP_BYTES, timeout_ms = 5000}) {
+export function createAuthorityClient({authority_url, authority_token, fetch: fetchImpl = globalThis.fetch, allow_loopback_fixture = false, maximum_bytes = MAX_HTTP_BYTES, timeout_ms = 5000,onTiming}) {
   if (!Number.isSafeInteger(maximum_bytes) || maximum_bytes < MAX_HTTP_BYTES || maximum_bytes > 614400) fail('EMAIL_RUNTIME_CONFIG_INVALID');
   if (!Number.isSafeInteger(timeout_ms) || timeout_ms < 1 || timeout_ms > 30000) fail('EMAIL_RUNTIME_CONFIG_INVALID');
   const url = trustedUrl(authority_url, allow_loopback_fixture), secret = token(authority_token);
   const origin=new URL(url).origin;let host=authorityHosts.get(origin);if(!host){host={active:0,waiting:[]};authorityHosts.set(origin,host);}
+  const timingRoute=authorityTimingRoute(new URL(url).pathname);
   return async (input, signal) => {
+    const began=performance.now();let queued,admitted,dispatched=false,outcome='failed';
+    try{
     const bytes = JSON.stringify(input); if (Buffer.byteLength(bytes) > maximum_bytes) fail('EMAIL_RUNTIME_TRANSPORT_LIMIT');
     const activeSignal=signal?AbortSignal.any([signal,AbortSignal.timeout(timeout_ms)]):AbortSignal.timeout(timeout_ms),expires=typeof input?.expires_at==='string'?Date.parse(input.expires_at):Infinity;
     const check=()=>{activeSignal.throwIfAborted();if(expires<=Date.now())fail('EMAIL_RUNTIME_AUTHORITY_DENIED');};check();
-    const release=await authoritySlot(host,activeSignal);
-    try{check();const response=await fetchImpl(url, {method: 'POST', headers: {'content-type': 'application/json', authorization: 'Bearer ' + secret}, body: bytes, redirect: 'error', signal:activeSignal});
+    queued=performance.now();const release=await authoritySlot(host,activeSignal);
+    admitted=performance.now();
+    try{check();dispatched=true;const response=await fetchImpl(url, {method: 'POST', headers: {'content-type': 'application/json', authorization: 'Bearer ' + secret}, body: bytes, redirect: 'error', signal:activeSignal});
       // The Host can deny a once-current request while its account is being
       // checked or after access ends. Preserve that denial; a live Runtime
       // receiving HTTP 403 is not evidence of a transport outage.
-      if(response.status===401||response.status===403){void response.body?.cancel().catch(()=>{});fail('EMAIL_RUNTIME_AUTHORITY_DENIED');}
-      const result=await boundedJson(response,activeSignal,maximum_bytes);check();return result;}
+      if(response.status===401||response.status===403){outcome='denied';void response.body?.cancel().catch(()=>{});fail('EMAIL_RUNTIME_AUTHORITY_DENIED');}
+      const result=await boundedJson(response,activeSignal,maximum_bytes);check();outcome=result?.allowed===false?'denied':'completed';return result;}
     finally{release();}
+    }catch(error){if(error?.code==='EMAIL_RUNTIME_AUTHORITY_DENIED')outcome='denied';throw error;
+    }finally{
+      const ended=performance.now(),round=value=>Math.round(Math.max(0,value)*100)/100;
+      const sample={event:'email_authority_timing',route:timingRoute,outcome,dispatched,elapsed_ms:round(ended-began),
+        queue_ms:round(queued===undefined?0:(admitted??ended)-queued),http_ms:round(!dispatched?0:ended-admitted)};
+      try{const emitted=onTiming?onTiming(sample):reportAuthorityTiming(sample);if(emitted&&typeof emitted.then==='function')void Promise.resolve(emitted).catch(()=>{});}catch{}
+    }
   };
 }
 const sha = value => createHash('sha256').update(value).digest();

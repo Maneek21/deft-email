@@ -23,10 +23,10 @@ test('packed public Kit keeps the displayed target on a mailbox refresh', async 
 
 test('fresh package authenticates its manifest and worker artifact against public Kit42', () => {
   assert.equal(DEFT_APP_KIT_VERSION, '0.1.0-alpha.42');
-  assert.equal(metadata.version, '1.9.1-preview.10');
+  assert.equal(metadata.version, '1.9.1-preview.11');
   assert.equal(compatibility.email.tag, 'v' + rootMetadata.version);
   assert.equal(compatibility.email.app_version, metadata.version);
-  assert.equal(compatibility.host.minimum_version, '0.3.0-preview.137');
+  assert.equal(compatibility.host.minimum_version, '0.3.0-preview.138');
   assert.equal(compatibility.host.version, compatibility.host.minimum_version);
   const artifact = JSON.parse(readFileSync(new URL('./artifact.json', import.meta.url)));
   assert.equal(JSON.parse(artifact.content).background_refresh_description, "Keep mailbox metadata current while Email is closed. Background refresh makes new messages available for Tasks and Knowledge; each action keeps its own review.");
