@@ -1,6 +1,6 @@
 # Independent Runtime operator container
 
-The current Runtime is `0.4.0-preview.26`; App and Runtime both use the exact Kit `0.1.0-alpha.42` published by Host134. Email28 requires Host136 or newer. Use the exact source/archive/Node base image pins in the [compatibility manifest](../release/compatibility.json). The complete [setup guide](../docs/setup.md) is the current operator path.
+The shipped Email28 Runtime is `0.4.0-preview.26`; App and Runtime both use the exact Kit `0.1.0-alpha.42` published by Host134. Email28 requires Host136 or newer. Use the exact source/archive/Node base image pins in its [published compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.28/compatibility.json). Current source prepares Email29 / Runtime27, held for coordinated Host137 acceptance; build from the exact published Email28 source/archive for the shipped set below. The complete [setup guide](../docs/setup.md) is the current operator path.
 
 ## Build from public source
 

@@ -1,6 +1,6 @@
 # Verification and acceptance
 
-Use [the authoritative compatibility record](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.29/compatibility.json) for the exact release source, artifacts, checksums and publication state. A prepared candidate is not published merely because its files build. The final public prerelease must link its acceptance results and disclose unverified behavior.
+Use [the shipped Email28 compatibility record](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.28/compatibility.json) for its exact source, artifacts, checksums and publication state. Current source prepares Email29 with a merged Reply opening fix; release/deployment is held for coordinated Host137 acceptance. The Email28 observations below do not verify that later fix on a deployed release. A prepared candidate is not published merely because its files build. Each final public prerelease must link its acceptance results and disclose unverified behavior.
 
 ## Connect-once observations, 21–22 October 2026
 

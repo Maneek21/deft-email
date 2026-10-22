@@ -2,7 +2,7 @@
 
 The existing example is an optional private note on a draft, up to 1000 characters, kept out of outgoing MIME. It is already implemented; no new feature is needed to demonstrate independence. New drafts may use the note, while retained pre-note drafts keep their original form without an on-read migration.
 
-Current App and Runtime identities come from [the compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.29/compatibility.json). This source is App `1.9.1-preview.10` and Runtime `0.4.0-preview.27`, both with published Kit42 from Host134. Historical App7/Runtime9 upgrade/retention receipts apply only to those frozen versions. [Verification](verification.md) records which final-release evidence was reused and which checks were rerun.
+The shipped App and Runtime identities come from [the Email28 compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.28/compatibility.json): App `1.9.1-preview.9` and Runtime `0.4.0-preview.26`. Current source prepares Email29 / App `1.9.1-preview.10` / Runtime `0.4.0-preview.27`, with release/deployment held for coordinated Host137 acceptance. Both sets retain published Kit42 from Host134. Historical App7/Runtime9 upgrade/retention receipts apply only to those frozen versions. [Verification](verification.md) records each observation's scope.
 
 ## Trusted compatible upgrade and restart recovery
 
