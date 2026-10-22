@@ -1,8 +1,8 @@
 {
   "schema": "deft.email.preview.compatibility.v1",
   "publication_state": "source-template",
-  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.30/compatibility.json",
-  "resolution": "Email30 source template: Runtime28 adds bounded content-free authority timing and actual cold/warm operation counters while preserving every fresh provider, OAuth, commit and disclosure guard. Host138 provides generic authority projections, scoped pure-content caches and current-state batching. Both Kit42 consumers retain the exact published Host134 release-flow bytes and provenance. The detached Email30 release manifest resolves final source and artifacts without self-reference.",
+  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.31/compatibility.json",
+  "resolution": "Email31 is an App12 metadata-only no-diff upgrade candidate from Email30/App11. Runtime28 source, version and archive remain byte-identical; no Runtime redeployment is required. App12 preserves the exact Experience artifact and every authority declaration after normalizing only its App version. Both Kit42 consumers retain the exact published Host134 bytes, producer metadata and corresponding source. The detached Email31 manifest must resolve final source and public artifacts; this template does not claim CI, publication or live upgrade acceptance.",
   "host": {
     "version": "0.3.0-preview.138",
     "minimum_version": "0.3.0-preview.138",
@@ -19,13 +19,14 @@
     }
   },
   "email": {
-    "tag": "v1.9.0-preview.30",
+    "tag": "v1.9.0-preview.31",
     "repository": "https://github.com/Maneek21/deft-email",
-    "app_version": "1.9.1-preview.11",
+    "app_version": "1.9.1-preview.12",
     "runtime_version": "0.4.0-preview.28",
+    "runtime_unchanged_from": "v1.9.0-preview.30",
     "app_kit_version": "0.1.0-alpha.42",
     "runtime_kit_version": "0.1.0-alpha.42",
-    "kit_compatibility": "Host138 must be deployed before this App. Both consumers retain exact Host134 Kit alpha.42 with app-owned domain modules. Runtime28 preserves all fresh provider, OAuth, external-image, commit and disclosure guards and Send exact-message review; timing diagnostics never supply authority. App11 has unchanged permissions and declarations apart from its version."
+    "kit_compatibility": "Host138 must be deployed before this App. Both consumers retain exact Host134 Kit alpha.42 with app-owned domain modules. Runtime28 preserves all fresh provider, OAuth, external-image, commit and disclosure guards and Send exact-message review; timing diagnostics never supply authority. App12 retains App11 permissions, declarations and exact Experience artifact; only the App version changes."
   },
   "kits": [
     {

@@ -2,7 +2,11 @@
 
 The existing example is an optional private note on a draft, up to 1000 characters, kept out of outgoing MIME. It is already implemented; no new feature is needed to demonstrate independence. New drafts may use the note, while retained pre-note drafts keep their original form without an on-read migration.
 
-Current App and Runtime identities come from [the compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.30/compatibility.json). This source is App `1.9.1-preview.11` and Runtime `0.4.0-preview.28`, both with published Kit42 from Host134. Historical App7/Runtime9 upgrade/retention receipts apply only to those frozen versions. [Verification](verification.md) records which final-release evidence was reused and which checks were rerun.
+Current App and Runtime identities come from [the compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.31/compatibility.json). This source is App `1.9.1-preview.12` and Runtime `0.4.0-preview.28`, both with published Kit42 from Host134. Historical App7/Runtime9 upgrade/retention receipts apply only to those frozen versions. [Verification](verification.md) records which final-release evidence was reused and which checks were rerun.
+
+## App12 no-diff candidate
+
+App12 changes the App version while retaining App11's exact Experience artifact, UI/domain bytes and authority declarations. Runtime28 source, version and packaged bytes are unchanged. A later ordinary green release and trusted stage/context/review/activate exercise must retain the existing Runtime28 sole writer and require eligible continuity, `authority_carry_forward`, no authority diff, no blockers, and zero permission/reconnect/recovery steps. Local packaging evidence does not establish that the live upgrade has occurred.
 
 ## Trusted compatible upgrade and restart recovery
 

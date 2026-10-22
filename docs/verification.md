@@ -1,6 +1,12 @@
 # Verification and acceptance
 
-Use [the authoritative compatibility record](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.30/compatibility.json) for the exact release source, artifacts, checksums and publication state. A prepared candidate is not published merely because its files build. The final public prerelease must link its acceptance results and disclose unverified behavior.
+Use [the authoritative compatibility record](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.31/compatibility.json) for the exact release source, artifacts, checksums and publication state. A prepared candidate is not published merely because its files build. The final public prerelease must link its acceptance results and disclose unverified behavior.
+
+## App12 no-diff candidate: local evidence
+
+The Email31/App12 candidate uses the same UI/domain and Runtime source as Email30/App11. Each App package was built twice with identical bytes per version. After normalizing only `manifest.version`, the App12 manifest equals App11, including the exact Experience digest `sha256:19d7691bcf24c94e7abce5379ca431025d1fa63294bd731356d76fe38f5acd9a`. The Worker bundle is identical (`1b5929e929f5a273c2328ae5b1b12c6a1e8b30f96ee69d43d4d2aa570a827d58` SHA256).
+
+Runtime28 remains version `0.4.0-preview.28`; all 372 tracked Runtime files, Kit42 archives and producer/provenance records are unchanged. Both source packages produce the same Runtime archive SHA256 `f61a18c099adf3b11a95c7e9fba6161291423f999fb91c1c7d81f919b4f51b0b`. Fresh local App package tests (8), UI tests (48), immutable pin/vendor provenance and standalone Runtime archive checks (166 server-reachable modules; startup/shutdown with synthetic private configuration) passed. These are local artifact results; no future CI result, public release or live trusted upgrade is claimed. A later live no-diff exercise must reuse the existing sole Runtime28 writer and record zero permission-review, reconnect and recovery steps without Send.
 
 ## Evidence that can be reused
 
