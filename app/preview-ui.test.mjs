@@ -149,7 +149,7 @@ test('actual Compose view selects its packed Kit v3 form capability before Host 
  assert.ok(!view.capabilities.includes('record_form.v1'),'all active draft forms use v3; settings keep v2');
  assert.ok(view.capabilities.length<=13);assert.equal(new Set(view.capabilities).size,view.capabilities.length);
  const parsed=DeftExperienceRecordFormV3NodeSchema.safeParse(form);assert.equal(parsed.success,true,parsed.success?'':JSON.stringify(parsed.error.issues));
- assert.equal(form.seed.schema_version,'deft.record_form_seed.v1');assert.equal(form.seed.value.to,'');
+ assert.equal(form.seed.schema_version,'deft.record_form_seed.v1');assert.equal(form.seed.value.schema_version,'deft.record_seed_snapshot_seed.v1');assert.equal(form.seed.value.value.to,'');assert.equal(form.seed.value.value.mode,'compose');assert.equal(form.initial_change.operation_key,'signature_default');
  assert.equal(form.expected_revision,0);assert.equal(form.disabled,false);
 });
 
