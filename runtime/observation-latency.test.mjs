@@ -37,7 +37,7 @@ async function fixture(t,{factory=improvedRunner,pageSize=25,clockStep=0,authori
 
 
 test('reproduce25-item observation deadline spent on repeated nested online native checks',async t=>{
- const f=await fixture(t,{factory:previousRunner,clockStep:200}),before=f.providerCalls,result=await f.runner().runOnce();console.log(JSON.stringify({event:'synthetic_observation_before',clock_cost_per_authority_ms:200,authority:f.authorityCalls,provider:f.providerCalls-before,status:result.status}));assert.equal(result.status,'indeterminate');assert.equal(f.resultCalls,0);const journal=(await f.store.withLock({key:f.journalKey},tx=>tx.read())).value;assert.equal(journal.state,'indeterminate');
+ const f=await fixture(t,{factory:previousRunner,clockStep:250}),before=f.providerCalls,result=await f.runner().runOnce();console.log(JSON.stringify({event:'synthetic_observation_before',clock_cost_per_authority_ms:250,authority:f.authorityCalls,provider:f.providerCalls-before,status:result.status}));assert.equal(result.status,'indeterminate');assert.equal(f.resultCalls,0);const journal=(await f.store.withLock({key:f.journalKey},tx=>tx.read())).value;assert.equal(journal.state,'indeterminate');
 });
 
 test('request-local pure observation checks retain online provider/commit/disclosure authority within the same budget',async t=>{

@@ -192,7 +192,15 @@ export function createDataRuntime({registrations,getRegistrations,client,provide
             const snapshot=await mailbox.cacheSnapshot(scope,[ref.record_id],checkLocal);anchor=snapshot?.records[0];
             if(!anchor||resourceView(anchor).content_digest!==ref.content_digest)fail('EMAIL_DATA_SOURCE_CHANGED');
             const provider_source=await sourceFor(anchor),key=memo.key({...request,operation:'resource_read_presentation',input:{store_key:'drafts',...ref}},{client_fingerprint:fingerprint,custody_generation:generation});
-            source=memo.get(key,snapshot.stamp)??await bridge.nativeEmailPresentation({source:provider_source},nativeContext());
+            let cached=memo.get(key,snapshot.stamp);
+            if(!cached&&input.seed.operation_key==='record_seed_snapshot'){
+              // Host resource reads carry no draft-data consent. The compound
+              // request already proved its own exact non-null consent above;
+              // reuse only that reader's data under every other identical pin.
+              const reader={...request,operation:'resource_read_presentation',authority:{...request.authority,consent_id:null,consent_digest:null},input:{store_key:'drafts',...ref}};
+              cached=memo.get(memo.key(reader,{client_fingerprint:fingerprint,custody_generation:generation}),snapshot.stamp);
+            }
+            source=cached??await bridge.nativeEmailPresentation({source:provider_source},nativeContext());
             disclosureStamp=snapshot.stamp;seedSourceRef=ref;
           }else{
             anchor=await mailbox.get(scope,ref.record_id,check);if(resourceView(anchor).content_digest!==ref.content_digest)fail('EMAIL_DATA_SOURCE_CHANGED');
