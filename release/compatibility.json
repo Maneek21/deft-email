@@ -1,14 +1,14 @@
 {
   "schema": "deft.email.preview.compatibility.v1",
   "publication_state": "source-template",
-  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.29/compatibility.json",
-  "resolution": "Email29 source template: source-seeded App10 Reply reuses only exact current reader data and retains fresh authority, custody and source disclosure checks. Host137 is required for the opted-in generic compound seed snapshot; rollout remains gated on coordinated Host137 acceptance. Both Kit42 consumers retain exact published Host134 release-flow bytes and provenance. The detached Email29 release manifest resolves final source and artifacts without self-reference.",
+  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.30/compatibility.json",
+  "resolution": "Email30 source template: Runtime28 adds bounded content-free authority timing and actual cold/warm operation counters while preserving every fresh provider, OAuth, commit and disclosure guard. Host138 provides generic authority projections, scoped pure-content caches and current-state batching. Both Kit42 consumers retain the exact published Host134 release-flow bytes and provenance. The detached Email30 release manifest resolves final source and artifacts without self-reference.",
   "host": {
-    "version": "0.3.0-preview.137",
-    "minimum_version": "0.3.0-preview.137",
-    "tag": "v0.3.0-preview.137",
+    "version": "0.3.0-preview.138",
+    "minimum_version": "0.3.0-preview.138",
+    "tag": "v0.3.0-preview.138",
     "repository": "https://github.com/Maneek21/Deft",
-    "release_manifest": "https://github.com/Maneek21/Deft/releases/download/v0.3.0-preview.137/release-manifest.json",
+    "release_manifest": "https://github.com/Maneek21/Deft/releases/download/v0.3.0-preview.138/release-manifest.json",
     "browser_profile": "apps-developer-preview",
     "schema_version": "0.3.0-preview.131",
     "contracts": {
@@ -19,13 +19,13 @@
     }
   },
   "email": {
-    "tag": "v1.9.0-preview.29",
+    "tag": "v1.9.0-preview.30",
     "repository": "https://github.com/Maneek21/deft-email",
-    "app_version": "1.9.1-preview.10",
-    "runtime_version": "0.4.0-preview.27",
+    "app_version": "1.9.1-preview.11",
+    "runtime_version": "0.4.0-preview.28",
     "app_kit_version": "0.1.0-alpha.42",
     "runtime_kit_version": "0.1.0-alpha.42",
-    "kit_compatibility": "Host137 must be deployed before this App: opted-in compound Reply seed snapshots require its generic current-opening proof and browser recovery contracts. Both consumers retain exact Host134 Kit alpha.42 with app-owned domain modules. Runtime27 retains the old source_refs creation path and exact first-save revalidation and preserves authority denials, finite expiry, cancellation and ordinary client limits."
+    "kit_compatibility": "Host138 must be deployed before this App. Both consumers retain exact Host134 Kit alpha.42 with app-owned domain modules. Runtime28 preserves all fresh provider, OAuth, external-image, commit and disclosure guards and Send exact-message review; timing diagnostics never supply authority. App11 has unchanged permissions and declarations apart from its version."
   },
   "kits": [
     {
@@ -59,7 +59,7 @@
   },
   "limitations": [
     "Operator-managed developer preview, not production Gmail/Outlook parity.",
-    "Refresh can take tens of seconds; repeated latency campaigns are outside release acceptance.",
+    "Latency acceptance requires measured current Host and Runtime callback, cached compose and sync-page results; a build alone does not establish those targets.",
     "OAuth configuration, purpose-specific Host gates/keys, reviewed grants and durable Runtime custody are required.",
     "Resource publication for Task/Knowledge integration needs separate reviewed finite or explicitly Host-issued until_revoked consent; technical renewal alone does not grant it."
   ]

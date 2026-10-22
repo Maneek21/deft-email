@@ -19,6 +19,7 @@ const accountFromRecord=(binding,record)=>{if(!record?.secret?.identity||record.
 const scopeClaim={org_id:'org_id',installation_id:'app_installation_id',app_version_id:'app_version_id',grant_snapshot_id:'grant_snapshot_id',lifecycle_epoch:'lifecycle_epoch',grant_epoch:'grant_epoch',runtime_registration_id:'runtime_registration_id',runtime_epoch:'runtime_epoch',resource_binding_id:'resource_binding_id'};
 const unknown=()=>({status:'indeterminate'});
 import {observationDiagnosticCodes as diagnosticCodes} from './observation-diagnostics.mjs';
+import {measureAuthorityTiming} from './authority-diagnostics.mjs';
 // Closed public transport codes, never exception messages or response contents.
 const channelCodes=new Set(['APP_RESOURCE_SYNC_DISABLED','APP_RESOURCE_SYNC_ACCESS_DENIED','APP_RESOURCE_SYNC_INVALID_REQUEST','APP_RESOURCE_SYNC_TOO_LARGE','APP_RESOURCE_SYNC_TIMEOUT','APP_RESOURCE_SYNC_FAILURE','APP_RESOURCE_SYNC_ABORTED','APP_RESOURCE_SYNC_INVALID_RESPONSE','APP_RESOURCE_SYNC_RESPONSE_TOO_LARGE']);
 const channelDiagnostic=error=>channelCodes.has(error?.code)&&Number.isInteger(error?.status)&&error.status>=0&&error.status<=599?{code:error.code,http_status:error.status}:null;
@@ -33,7 +34,7 @@ export function createResourceObservationPoller(runners){
 
 /** One public v3 observation Run. No scheduler, owner token, action, MIME or
  * attachment stage is introduced. Restart recovery never repeats provider I/O. */
-export function createResourceObservationRunner({runtime_client,observation_client,registration,client,provider='gmail',forms,imapConnector,store,encryption_key,key_id,fetch:fetchImpl=globalThis.fetch,now=Date.now,onPhase,repairContinuity,onDiagnostic=event=>console.info(JSON.stringify(event))}){
+export function createResourceObservationRunner({runtime_client,observation_client,registration,client,provider='gmail',forms,imapConnector,store,encryption_key,key_id,fetch:fetchImpl=globalThis.fetch,now=Date.now,onPhase,repairContinuity,onAuthorityTiming,onDiagnostic=event=>console.info(JSON.stringify(event))}){
  const formMode=provider==='imap_smtp';if(formMode&&(!forms||!imapConnector||client)||!formMode&&forms)fail('EMAIL_OBSERVATION_CONFIG_INVALID');const {connection_protocol,...registrationPins}=registration;registration=validateRegistration(registrationPins);if(!formMode)client=validateOAuthClient(provider,client);
  if(['claim','start','heartbeat','result'].some(method=>typeof runtime_client?.[method]!=='function')||typeof observation_client?.authorize!=='function')fail('EMAIL_OBSERVATION_CONFIG_INVALID');
  const fingerprint=formMode?'credential_form.v1':oauthClientFingerprint(provider,client),custody=formMode?null:createEncryptedEmailCustody({store,encryption_key,key_id,now,recover_gmail_refresh:true}),mailbox=createMailboxStore({store,now}),publication=createSyncPublication({store,mailbox,repairContinuity});
@@ -48,7 +49,7 @@ export function createResourceObservationRunner({runtime_client,observation_clie
   const local=()=>{combined.throwIfAborted();if(!Number.isFinite(deadline)||deadline<=now())fail('EMAIL_OBSERVATION_AUTHORITY_DENIED');};arm();
   let heartbeatPending=null;
   let authorityQueue=Promise.resolve(),authorityFailure=null;
-  const onlineCheck=async()=>{local();authorityCalls++;if(lease-now()<10000){if(!heartbeatPending)heartbeatPending=runtime_client.heartbeat(claim,{signal:combined}).then(value=>{const next=Date.parse(value);if(!Number.isFinite(next)||next<=now())fail('EMAIL_OBSERVATION_AUTHORITY_DENIED');lease=next;}).finally(()=>{heartbeatPending=null;});await heartbeatPending;local();}const value=ResourceObservationAuthorityResultSchema.parse(await observation_client.authorize(claim,{signal:combined}));local();
+  const onlineCheck=async(queue_ms)=>{local();authorityCalls++;if(lease-now()<10000){if(!heartbeatPending)heartbeatPending=runtime_client.heartbeat(claim,{signal:combined}).then(value=>{const next=Date.parse(value);if(!Number.isFinite(next)||next<=now())fail('EMAIL_OBSERVATION_AUTHORITY_DENIED');lease=next;}).finally(()=>{heartbeatPending=null;});await heartbeatPending;local();}const value=ResourceObservationAuthorityResultSchema.parse(await measureAuthorityTiming({route:'resource',queue_ms,onTiming:onAuthorityTiming},()=>observation_client.authorize(claim,{signal:combined})));local();
    const expected={schema_version:'deft.app_resource_observation_authority.v1',audience:'app_resource_sync',session_id:claim.session_id,run_id:claim.run_id,attempt_id:claim.attempt_id,claim_token:claim.claim_token,sequence:claim.sequence};
    if(Object.keys(expected).some(field=>value[field]!==expected[field])||value.allowed!==true||!/^sha256:[a-f0-9]{64}$/u.test(value.consent_digest??'')||!Number.isFinite(Date.parse(value.expires_at))||Date.parse(value.expires_at)>now()+15000||Date.parse(value.expires_at)<=now())fail('EMAIL_OBSERVATION_AUTHORITY_DENIED');
    const snapshot=value.snapshot;exact(snapshot,['schema_version','consent_id','scope','connection','resource_policy_digest','interval_seconds','expires_at',...consentFields(snapshot),...(snapshot.consent_lifetime==='until_revoked'?['review_expires_at']:[])]);validateScope(snapshot.scope);
@@ -58,7 +59,7 @@ export function createResourceObservationRunner({runtime_client,observation_clie
    authority=value;deadline=Math.min(operationDeadline,lease,Date.parse(value.expires_at),consentDeadline(snapshot));arm();return deadline;
   };
   // Each queued call performs its own current-authority check; no lease caching.
-  const check=()=>{const work=authorityQueue.then(async()=>{local();if(authorityFailure)throw authorityFailure;try{return await onlineCheck();}catch(error){authorityFailure=error;diagnose(error);throw error;}});authorityQueue=work.then(()=>undefined,()=>undefined);return work;};
+  const check=()=>{const queued=performance.now(),work=authorityQueue.then(async()=>{local();if(authorityFailure)throw authorityFailure;try{return await onlineCheck(Math.max(0,performance.now()-queued));}catch(error){authorityFailure=error;diagnose(error);throw error;}});authorityQueue=work.then(()=>undefined,()=>undefined);return work;};
   try{await check();phase='custody';const snapshot=structuredClone(authority.snapshot),connection=snapshot.connection,scope={org_id:snapshot.scope.org_id,owner_user_id:snapshot.scope.owner_user_id,account_id:connection.account_ref};
    // Match data-runtime lock order: activation visibility before session lock.
    const visibleSession=formMode?null:(await store.withLock({key:'email.runtime.session.'+connection.session_id},tx=>tx.read()))?.value;

@@ -12,7 +12,7 @@ import {makeScope,registrationFor,client,providerFixture,authority,beginFor,next
 import {digest} from './contract.mjs';
 import {encodeFileFrame,decodeFileFrame,createDataChecker} from './data-contract.mjs';
 import {createServer} from 'node:http';
-import {createHttpHandler} from './http.mjs';
+import {createHttpHandler,createAuthorityClient} from './http.mjs';
 const sha=bytes=>'sha256:'+createHash('sha256').update(bytes).digest('hex');
 const empty={mode:'compose',to:'recipient@example.test',cc:'',bcc:'',subject:'Synthetic draft',body:'Exact body\n',body_html:'',reply_record_id:'',attachments:[]};
 
@@ -271,6 +271,7 @@ const compoundSeedInput=(record_id,value)=>({store_key:'drafts',seed:{operation_
 async function compoundSeedFixture(t,{kind='html_with_attachment',onAuthority=async()=>{}}={}){
  const message=dataFixtureMessage('fixture@example.test');
  if(kind==='plain')message.mime=Buffer.from('From: sender@example.test\r\nTo: fixture@example.test\r\nCc: peer@example.test\r\nSubject: Synthetic plain source\r\nMessage-ID: <first-source@example.test>\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nFirst exact plain line\r\nSecond original line');
+ if(kind==='html')message.mime=Buffer.from('From: sender@example.test\r\nTo: fixture@example.test\r\nSubject: Synthetic HTML source\r\nMessage-ID: <first-source@example.test>\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<p>Native first body</p>');
  let rawReads=0;
  const provider=(url,options)=>{const parsed=new URL(url);if(parsed.pathname.endsWith('/messages'))return Response.json({messages:[{id:message.metadata.id}],resultSizeEstimate:1});if(parsed.pathname.endsWith('/messages/'+message.metadata.id)){if(parsed.searchParams.get('format')==='raw'){rawReads++;return Response.json({id:message.metadata.id,threadId:message.metadata.threadId,raw:message.mime.toString('base64url')});}return Response.json(message.metadata);}return providerFixture(url,options);};
  const f=await fixture(t,provider,{onAuthority}),page=await f.run(f.request('resource_list',{store_key:'drafts',resource_key:'inbox',cursor:null,limit:25,query:'in:inbox'})),source={resource_key:'inbox',record_id:page.items[0].record_id,content_digest:page.items[0].content_digest},view=f.request('resource_read_presentation',{store_key:'drafts',...source});view.authority={...view.authority,consent_id:null,consent_digest:null};const presentation=await f.run(view);
@@ -429,5 +430,57 @@ test('reply seed read: compound opening aborts and drains both fresh barriers be
    const opaque=key=>key.startsWith('email.runtime.session.')||key.startsWith('email.data.native_adoption.')||key.startsWith('email.native.activation.')||key.startsWith('email.native.continuity.');
    assert.deepEqual(locks.filter(key=>!opaque(key)),[],scenario+' prevents custody identity source saved record and file reads');assert.equal(f.calls,before);assert.deepEqual(writes,[]);
   }finally{armed=false;controller.abort();for(const call of pending)call.resolve();await Promise.allSettled([opening]);}
+ }
+});
+
+
+test('whole-operation authority callbacks measure real transport for cold and warm New Reply Forward on three message types',async t=>{
+ for(const kind of ['plain','html','html_with_attachment']){
+  const samples=[];let callbacks=0,expectedScope;
+  const current=createAuthorityClient({authority_url:'https://whole-operation-'+kind+'.test/api/app-data/runtime/authority',authority_token:'a'.repeat(43),onTiming:event=>samples.push(event),fetch:async(url,options)=>{
+   callbacks++;const input=JSON.parse(options.body);expectedScope??=JSON.stringify(input.scope);
+   assert.equal(JSON.stringify(input.scope),expectedScope);await new Promise(done=>setTimeout(done,5));return Response.json({...input,allowed:true});
+  }});
+  const f=await compoundSeedFixture(t,{kind,onAuthority:current});
+  for(const mode of ['compose','reply','forward']){
+   await f.restart();
+   for(const cache of ['cold_runtime_cache','warm_runtime_cache']){
+    if(cache==='warm_runtime_cache'&&mode!=='compose'){
+     const reader=f.baseRequest('resource_read_presentation',{store_key:'drafts',...f.source});reader.authority={...f.readerAuthority};
+     await f.run(reader);
+    }
+    const value=mode==='compose'?{...empty,to:'',subject:'',body:''}:f.seed(mode),request=f.request(randomUUID(),value);
+    const before=callbacks,rawBefore=f.rawReads,sampleBefore=samples.length,start=performance.now(),opened=(await f.run(request)).record_seed_value;
+    const elapsed_ms=Math.round((performance.now()-start)*100)/100,actual=samples.slice(sampleBefore),expected=mode!=='compose'&&cache==='cold_runtime_cache'?4:3;
+    assert.equal(opened.value.mode,mode);assert.equal(opened.record,null);assert.equal(callbacks-before,expected);assert.equal(actual.length,expected);
+    assert.ok(actual.every(event=>event.dispatched&&event.outcome==='completed'));
+    assert.equal(f.rawReads-rawBefore,expected===4?1:0);
+    const sorted=actual.map(event=>event.elapsed_ms).sort((a,b)=>a-b);
+    console.log(JSON.stringify({event:'whole_operation_authority_measurement',kind,mode,cache,elapsed_ms,authority_callbacks:actual.length,authority_p95_ms:sorted[Math.ceil(sorted.length*0.95)-1],provider_source_reads:f.rawReads-rawBefore,draft_writes:0}));
+   }
+  }
+  assert.equal((await f.runtime.drafts.list(f.local,{cursor:null,limit:25},()=>{})).items.length,0);
+ }
+});
+
+test('whole-operation authority callbacks retain final revocation epoch owner replay and response-field boundaries on warm data',async t=>{
+ for(const scenario of ['revoke','epoch','owner','replay','field_insertion']){
+  let armed=false,calls=0,prior;
+  const current=createAuthorityClient({authority_url:'https://whole-operation-fence-'+scenario+'.test/api/app-data/runtime/authority',authority_token:'b'.repeat(43),onTiming:()=>{},fetch:async(url,options)=>{
+   const input=JSON.parse(options.body),result={...input,allowed:true};if(!armed){prior=structuredClone(result);return Response.json(result);}
+   if(++calls===3){
+    if(scenario==='revoke')return Response.json({error:'synthetic revoked'},{status:403});
+    if(scenario==='epoch')result.scope={...result.scope,grant_epoch:result.scope.grant_epoch+1};
+    if(scenario==='owner')result.scope={...result.scope,owner_user_id:randomUUID()};
+    if(scenario==='replay')return Response.json(prior);
+    if(scenario==='field_insertion')result.future_authority=true;
+   }
+   return Response.json(result);
+  }});
+  const f=await compoundSeedFixture(t,{onAuthority:current});
+  await f.run(f.request(randomUUID(),f.seed('reply')));
+  const before=f.rawReads;armed=true;
+  await assert.rejects(f.run(f.request(randomUUID(),f.seed('forward'))));assert.equal(calls,3);assert.equal(f.rawReads,before);
+  assert.equal((await f.runtime.drafts.list(f.local,{cursor:null,limit:25},()=>{})).items.length,0);
  }
 });
