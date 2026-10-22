@@ -7,6 +7,7 @@ import {emailProviderSupport,emailRowsProvider,emailOrganizeAvailable} from './p
 import {settingMeta,settingRecordForm,settingRecordEvent,verifiedSettingIdentities,providerSettingsNodes} from './settings-ui.mjs';
 import {createDeftExperienceSdk} from '@deft/app-kit/experience/core';
 import {emailRecordForm,emailRecordDocument,emptyEmailRecord,emailRecordEvent} from './record-ui.mjs';
+import {senderDisplay} from './mail-presentation.mjs';
 
 // Existing Email App entry: full body/draft/file bytes stay inside the trusted
 // host and independently operated runtime. The Worker owns navigation and refs.
@@ -60,7 +61,7 @@ self.onmessage=event=>{
   ...['inbox','sent'].map(key=>button('folder_'+key,folders[key].label,'ghost',{selected:mode==='reader'&&!appliedQuery&&folder===key})),
   button('drafts','Drafts','ghost',{selected:mode==='drafts'||mode==='history'}),
   ...['starred','archive','spam','trash'].map(key=>button('folder_'+key,folders[key].label,'ghost',{selected:mode==='reader'&&!appliedQuery&&folder===key,...(key==='archive'?{disabled:emailProviderSupport(emailRowsProvider(items))?.archiveQuery===false}:{})})),
-  button('email_settings','Settings','ghost',{selected:settingsModes.has(mode),disabled:busy||!canClose()}),
+  button('email_settings','Mail preferences','ghost',{selected:settingsModes.has(mode),disabled:busy||!canClose()}),
  ];
  function render(){
   const undoGroups=batchUndo.length?batchUndo:undoSources.length&&originalOrganize?[{...originalOrganize,sources:undoSources}]:[];
@@ -79,8 +80,8 @@ self.onmessage=event=>{
   ],{layout:'horizontal'}):null;
   let content;
   if(mode==='settings_home'){content=stack('email_settings_panel',[
-   stack('email_settings_heading',[text('email_settings_title','Email settings','heading'),button('settings_mailbox','Back to mail','ghost',{icon:'back',disabled:busy})],{layout:'toolbar'}),
-   text('account_settings_help','Manage connected accounts and the compose account in Settings → Accounts.','caption'),
+   stack('email_settings_heading',[text('email_settings_title','Mail preferences','heading'),button('settings_mailbox','Back to mail','ghost',{icon:'back',disabled:busy})],{layout:'toolbar'}),
+   text('account_settings_help','Manage connected accounts and the compose account in Email settings → Accounts.','caption'),
    button('saved_content','Templates, signatures and reading','list',{description:'Saved content and external image preferences',disabled:busy}),
    button('folder_catalog','Folders and labels','list',{description:'Browse, favorite and organize your folders',disabled:busy||actionPending}),
    button('manual_rules','Manual rules','list',{description:'Preview and review changes to loaded messages',disabled:busy}),
@@ -118,18 +119,18 @@ self.onmessage=event=>{
      ...(undoAvailable?[button('undo_mailbox_action','Undo last completed change','ghost',{disabled:busy||actionPending})]:[]),
     ...((pendingActionRun||pendingOrganizeBatch)?[button('check_mailbox_action','Check action status','ghost',{disabled:busy})]:[]),
     ...rowGroups('mail_rows',items.map(item=>button(rowId('mail',item),label(item),'list',{selected:selectionMode?checked.has(item.record_id):selected?.record_id===item.record_id,
-     ...(selectionMode?{icon:checked.has(item.record_id)?'check':'select'}:{}),eyebrow:scalar(item,'sender')||scalar(item,'from'),description:[accountChoice==='all'&&accountTargets.length>1?item.account_label:'',scalar(item,'preview')||scalar(item,'snippet')].filter(Boolean).join(' · '),meta:shortDate(scalar(item,'date')),disabled:busy||selectionMode&&!checked.has(item.record_id)&&checked.size>=100}))),
+     ...(selectionMode?{icon:checked.has(item.record_id)?'check':'select'}:{}),eyebrow:senderDisplay(scalar(item,'sender')||scalar(item,'from')),description:[accountChoice==='all'&&accountTargets.length>1?item.account_label:'',scalar(item,'preview')||scalar(item,'snippet')].filter(Boolean).join(' · '),meta:shortDate(scalar(item,'date')),disabled:busy||selectionMode&&!checked.has(item.record_id)&&checked.size>=100}))),
     ...(!items.length?[text('mail_empty',busy?'Loading mail…':appliedQuery?'No messages match this search. Check the spelling, or open Search help for supported filters.':`No messages in ${folders[folder].label}.${observed&&!complete?' Older mail is still syncing.':''}`,'muted')]:[]),
     ...(cursor?[button('more',items.length>=100?'100 messages loaded':'Load more','secondary',{disabled:busy||items.length>=100})]:[]),
     ...(observed?[text('mail_freshness',`${complete?'Synced':'Older mail is still syncing'}${fullDate(observed)?' · updated '+fullDate(observed):''}`,'caption')]:[]),
    ],{layout:'list',surface:'sidebar',...(pane==='reader'?{mobile:'hidden'}:{})});
    const detail=selected?stack('reader_panel',[
     stack('reader_heading',[stack('reader_back',[button('back','Back','ghost',{icon:'back'})],{layout:'horizontal',mobile:'only'}),text('mail_subject',label(selected),'heading',1024),stack('reader_actions',[...primaryReader.map(({danger,...item})=>button(item.id,item.label,'ghost',item)),menu('reader_more','More message actions',[{id:'create_task',label:'Create task',integration:{kind:'task',document_id:'mail_body'}},{id:'knowledge',label:'Save to Knowledge',integration:{kind:'knowledge',document_id:'mail_body'}},{id:'reply_all',label:'Reply all',icon:'reply',disabled:busy},{id:'forward',label:'Forward',disabled:busy},{id:'conversation',label:conversation?'Hide conversation':'Show conversation',disabled:busy},{id:'print_message',label:'Print',icon:'print',disabled:busy},...moreReader],{icon:'more',disabled:busy})],{layout:'horizontal'})],{layout:'toolbar'}),
-    stack('reader_metadata',[stack('reader_addresses',[text('mail_sender','From: '+(scalar(selected,'sender')||scalar(selected,'from')),'body',1024),...(scalar(selected,'recipients')?[text('mail_recipients','To: '+scalar(selected,'recipients'),'caption',1024)]:[]),...(scalar(selected,'cc')?[text('mail_cc','Cc: '+scalar(selected,'cc'),'caption',1024)]:[])],{layout:'list'}),text('mail_date',fullDate(scalar(selected,'date')),'caption'),button('reply','Reply','secondary',{icon:'reply',disabled:busy})],{layout:'horizontal'}),
+    stack('reader_metadata',[stack('reader_addresses',[text('mail_sender','From: '+(scalar(selected,'sender')||scalar(selected,'from')),'body',1024),...(scalar(selected,'recipients')?[text('mail_recipients','To: '+scalar(selected,'recipients'),'caption',1024)]:[]),...(scalar(selected,'cc')?[text('mail_cc','Cc: '+scalar(selected,'cc'),'caption',1024)]:[])],{layout:'list'}),stack('reader_date_actions',[text('mail_date',fullDate(scalar(selected,'date')),'caption'),button('reply','Reply','secondary',{icon:'reply',disabled:busy})],{layout:'horizontal'})],{layout:'vertical'}),
     ...(emailProviderSupport(scalar(selected,'provider'))?.organize===false?[text('provider_operation_notice','Organize is unavailable for this account.','caption')]:[]),
     ...(conversation?[stack('conversation_panel',[
      text('conversation_count',`${conversation.items.length} messages loaded`,'caption'),
-     ...conversationPage().map(item=>button(rowId('conversation_mail',item),label(item),'list',{selected:selected.record_id===item.record_id,eyebrow:scalar(item,'sender'),meta:shortDate(scalar(item,'date')),disabled:busy})),
+     ...conversationPage().map(item=>button(rowId('conversation_mail',item),label(item),'list',{selected:selected.record_id===item.record_id,eyebrow:senderDisplay(scalar(item,'sender')||scalar(item,'from')),meta:shortDate(scalar(item,'date')),disabled:busy})),
      ...(conversation.page>0?[button('conversation_previous','Previous messages','ghost',{disabled:busy})]:[]),
      ...((conversation.page+1)*10<conversation.items.length?[button('conversation_next','Next messages','ghost',{disabled:busy})]:conversation.cursor?[button('conversation_more',conversation.items.length>=100?'100 messages loaded':'Load more messages','secondary',{disabled:busy||conversation.items.length>=100})]:[]),
     ],{layout:'list'})]:[]),
