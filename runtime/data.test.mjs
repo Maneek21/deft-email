@@ -273,10 +273,10 @@ async function compoundSeedFixture(t,{kind='html_with_attachment',onAuthority=as
  if(kind==='plain')message.mime=Buffer.from('From: sender@example.test\r\nTo: fixture@example.test\r\nCc: peer@example.test\r\nSubject: Synthetic plain source\r\nMessage-ID: <first-source@example.test>\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nFirst exact plain line\r\nSecond original line');
  let rawReads=0;
  const provider=(url,options)=>{const parsed=new URL(url);if(parsed.pathname.endsWith('/messages'))return Response.json({messages:[{id:message.metadata.id}],resultSizeEstimate:1});if(parsed.pathname.endsWith('/messages/'+message.metadata.id)){if(parsed.searchParams.get('format')==='raw'){rawReads++;return Response.json({id:message.metadata.id,threadId:message.metadata.threadId,raw:message.mime.toString('base64url')});}return Response.json(message.metadata);}return providerFixture(url,options);};
- const f=await fixture(t,provider,{onAuthority}),page=await f.run(f.request('resource_list',{store_key:'drafts',resource_key:'inbox',cursor:null,limit:25,query:'in:inbox'})),source={resource_key:'inbox',record_id:page.items[0].record_id,content_digest:page.items[0].content_digest},view=f.request('resource_read_presentation',{store_key:'drafts',...source}),presentation=await f.run(view);
+ const f=await fixture(t,provider,{onAuthority}),page=await f.run(f.request('resource_list',{store_key:'drafts',resource_key:'inbox',cursor:null,limit:25,query:'in:inbox'})),source={resource_key:'inbox',record_id:page.items[0].record_id,content_digest:page.items[0].content_digest},view=f.request('resource_read_presentation',{store_key:'drafts',...source});view.authority={...view.authority,consent_id:null,consent_digest:null};const presentation=await f.run(view);
  const seed=mode=>({mode,to:'',cc:'',bcc:'',subject:'',body:'',body_html:'',reply_record_id:'',attachments:[],record_seed:{schema_version:'deft.email_reply_seed.v1',source}});
- const request=(id,value)=>{const result=f.request('connection_metadata',compoundSeedInput(id,value));result.authority=view.authority;result.input.seed.value.expected=compoundSeedPins(result);return result;};
- return {...f,baseRequest:f.request,get runtime(){return f.runtime;},request,seed,source,presentation,local:{org_id:view.scope.org_id,owner_user_id:view.scope.owner_user_id,account_id:view.connection.account_ref},get rawReads(){return rawReads;}};
+ const request=(id,value)=>{const result=f.request('connection_metadata',compoundSeedInput(id,value));result.authority.data_policy_digest=view.authority.data_policy_digest;result.input.seed.value.expected=compoundSeedPins(result);return result;};
+ return {...f,baseRequest:f.request,get runtime(){return f.runtime;},request,seed,source,presentation,readerAuthority:view.authority,local:{org_id:view.scope.org_id,owner_user_id:view.scope.owner_user_id,account_id:view.connection.account_ref},get rawReads(){return rawReads;}};
 }
 
 test('reply seed read: compound snapshot combines exact destination existence and quoted seed without a write',async t=>{
@@ -292,17 +292,18 @@ test('reply seed read: compound snapshot combines exact destination existence an
  }
 });
 
-test('reply seed read: compound warm and cold plain or HTML attachment snapshots keep slow online boundaries and first-save pins',async t=>{
+test('reply seed read: actual Host null reader and consented compound snapshots keep slow online boundaries and first-save pins',async t=>{
  for(const kind of ['plain','html_with_attachment']){
   let armed=false,checks=0;const f=await compoundSeedFixture(t,{kind,onAuthority:async input=>{if(armed&&input.operation==='connection_metadata'){checks++;await new Promise(done=>setTimeout(done,350));}}});
   assert.equal(f.presentation.files.filter(file=>file.disposition==='attachment').length,kind==='plain'?0:1);
   for(const mode of ['reply','reply_all','forward']){
-   const id=randomUUID(),request=f.request(id,f.seed(mode)),before=f.rawReads,start=performance.now();checks=0;armed=true;const result=(await f.run(request)).record_seed_value;armed=false;const elapsed=Math.round(performance.now()-start);
+   const id=randomUUID(),request=f.request(id,f.seed(mode)),before=f.rawReads,start=performance.now();assert.equal(f.readerAuthority.consent_id,null);assert.equal(f.readerAuthority.consent_digest,null);assert.notEqual(request.authority.consent_id,null);assert.notEqual(request.authority.consent_digest,null);checks=0;armed=true;const result=(await f.run(request)).record_seed_value;armed=false;const elapsed=Math.round(performance.now()-start);
    assert.equal(result.record_id,id);assert.equal(result.account_ref,request.connection.account_ref);assert.equal(result.record,null);assert.equal(result.value.mode,mode);assert.equal(result.value.record_seed.mode,mode);assert.equal(result.value.record_seed.source_digest,f.presentation.presentation.source_digest);assert.match(result.value.body,kind==='plain'?/First exact plain line/:/Native first body/);assert.deepEqual(result.value.attachments,[]);assert.equal(checks,3);assert.equal(f.rawReads,before);assert.ok(elapsed<2000,`${kind} ${mode} warm snapshot ${elapsed}ms`);
    assert.equal((await f.runtime.drafts.list(f.local,{cursor:null,limit:25},()=>{})).items.length,0);
-   console.log(JSON.stringify({event:'compound_seed_warm_latency',kind,mode,elapsed_ms:elapsed,authority_calls:checks,provider_calls:f.rawReads-before,draft_writes:0}));
+   if(mode==='reply'){const denied=f.request(randomUUID(),f.seed(mode));denied.authority={...denied.authority,consent_id:null,consent_digest:null};denied.input.seed.value.expected=compoundSeedPins(denied);await assert.rejects(f.run(denied),{code:'EMAIL_DATA_AUTHORITY_DENIED'});assert.equal(f.rawReads,before,'cached reader data cannot authorize a consentless snapshot');}
+   console.log(JSON.stringify({event:'compound_seed_warm_latency',kind,mode,reader_has_draft_consent:false,snapshot_has_draft_consent:true,elapsed_ms:elapsed,authority_calls:checks,provider_calls:f.rawReads-before,draft_writes:0}));
   }
-  const cold=f.request(randomUUID(),f.seed('reply'));cold.authority.consent_id=randomUUID();cold.input.seed.value.expected=compoundSeedPins(cold);checks=0;const before=f.rawReads,start=performance.now();armed=true;const opened=(await f.run(cold)).record_seed_value;armed=false;const elapsed=Math.round(performance.now()-start);assert.equal(checks,4);assert.equal(f.rawReads-before,1);assert.ok(elapsed<2000,`${kind} cold snapshot ${elapsed}ms`);console.log(JSON.stringify({event:'compound_seed_cold_latency',kind,elapsed_ms:elapsed,authority_calls:checks,provider_calls:f.rawReads-before,draft_writes:0}));
+  await f.restart();const cold=f.request(randomUUID(),f.seed('reply'));cold.authority.consent_id=randomUUID();cold.input.seed.value.expected=compoundSeedPins(cold);checks=0;const before=f.rawReads,start=performance.now();armed=true;const opened=(await f.run(cold)).record_seed_value;armed=false;const elapsed=Math.round(performance.now()-start);assert.equal(checks,4);assert.equal(f.rawReads-before,1);assert.ok(elapsed<2000,`${kind} cold snapshot ${elapsed}ms`);console.log(JSON.stringify({event:'compound_seed_cold_latency',kind,elapsed_ms:elapsed,authority_calls:checks,provider_calls:f.rawReads-before,draft_writes:0}));
   const edited={...opened.value,to:'edited@example.test',subject:'Exact edited subject',body:'Exact edited body',body_html:'',author_note:'Exact private note'},id=cold.input.seed.value.record_id;
   for(const changed of [{...edited,mode:'forward'},{...edited,record_seed:{...edited.record_seed,source_digest:'sha256:'+'f'.repeat(64)}},{...edited,record_seed:{...edited.record_seed,source:{...f.source,content_digest:'sha256:'+'f'.repeat(64)}}}])await assert.rejects(f.run(f.baseRequest('record_create',{store_key:'drafts',record_id:id,value:changed})),{code:'EMAIL_DATA_SOURCE_CHANGED'});
   const created=await f.run(f.baseRequest('record_create',{store_key:'drafts',record_id:id,value:edited}));assert.equal(created.record.revision,1);assert.deepEqual(created.record.source_refs,[f.source]);assert.equal(created.record.value.body,edited.body);assert.equal(created.record.value.author_note,edited.author_note);assert.equal(created.record.value.record_seed,undefined);
@@ -350,4 +351,16 @@ test('reply seed read: compound saved native record preserves reauth-required lo
  const result=await f.run(f.request('connection_metadata',compoundSeedInput(id,{...empty,to:'',subject:'',body:''})));assert.deepEqual(result.record_seed_value.record,created);assert.equal(result.record_seed_value.value,null);assert.equal(f.calls,before,'native local access must never obtain a provider token');
  await assert.rejects(f.run(f.request('connection_metadata',compoundSeedInput(randomUUID(),{...empty,to:'',subject:'',body:''}))));
  await f.runtime.custody.withAccount(f.binding,async tx=>{const row=tx.read();await tx.write({health:'revoked',secret:{...row.secret,access_token:'discarded',refresh_token:'discarded',expires_at:0}});});await assert.rejects(f.run(f.request('connection_metadata',compoundSeedInput(id,empty))));assert.equal(f.calls,before);
+});
+
+test('reply seed read: actual reader quote handoff never drops the current policy or connection revision from the data key',async t=>{
+ for(const changed of ['policy','session_revision']){
+  let checks=0;const f=await compoundSeedFixture(t,{onAuthority:async input=>{if(input.operation==='connection_metadata')checks++;}}),request=f.request(randomUUID(),f.seed('reply'));
+  // The test Host grants a distinct current pin. Its source must be read afresh
+  // rather than borrowing data from the original reader's different context.
+  if(changed==='policy')request.authority.data_policy_digest='sha256:'+'f'.repeat(64);else request.connection.session_revision++;
+  request.input.seed.value.expected=compoundSeedPins(request);const before=f.rawReads,result=await f.run(request);
+  assert.equal(checks,4);assert.equal(f.rawReads,before+1,changed+' must miss the exact reader data key');assert.match(result.record_seed_value.value.body,/Native first body/);
+  assert.equal((await f.runtime.drafts.list(f.local,{cursor:null,limit:25},()=>{})).items.length,0);
+ }
 });
