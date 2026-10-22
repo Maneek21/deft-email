@@ -22,7 +22,9 @@ Release bundle **1.9.0-preview.29** builds App **1.9.1-preview.10** and Runtime 
 
 This release requires Host **0.3.0-preview.136 or newer**. It adds read-only Reply source reuse with fresh final checks, alongside clearer mailbox states and action notices, early technical renewal, scoped service reacquisition after expired leases, durable Gmail refresh reconciliation and a process-lifetime writer lock. A Host-authorized, receipt-backed registration transition lets a trusted compatible App upgrade continue without operator-file or token edits. Host installation trust is explicitly off by default; current account, private-storage, metadata and effect permissions remain independent. No renewal or recovery path sends a message or retries a provider effect. [Recovery and rollout details](runtime/UNATTENDED-RECOVERY.md).
 
-Previous release bundle **1.9.0-preview.18** selects Host **0.3.0-preview.125**. The Runtime now accepts background sessions that the Host delivers when an owner re-establishes background access after an App upgrade, so nobody copies session tokens into operator files. The App and both Kit packages are unchanged. Host preview.125 still uses schema120; no schema migration is needed.
+For an installation whose administrator has enabled **Compatible update trust**, a compatible upgrade keeps existing account access, background refresh and matching private-storage approvals. Owners do not repeat those reviews or reconnect just because the version changed. Changes to permissions, provider scope, actions, destinations or other authority still need review. Background refresh now defaults to **Until revoked**; a dated permission keeps its chosen expiry and does not auto-renew. See [connect-once setup and controls](docs/setup.md#connect-once-operation).
+
+Host125 / Email18 introduced Host-delivered background sessions after owner recovery. Host131–133 / Email21–26 added unattended service reacquisition and reliable trusted-upgrade handshakes. Host136 / Email28 is the current supported set; the older recovery-only instructions are historical.
 
 ## Build independently
 
@@ -48,7 +50,7 @@ Follow [setup](docs/setup.md) to obtain the compatible Host, sideload the genera
 
 The implementation includes multiple connected Gmail accounts, explicit Refresh, text/HTML and external images, private drafts and attachments, exact-message Send review, mailbox actions, Task/source navigation and policy-controlled Knowledge capture. Publication and live acceptance are recorded separately in [verification](docs/verification.md); historical receipts apply only to their original artifacts.
 
-Refresh can be slow. The latest retained demo observation took roughly 25–30 seconds to settle visually despite backend work completing in roughly 4–5.5 seconds. Setup and renewal still require operator care. Shared inboxes, full provider parity, production scale and mobile completeness are outside this preview. See [limitations](docs/limitations.md) and the [roadmap](ROADMAP.md).
+Background catch-up continues across pages while older mail is still syncing; it does not wait a full polling interval between successful pages. A trusted Email28 upgrade was observed to resume automatically with all 112 retained messages and zero owner permission or recovery steps. This is a bounded observation, not a timing or scale guarantee. Knowledge capture can briefly retry a mailbox-change race; settings still lack last-sync time and message count. Shared inboxes, full provider parity, production scale and mobile completeness remain outside this preview. See [limitations](docs/limitations.md), [verification](docs/verification.md) and the [roadmap](ROADMAP.md).
 
 ## Source and license
 

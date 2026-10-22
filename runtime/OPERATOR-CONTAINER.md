@@ -1,6 +1,6 @@
 # Independent Runtime operator container
 
-The supported Runtime source is `0.4.0-preview.18` with public Kit `0.1.0-alpha.35`. Use the exact source/archive/Node base image pins in the [compatibility manifest](../release/compatibility.json); the App independently uses Kit38. The complete [setup guide](../docs/setup.md) is the current operator path.
+The current Runtime is `0.4.0-preview.26`; App and Runtime both use the exact Kit `0.1.0-alpha.42` published by Host134. Email28 requires Host136 or newer. Use the exact source/archive/Node base image pins in the [compatibility manifest](../release/compatibility.json). The complete [setup guide](../docs/setup.md) is the current operator path.
 
 ## Build from public source
 
@@ -9,7 +9,7 @@ Use `Dockerfile.operator` with the deterministic `runtime-artifact.tgz`. The arc
 ```sh
 docker build -f runtime/Dockerfile.operator \
   --build-arg NODE_IMAGE='node:24.14.0-bookworm-slim@sha256:4bd6219054c8bebcd26a66bfd8ca0bd6e1024b4b97474c59bb7ee3bbcbef4fe8' \
-  -t deft-email-runtime:0.4.0-preview.18 .
+  -t deft-email-runtime:0.4.0-preview.26 .
 ```
 
 The command pins the registry-verified Node24.14.0 Debian slim linux/amd64 platform image. The final release record binds its Runtime build to the selected base and evidence; do not substitute a different platform or floating tag.
@@ -34,5 +34,7 @@ reverse_proxy @email_runtime 127.0.0.1:4082
 Place the routes before the Host catch-all. Preserve paths, avoid redirects and authorization/body logging, and configure the bounded request/result sizes required by the released contract. Register the actual `https://YOUR_RUNTIME_HOST/v1/connections` endpoint; the data endpoint uses the same reviewed origin at `/v1/data`. HTTPS exposure alone grants no account, data or action consent.
 
 The Runtime CLI polls enrolled `runtime_channel_files` through public claim/start/authorize/result. Each released Send or Organize requires current reviewed authority and its immutable app-owned snapshot. There is no independently callable HTTP Send endpoint. Enroll the separate observation/publication lane for Task/Knowledge as described in [setup](../docs/setup.md#task-and-knowledge-integration).
+
+Until-revoked permission supports automatic channel renewal and scoped service reacquisition after short-session expiry for the configured operator's own account. A dated permission keeps its expiry and needs owner review when it ends. Trusted compatible upgrades use receipt-backed successor registrations without operator-file edits; see [connect-once setup](../docs/setup.md#connect-once-operation) and [unattended recovery](UNATTENDED-RECOVERY.md).
 
 After restart, verify channel consumers and Host authority as well as HTTP health. Preserve unknown journals and fence writer leases before cutover. Detailed field/recovery reference is in [DEPLOYMENT.md](DEPLOYMENT.md); older E3/Graph notes describe their historical implementation stages rather than the supported provider matrix.
