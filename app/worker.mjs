@@ -16,7 +16,7 @@ self.onmessage=event=>{
  let importedRows=[],importedCursor=null,importedChoice=null,importedAccount=null;
  let ruleRows=[],ruleOrder=null,ruleChoice=null,ruleEditor=null,rulePreview=[],ruleChecked=new Map(),rulePending=null,ruleAccount=null;
  let accountTargets=[],accountChoice=null,selectedAccountTarget=null,accountPages=new Map();
- let composeAccountLookup=null,composeAccountRetry=false;
+ let composeAccountRetry=false;
  let searchHelpOpen=false,keyboardEnabled=true,providerHelpOpen=false;
  let items=[],cursor=null,selected=null,mode='reader',folder='inbox',query='',busy=false,status='',draft=null,draftRows=[],generation=0;
  let pane='list',searchOpen=false,observed=null,complete=false,pendingCreate=null,appliedQuery='',conversation=null,draftCursor=null,historyRows=[],historyOpen=false,minimizedDraft=null;
@@ -98,7 +98,7 @@ self.onmessage=event=>{
   else if(mode==='history'&&draft){content=stack('history_panel',[stack('history_heading',[text('history_title',draft.summary?.subject||'Submitted message','heading'),toolbar.children.at(-1)],{layout:'toolbar'}),text('history_notice',sendNotice||'Submitted copy · Read only. Check status for the provider receipt.','caption'),...(draft.summary?.run_id?[button('check_send_status','Check delivery and Sent-copy status','ghost',{disabled:busy})]:[]),...(inspectionRun===draft.summary?.run_id?[button('inspect_sent_copy','Inspect the original Sent copy','ghost',{disabled:busy,description:'Read the original copy only; no email or copy will be sent.'})]:[]),emailRecordForm(draft,{disabled:true,allowAction:false})],{surface:'document'});}
   else if(mode==='compose'&&draft?.state==='submitted'){content=stack('submitted_panel',[text('submitted_title','Message submitted','heading'),text('submitted_notice','Check Activity for delivery status. Start a new message to compose again.','body')],{surface:'document'});}
   else if(mode==='compose'&&draft){content=stack('compose_panel',[stack('compose_heading',[text('compose_title',draft.mode==='reply'?'Reply':draft.mode==='reply_all'?'Reply all':draft.mode==='forward'?'Forward':'New message','heading'),...toolbar.children.slice(3)],{layout:'toolbar'}),
-   {...emailRecordForm(draft,{disabled:busy}),...(draft.seed||initialDraftId===draft.record_id&&draft.revision===1?{initial_change:{operation_key:'signature_default',source_store_key:'signatures',source_identity_field:'address'}}:{})},...(draft.summary?.notice?[text('reply_notice',draft.summary.notice,'caption')]:[]),
+   {...emailRecordForm(draft,{disabled:busy}),...(draft.mode==='compose'&&(draft.seed||initialDraftId===draft.record_id&&draft.revision===1)?{initial_change:{operation_key:'signature_default',source_store_key:'signatures',source_identity_field:'address'}}:{})},...(draft.summary?.notice?[text('reply_notice',draft.summary.notice,'caption')]:[]),
   ],{surface:'document'});}
   else if(mode==='drafts'){content=stack('draft_list',[stack('drafts_heading',[text('drafts_title','Drafts','heading'),toolbar.children[1],toolbar.children[0]],{layout:'toolbar'}),
    ...rowGroups('draft_rows',draftRows.map(row=>button(rowId('draft',row),row.summary?.subject||row.label||'Saved draft','list',{
@@ -195,7 +195,7 @@ self.onmessage=event=>{
  async function createSetting(address){
   if(pendingSetting)throw Error('Check the existing change first');
   if(settingStore==='signatures'){const identities=verifiedSettingIdentities(await sdk.request('app_data','signatures',{operation:'connection_metadata',input:{store_key:'signatures'}}));if(!identities.some(identity=>identity.address===address))throw Error('Verified identity changed');}
-  const value=settingStore==='smtp_preferences'?{sent_copy_mode:'server_managed'}:settingStore==='templates'?{title:'New template',subject:'',body:'',body_html:''}:settingStore==='preferences'?{external_images:'always'}:{address,plain:'',html:'',placement:'none',automatic:{schema_version:'deft.signature_automatic.v1',enabled:false}};
+  const value=settingStore==='smtp_preferences'?{sent_copy_mode:'server_managed'}:settingStore==='templates'?{title:'New template',subject:'',body:'',body_html:''}:settingStore==='preferences'?{external_images:'ask'}:{address,plain:'',html:'',placement:'none',automatic:{schema_version:'deft.signature_automatic.v1',enabled:false}};
   const id=newRecordId();pendingSetting={store:settingStore,record_id:id};const result=await sdk.createRecord(settingStore,id,value);if(result.outcome!=='completed'||!result.record)throw Error('Setting creation unconfirmed');
   const meta=settingMeta(settingStore,result.record);if(meta.record_id!==id||meta.status!=='draft')throw Error('Setting creation changed');pendingSetting=null;setting=meta;settingIdentities=[];mode='setting';
  }
@@ -203,22 +203,15 @@ self.onmessage=event=>{
   if(!pendingSetting)return;const owned=pendingSetting,meta=settingMeta(owned.store,await sdk.readRecordMeta(owned.store,owned.record_id));if(meta.record_id!==owned.record_id||meta.status!=='draft')throw Error('Saved record unavailable');
   pendingSetting=null;settingStore=owned.store;setting=meta;mode='setting';status='Saved record found. Review its current version.';
  }
- async function currentComposeAccount(){
-  const context={generation,choice:accountChoice,target:selectedAccountTarget};
-  if(!composeAccountLookup||composeAccountLookup.context.generation!==context.generation||composeAccountLookup.context.choice!==context.choice||composeAccountLookup.context.target!==context.target){
-   const lookup={context,promise:Promise.resolve().then(()=>sdk.listAccountTargets('drafts'))};composeAccountLookup=lookup;
-   void lookup.promise.finally(()=>{if(composeAccountLookup===lookup)composeAccountLookup=null;}).catch(()=>{});
-  }
-  let timer;try{return await Promise.race([composeAccountLookup.promise,new Promise((resolve,reject)=>{timer=setTimeout(()=>{const error=Error('Compose account lookup timed out');error.code='EMAIL_COMPOSE_ACCOUNT_TIMEOUT';reject(error);},8000);})]);}finally{clearTimeout(timer);}
- }
  async function compose(nextMode='compose'){
   if(pendingCreate)throw Error('Check the existing creation before making another draft.');
-  if(nextMode==='compose'){const request=generation,choice=accountChoice,target=selectedAccountTarget,catalog=await currentComposeAccount();
-   if(request!==generation||choice!==accountChoice||target!==selectedAccountTarget||(choice==='all'?catalog.targets.length!==1||catalog.targets[0].key!==catalog.selected_target_key:choice!==catalog.selected_target_key))throw Error('Choose one current connected account before composing.');}
-  const initial=emptyEmailRecord(nextMode,nextMode==='compose'?null:selected);if(nextMode==='compose'){draft={record_id:newRecordId(),revision:0,content_digest:'sha256:'+'0'.repeat(64),seed:{schema_version:'deft.record_form_seed.v1',value:initial},mode:'compose',state:'saved',dirty:false,valid:true,summary:{}};initialDraftId=draft.record_id;mode='compose';pane='reader';status='';return;}pendingCreate=newRecordId();
-  const result=await sdk.createRecord('drafts',pendingCreate,initial,nextMode==='compose'?undefined:[{resource_key:'inbox',record_id:selected.record_id,content_digest:selected.content_digest}]);
-  if(result.outcome!=='completed'||!result.record)throw Error('Draft creation could not be confirmed. Open Drafts to check before trying again.');
-  initialDraftId=result.record.record_id;pendingCreate=null;draft={...result.record,mode:nextMode,state:'saved',dirty:false,valid:true};mode='compose';pane='reader';status='';
+  // Opening is local. The trusted form checks current account/store authority
+  // before reading a seed and again before its first human edit is persisted.
+  if(!selectedAccountTarget||accountChoice==='all'&&accountTargets.length!==1||accountChoice!=='all'&&accountChoice!==selectedAccountTarget||nextMode!=='compose'&&selected?.account_target_key&&selected.account_target_key!==selectedAccountTarget)throw Error('Choose the current connected compose account.');
+  const initial=emptyEmailRecord(nextMode,nextMode==='compose'?null:selected);
+  if(nextMode!=='compose')initial.record_seed={schema_version:'deft.email_reply_seed.v1',source:{resource_key:'inbox',record_id:selected.record_id,content_digest:selected.content_digest}};
+  draft={record_id:newRecordId(),account_target_key:selectedAccountTarget,revision:0,content_digest:'sha256:'+'0'.repeat(64),seed:{schema_version:'deft.record_form_seed.v1',value:initial},mode:nextMode,state:'saved',dirty:false,valid:true,summary:{}};
+  initialDraftId=nextMode==='compose'?draft.record_id:null;mode='compose';pane='reader';status='';
  }
  async function loadImportedHistory(append=false){const account=accountChoice==='all'?(accountTargets.length===1?accountTargets[0].key:null):accountChoice;if(!account)throw Error('Choose one account before opening imported history.');const request=++generation;const page=await sdk.listRecords('native_history',append?importedCursor:null,account);if(request!==generation)return;if(page.outcome!=='completed'||!Array.isArray(page.items)||page.next_cursor&&page.next_cursor===importedCursor&&append)throw Error('Imported history unavailable');importedAccount=account;importedRows=append?[...importedRows,...page.items.map(importedHistoryMeta)]:page.items.map(importedHistoryMeta);importedCursor=page.next_cursor??null;importedChoice=null;mode='imported_history';}
  async function loadRules(){const account=accountChoice==='all'?(accountTargets.length===1?accountTargets[0].key:null):accountChoice;if(!account){status='Choose one account before opening rules.';return;}ruleAccount=account;const rows=[];let cursor=null,pages=0;do{if(++pages>10)throw Error('Rule capacity unavailable');const page=await sdk.listRecords('rules',cursor,account);if(page.outcome!=='completed'||!Array.isArray(page.items)||page.next_cursor&&page.next_cursor===cursor)throw Error('Rules unavailable');rows.push(...page.items.map(ruleMeta));if(rows.length>100)throw Error('Rule capacity exceeded');cursor=page.next_cursor??null;}while(cursor);const order=await sdk.listRecords('rules_order',null,account);if(order.outcome!=='completed'||order.items?.length!==1)throw Error('Rule order unavailable');ruleOrder=await sdk.readRecordMeta('rules_order',order.items[0].record_id);ruleRows=rows;ruleChoice=null;ruleEditor=null;rulePreview=[];ruleChecked.clear();mode='rules';}

@@ -47,7 +47,12 @@ export function createAuthorityClient({authority_url, authority_token, fetch: fe
     const activeSignal=signal?AbortSignal.any([signal,AbortSignal.timeout(timeout_ms)]):AbortSignal.timeout(timeout_ms),expires=typeof input?.expires_at==='string'?Date.parse(input.expires_at):Infinity;
     const check=()=>{activeSignal.throwIfAborted();if(expires<=Date.now())fail('EMAIL_RUNTIME_AUTHORITY_DENIED');};check();
     const release=await authoritySlot(host,activeSignal);
-    try{check();const result=await boundedJson(await fetchImpl(url, {method: 'POST', headers: {'content-type': 'application/json', authorization: 'Bearer ' + secret}, body: bytes, redirect: 'error', signal:activeSignal}),activeSignal,maximum_bytes);check();return result;}
+    try{check();const response=await fetchImpl(url, {method: 'POST', headers: {'content-type': 'application/json', authorization: 'Bearer ' + secret}, body: bytes, redirect: 'error', signal:activeSignal});
+      // The Host can deny a once-current request while its account is being
+      // checked or after access ends. Preserve that denial; a live Runtime
+      // receiving HTTP 403 is not evidence of a transport outage.
+      if(response.status===401||response.status===403){void response.body?.cancel().catch(()=>{});fail('EMAIL_RUNTIME_AUTHORITY_DENIED');}
+      const result=await boundedJson(response,activeSignal,maximum_bytes);check();return result;}
     finally{release();}
   };
 }

@@ -1,6 +1,6 @@
 # Developer-preview limitations
 
-This preview demonstrates a connected, independently deployed Email App using public Deft contracts. It is intended for developers and operators, with Gmail as the accepted provider path. It does not promise effortless onboarding, full Gmail/Outlook parity or production-scale operation. Exact published identities and acceptance belong to [the compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.27/compatibility.json) and [verification](verification.md).
+This preview demonstrates a connected, independently deployed Email App using public Deft contracts. It is intended for developers and operators, with Gmail as the accepted provider path. It does not promise effortless onboarding, full Gmail/Outlook parity or production-scale operation. Exact published identities and acceptance belong to [the compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.28/compatibility.json) and [verification](verification.md).
 
 ## Known behavior
 

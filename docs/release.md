@@ -1,10 +1,10 @@
 # Developer-preview release procedure
 
-This release demonstrates an independently built connected App using public Author Kit contracts. It does not certify a production mail service or add roadmap features. [The compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.27/compatibility.json) is authoritative for the final integrated source and artifacts; [limitations](limitations.md) must accompany the prerelease.
+This release demonstrates an independently built connected App using public Author Kit contracts. It does not certify a production mail service or add roadmap features. [The compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.28/compatibility.json) is authoritative for the final integrated source and artifacts; [limitations](limitations.md) must accompany the prerelease.
 
 ## Freeze and integrate
 
-The preview.27 dependency order is Deft #393 -> #394 -> #407 -> Host134 publishing Kit42 -> exact published Kit adoption and green Email #12 -> Email27 release and trusted upgrade verification -> Deft #385 last. Refresh protected checks after base changes. Do not bypass security or provenance checks.
+The preview.28 dependency order is green Deft #410 -> refreshed green #409 -> Host136 release and demo deployment -> green Email #22 (Host minimum136, App9, Runtime26) -> refreshed green #21 -> Email28 release -> App and single-writer Runtime deployment -> zero-step trusted upgrade and read-only live smoke. Kit42 remains the exact immutable Host134 artifact; do not relabel its producer. Pre-check the deployed Host136 before staging or activating App9. No Send is authorized for this train. Refresh protected checks after base changes. Do not bypass security or provenance checks.
 
 Use the final integrated commits, not the pre-merge demo commits, as release source. Keep generated outputs, credentials, mailbox data, custody and private operational evidence outside Git. Record which historical evidence remains valid because the relevant executable artifacts are unchanged.
 
