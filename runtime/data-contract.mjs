@@ -41,22 +41,24 @@ export function createDataChecker({request,assertCurrent,signal,now=Date.now}){
   let deadline=Math.min(Date.parse(request.expires_at),consentDeadline(request.scope,'consent_expires_at'),now()+30000);const expiry=new AbortController(),combined=AbortSignal.any([signal,expiry.signal].filter(Boolean));let timer;
   const arm=()=>{clearTimeout(timer);timer=setTimeout(()=>expiry.abort(new Error('EMAIL_DATA_AUTHORITY_EXPIRED')),Math.max(0,deadline-now()));timer.unref();};arm();
   let pending;
-  const check=async()=>{
+  const runCheck=async fresh=>{
     combined.throwIfAborted();if(deadline<=now())fail('EMAIL_DATA_AUTHORITY_DENIED');
-    const expected=dataAuthorityRequest(request,new Date(deadline).toISOString()),key=canonical(expected);
-    let entry=pending;
+    const dispatchDeadline=deadline,expected=dataAuthorityRequest(request,new Date(dispatchDeadline).toISOString()),key=canonical(expected);
+    let entry=fresh?null:pending;
     if(!entry||entry.key!==key){
-      entry={key};pending=entry;
+      entry={key};if(!fresh)pending=entry;
       entry.work=(async()=>{try{
         const response=await assertCurrent(expected,combined);exact(response,[...Object.keys(expected),'allowed']);const {expires_at,allowed,...pins}=response,{expires_at:ignored,...expectedPins}=expected;
-        if(allowed!==true||canonical(pins)!==canonical(expectedPins)||!isoTime(expires_at)||Date.parse(expires_at)<=now()||Date.parse(expires_at)>deadline)fail('EMAIL_DATA_AUTHORITY_DENIED');
+        if(allowed!==true||canonical(pins)!==canonical(expectedPins)||!isoTime(expires_at)||Date.parse(expires_at)<=now()||Date.parse(expires_at)>dispatchDeadline)fail('EMAIL_DATA_AUTHORITY_DENIED');
         deadline=Math.min(deadline,Date.parse(expires_at));arm();
       }finally{if(pending===entry)pending=undefined;}})();
     }
     await entry.work;combined.throwIfAborted();if(deadline<=now())fail('EMAIL_DATA_AUTHORITY_DENIED');return deadline;
   };
   const checkLocal=()=>{combined.throwIfAborted();if(deadline<=now())fail('EMAIL_DATA_AUTHORITY_DENIED');};
-  return {check,checkLocal,signal:combined,get expires_at(){return deadline;},dispose(){clearTimeout(timer);}};
+  // Opening barriers are independently dispatched; ordinary concurrent reads
+  // still share only an identical in-flight check, never a settled decision.
+  return {check:()=>runCheck(false),checkFresh:()=>runCheck(true),checkLocal,signal:combined,get expires_at(){return deadline;},dispose(){clearTimeout(timer);}};
 }
 export function encodeFileFrame(header,bytes){const metadata=Buffer.from(JSON.stringify(header)),limit=header.operation==='resource_read_source'?SOURCE_BYTES:FILE_BYTES;if(metadata.length>FILE_FRAME_HEADER_BYTES||!(bytes instanceof Uint8Array)||bytes.byteLength>limit)fail('EMAIL_DATA_FRAME_LIMIT');const prefix=Buffer.alloc(4);prefix.writeUInt32BE(metadata.length);return Buffer.concat([prefix,metadata,bytes]);}
 export function decodeFileFrame(frame){if(!(frame instanceof Uint8Array)||frame.length<4||frame.length>FILE_BYTES+FILE_FRAME_HEADER_BYTES+4)fail('EMAIL_DATA_FRAME_INVALID');const bytes=Buffer.from(frame),length=bytes.readUInt32BE();if(length<2||length>FILE_FRAME_HEADER_BYTES||bytes.length<4+length)fail('EMAIL_DATA_FRAME_INVALID');let header;try{header=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes.subarray(4,4+length)));}catch{fail('EMAIL_DATA_FRAME_INVALID');}return {header,bytes:bytes.subarray(4+length)};}

@@ -60,15 +60,29 @@ export function createDataRuntime({registrations,getRegistrations,client,provide
     const change=raw?.schema_version==='deft.app_data_runtime.v2',request=change?validateChangeRequest(raw):validateDataRequest(raw),registration=(getRegistrations?getRegistrations().map(({connection_protocol,...r})=>validateRegistration(r)):registrations).find(value=>value.org_id===request.scope.org_id&&value.runtime_registration_id===request.scope.runtime_registration_id);
     if(!registration||Object.keys(registration).some(field=>registration[field]!==request.scope[field]))fail('EMAIL_RUNTIME_REGISTRATION_DENIED');
     const trace=createForegroundDiagnostics({request_id:request.request_id,operation:request.operation,onDiagnostic});let requestError;
-    const guard=(change?createChangeChecker:createDataChecker)({request,assertCurrent,signal,now}),hostCheck=()=>trace.span('authority',guard.check);
+    const compoundOpening=!formMode&&!change&&request.operation==='connection_metadata'&&request.input.store_key==='drafts'&&request.input.seed?.operation_key==='record_seed_snapshot',openingAbort=compoundOpening?new AbortController():null;
+    const guard=(change?createChangeChecker:createDataChecker)({request,assertCurrent,signal:openingAbort?AbortSignal.any([signal,openingAbort.signal].filter(Boolean)):signal,now}),hostCheck=()=>trace.span('authority',guard.check);let openingSession;
     const sessionLock=async work=>{const queued=trace.start('session_queue');try{return await store.withLock({key:'email.runtime.session.'+request.connection.session_id},tx=>{queued();return trace.span('session_hold',()=>work(tx));});}catch(error){queued(error);throw error;}};
     const sourceSeedRead=!change&&request.operation==='connection_metadata'&&request.input.store_key==='drafts'&&['record_seed','record_seed_snapshot'].includes(request.input.seed?.operation_key);
     const optimistic=!formMode&&!change&&(localReadPaths.has(request.operation)||sourceSeedRead)&&!request.input.query?.startsWith('folder-ref:')&&!request.input.query?.startsWith('rule-preview:');
-    const withSession=async work=>{if(optimistic)return work(await createReadSessionSnapshot({withLock:sessionLock,check:guard.checkLocal}));if(!formMode)return sessionLock(work);const queued=trace.start('session_queue');try{return await forms.withDataSession(request.connection,request.scope,guard.checkLocal,tx=>{queued();return trace.span('session_hold',()=>work(tx));});}catch(error){queued(error);throw error;}};
-    try{await hostCheck();
-     // Read the adoption journal before holding a session lock; publication
-     // locks journal then session. Visibility only advances after both commits.
-     if(!formMode)await trace.span('visibility',async()=>assertNativeSessionVisible({store,session:(await store.withLock({key:'email.runtime.session.'+request.connection.session_id},tx=>tx.read()))?.value}));
+    const withSession=async work=>{if(optimistic)return work(openingSession??await createReadSessionSnapshot({withLock:sessionLock,check:guard.checkLocal}));if(!formMode)return sessionLock(work);const queued=trace.start('session_queue');try{return await forms.withDataSession(request.connection,request.scope,guard.checkLocal,tx=>{queued();return trace.span('session_hold',()=>work(tx));});}catch(error){queued(error);throw error;}};
+    const visibility=()=>trace.span('visibility',async()=>assertNativeSessionVisible({store,session:(await store.withLock({key:'email.runtime.session.'+request.connection.session_id},tx=>tx.read()))?.value}));
+    try{
+     if(compoundOpening){
+      // The signed Host request is admitted already. Capture only opaque local
+      // session/visibility metadata while the independent entry call is pending.
+      // No custody, identity, source, saved record or provider work starts until
+      // both fresh opening barriers pass and the captured session is still exact.
+      const started=[],fresh=()=>{const work=trace.span('authority',guard.checkFresh).catch(error=>{openingAbort.abort(error);throw error;});started.push(work);work.catch(()=>{});return work;};
+      const entry=fresh();
+      try{await visibility();openingSession=await createReadSessionSnapshot({withLock:sessionLock,check:guard.checkLocal});const admission=fresh();await Promise.all([entry,admission]);await openingSession.assertCurrent();}
+      catch(error){openingAbort.abort(error);await Promise.allSettled(started);throw error;}
+     }else{
+      await hostCheck();
+      // Read the adoption journal before holding a session lock; publication
+      // locks journal then session. Visibility only advances after both commits.
+      if(!formMode)await visibility();
+     }
      return await withSession(async sessionTx=>{
       const session=(await sessionTx.read())?.value; if(change||mutationOperations.has(request.operation)||request.operation==='resource_refresh')await assertNoCredentialRepair({store,scope:request.scope});
       const checkLocal=()=>{guard.checkLocal();if(!session||session.state!=='connected'||canonical(session.scope)!==canonical(request.scope)||session.runtime_session_ref!==request.connection.runtime_session_ref||session.account?.account_ref!==request.connection.account_ref||session.binding.account_id!==request.connection.account_ref||session.client_fingerprint!==fingerprint||session.binding.provider!==provider)fail('EMAIL_DATA_CONNECTION_DENIED');};
@@ -79,7 +93,7 @@ export function createDataRuntime({registrations,getRegistrations,client,provide
       // Record changes recheck online under their journal lock. Local checks
       // retain the request deadline, session and current custody at every read.
       const checkChangeLocal=async()=>{checkLocal();if(changeGeneration!==null)await currentChangeAccount();};
-      if(change)checkLocal();else await check();
+      if(change||compoundOpening)checkLocal();else await check();
       const scope={org_id:request.scope.org_id,owner_user_id:request.scope.owner_user_id,account_id:request.connection.account_ref},input=request.input;
       // A compound snapshot reads private saved records as well as public source
       // data. Optional connection metadata authority is never enough for it.
