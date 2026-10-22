@@ -19,7 +19,7 @@ The production Runtime needs a POSIX local persistent filesystem and one service
 
 External images default to **Ask** when no preference exists or an old preference is archived. A saved **Always** choice remains supported, subject to Host policy. Images use the protected delivery path; message reading does not authorize arbitrary private-network fetches.
 
-Opening Reply, Reply all, Forward or Compose now uses a local unsaved seed; opening the editor alone does not create a saved draft. The latest live smoke still recorded Reply form timeouts, so the shipped seed change is not proof that the whole Reply journey works reliably. Save/reopen and exact-message Send remain separate checks.
+Opening Reply, Reply all, Forward or Compose uses a local unsaved seed; opening the editor alone does not create a saved draft. The latest recorded live smoke encountered Reply form timeouts. A [follow-up Reply opening fix](https://github.com/Maneek21/deft-email/pull/24) has since merged in source; that earlier smoke does not verify the fix on a deployed release. Save/reopen and exact-message Send remain separate checks.
 
 Unknown provider outcomes are not automatically retried. Inspect the original result/journal before deciding recovery. Independent automatic read recovery can continue while an earlier uncertain read remains recorded. Provider acceptance alone does not prove recipient delivery; backup checksums alone do not prove a restore rehearsal.
 

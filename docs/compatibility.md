@@ -24,7 +24,7 @@ Historically, bundle preview.17 paired App preview.14 and Runtime preview.17 wit
 
 Host 131–133 and Email 21–26 introduced scoped service reacquisition after expired short leases and completed the trusted-upgrade handshake fixes. On the current set, an administrator can enable per-installation **Compatible update trust** (off by default). Compatible activation carries matching account, background and private-data approvals forward with fresh registrations/sessions; changed authority still needs review. No operator-file or token edit is needed. The **Until revoked** background default supports renewal/recovery; a dated permission does not auto-renew. Stop the previous Runtime cleanly before starting the single successor against the same encrypted store/key. See [setup and controls](setup.md#connect-once-operation) and [recovery details](../runtime/UNATTENDED-RECOVERY.md).
 
-Host 136 / Email 28 also adds source-seeded unsaved Compose/Reply, scoped read recovery and an **Ask** default for external images. Authority HTTP 401/403 remains a permission denial rather than being labelled a Runtime outage. The remaining Reply timeout and settings/Knowledge limits are disclosed in [limitations](limitations.md).
+Host 136 / Email 28 also adds source-seeded unsaved Compose/Reply, scoped read recovery and an **Ask** default for external images. Authority HTTP 401/403 remains a permission denial rather than being labelled a Runtime outage. The recorded Reply timeout, its later merged source fix, and settings/Knowledge limits are disclosed in [limitations](limitations.md). That follow-up fix is separate from the Email28 acceptance evidence.
 
 ## Verify before installation
 
