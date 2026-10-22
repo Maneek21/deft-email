@@ -1,6 +1,8 @@
 # Email background-refresh description
 
-Preview.21 retains the description introduced in preview.20. Its current compatibility minimum is Host131 for scoped service reacquisition and trusted upgrade continuity; Kit39 itself remains the original sealed Host127 artifact. The preview.20 details below record that feature's introduction.
+The current Email28 set requires Host136 and the immutable Host134 Kit42. Background refresh defaults to **Until revoked** and explains how mailbox metadata supports Tasks/Knowledge. Trusted compatible updates can keep that reviewed approval; a dated permission still expires without automatic renewal. See [current setup and controls](setup.md#connect-once-operation).
+
+The preview.20 details below are historical: they record the introduction of the App-owned description with Host127/Kit39. They are not the current compatibility matrix.
 
 Email now owns the explanation displayed in its background-refresh review:
 

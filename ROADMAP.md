@@ -1,6 +1,6 @@
 # Email roadmap
 
-Email is the reference implementation for a complex, independently deployed Deft App built with the public Author Kit. The current release is a developer preview, not a promise of complete Gmail/Outlook parity. The [published compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.18/compatibility.json) and [verification record](docs/verification.md) determine which exact artifacts are published and accepted. The repository's [compatibility file](release/compatibility.json) is the source template, not proof of publication.
+Email is the reference implementation for a complex, independently deployed Deft App built with the public Author Kit. The current release is a developer preview, not a promise of complete Gmail/Outlook parity. The [published compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.28/compatibility.json) and [verification record](docs/verification.md) determine which exact artifacts are published and accepted. The repository's [compatibility file](release/compatibility.json) is the source template, not proof of publication.
 
 This roadmap separates the preview's implementation from its known limits and possible future work. It promises no dates and does not expand the current release.
 
@@ -13,13 +13,17 @@ This roadmap separates the preview's implementation from its known limits and po
 - Nominate an Email source for native Tasks and return through its access-checked backlink.
 - Publish governed sources for Knowledge capture under a separately reviewed policy and configured observation lane.
 - Update Email through public package/lifecycle contracts without modifying the compatible Host.
+- Keep matching approvals through trusted compatible upgrades, renew until-revoked background access and reacquire short sessions for the configured operator's own account after outages.
+- Catch up across successful mailbox pages promptly, then return to the configured polling interval.
 
 These are the shipped scope when the release is marked published; [acceptance](docs/verification.md) states the evidence and any unverified behavior. Package validity, an installed app and a successful live journey are different claims.
 
 ## Known limitations and near-term reliability work
 
 - Reduce visible Refresh and cold-load delays, and make loading and partial-access states clearer.
-- Simplify operator setup, account enrollment, finite technical renewal and supported upgrade recovery.
+- Simplify initial operator setup and expose last-sync time/message count in settings when the Host API supports them.
+- Consolidate sequential authority checks so very large mailboxes are less likely to hit operation budgets.
+- Reduce the mailbox-generation race that briefly delays background Knowledge capture, and link individual “need attention” items.
 - Improve deployment startup headroom, recoverable worker startup, observability and capacity guidance.
 - Expand restart, backup/restore and retention-aware uninstall confidence without discarding uncertain-send journals.
 - Make Task/Knowledge publication setup and operational status easier to understand.
@@ -41,6 +45,6 @@ Connected Gmail remains an adoption option. A company should be able to try Emai
 
 ## Later provider and operational maturity
 
-Broader Microsoft/other-provider support, fuller search/history behavior, provider-specific features, sustained synchronization, notifications, accessibility/mobile refinements, monitoring, quotas, migration and disaster recovery are future directions. Existing provider fixture code is not a claim that each provider has the Gmail preview's live acceptance coverage.
+Broader Microsoft/other-provider support, fuller search/history behavior, provider-specific features, notifications, accessibility/mobile refinements, monitoring, quotas, migration and disaster recovery are future directions. The Host contracts/Wiki neutral-owner work and full Knowledge/Calendar migration from the #378 plans remain deferred. Existing provider fixture code is not a claim that each provider has the Gmail preview's live acceptance coverage.
 
 Each expansion should preserve independently versioned Email releases, public Kit contracts, current authority checks and safe handling of unknown outcomes. Compatibility and evidence should grow with the supported surface rather than imply universal provider parity.
