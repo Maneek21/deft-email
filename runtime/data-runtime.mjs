@@ -17,7 +17,7 @@ import {createEncryptedEmailCustody} from './vendor/providers/custody-encrypted.
 import {grantedOAuthCapabilities,validateOAuthClient,oauthClientFingerprint} from './vendor/providers/oauth-provider.mjs';
 import {validateEmailAccount} from './vendor/account-registry.mjs';
 import {canonical,digest,exact,fail,validateRegistration} from './contract.mjs';
-import {createDraftStore,uuid} from './draft-store.mjs';
+import {createDraftStore,validateDraftContent,uuid} from './draft-store.mjs';
 import {createMailboxStore,resourceView} from './mailbox-store.mjs';
 import {integrationKnowledgePresentation} from './integration-knowledge.mjs';
 import {createDataChecker,dataInputDigest,validateDataRequest,validateDataResult} from './data-contract.mjs';
@@ -62,7 +62,7 @@ export function createDataRuntime({registrations,getRegistrations,client,provide
     const trace=createForegroundDiagnostics({request_id:request.request_id,operation:request.operation,onDiagnostic});let requestError;
     const guard=(change?createChangeChecker:createDataChecker)({request,assertCurrent,signal,now}),hostCheck=()=>trace.span('authority',guard.check);
     const sessionLock=async work=>{const queued=trace.start('session_queue');try{return await store.withLock({key:'email.runtime.session.'+request.connection.session_id},tx=>{queued();return trace.span('session_hold',()=>work(tx));});}catch(error){queued(error);throw error;}};
-    const sourceSeedRead=!change&&request.operation==='connection_metadata'&&request.input.store_key==='drafts'&&request.input.seed?.operation_key==='record_seed';
+    const sourceSeedRead=!change&&request.operation==='connection_metadata'&&request.input.store_key==='drafts'&&['record_seed','record_seed_snapshot'].includes(request.input.seed?.operation_key);
     const optimistic=!formMode&&!change&&(localReadPaths.has(request.operation)||sourceSeedRead)&&!request.input.query?.startsWith('folder-ref:')&&!request.input.query?.startsWith('rule-preview:');
     const withSession=async work=>{if(optimistic)return work(await createReadSessionSnapshot({withLock:sessionLock,check:guard.checkLocal}));if(!formMode)return sessionLock(work);const queued=trace.start('session_queue');try{return await forms.withDataSession(request.connection,request.scope,guard.checkLocal,tx=>{queued();return trace.span('session_hold',()=>work(tx));});}catch(error){queued(error);throw error;}};
     try{await hostCheck();
@@ -81,6 +81,13 @@ export function createDataRuntime({registrations,getRegistrations,client,provide
       const checkChangeLocal=async()=>{checkLocal();if(changeGeneration!==null)await currentChangeAccount();};
       if(change)checkLocal();else await check();
       const scope={org_id:request.scope.org_id,owner_user_id:request.scope.owner_user_id,account_id:request.connection.account_ref},input=request.input;
+      // A compound snapshot reads private saved records as well as public source
+      // data. Optional connection metadata authority is never enough for it.
+      if(sourceSeedRead&&input.seed.operation_key==='record_seed_snapshot'){
+        if(request.authority.consent_id===null)fail('EMAIL_DATA_AUTHORITY_DENIED');
+        const expected=input.seed.value?.expected;exact(expected,['account_ref','target_key','data_policy_digest','consent_id','consent_digest']);
+        if(canonical(expected)!==canonical({account_ref:request.connection.account_ref,target_key:request.scope.target_key,...request.authority}))fail('EMAIL_DATA_AUTHORITY_DENIED');
+      }
       const withPinnedSession=work=>optimistic?sessionTx.withLocked(work):work();
       if(change){const current=await currentChangeAccount();changeGeneration=current.generation;changeIdentityPins=identityPins(current.account);const identities=current.account.verified_sender_identities.map(address=>({address,label:address===current.account.primary_address?current.account.display_label:address}));
         const result=await executeRecordChange({request,scope,session,store,drafts,settings,check,localCheck:checkChangeLocal,identities,primary_identity:verifiedPrimary(current.account,identities),now,recordView,generation:changeGeneration});validateChangeResult(result,request);await check();return result;}
@@ -105,7 +112,12 @@ export function createDataRuntime({registrations,getRegistrations,client,provide
       // injected provider fetch above is freshly online. Image DNS/redirect
       // boundaries separately use the explicit online resource-bytes guard.
       const memoEligible=request.operation==='resource_list'&&Boolean(input.query)&&!input.query.startsWith('folder-ref:')&&!input.anchor_record_id||['resource_read_presentation','resource_list_files'].includes(request.operation);
-      const custodyGeneration=async()=>formMode?(await heldForms.currentAccount()).custody_generation:custody.withAccount(session.binding,async tx=>{checkLocal();const row=tx.read(),account=accountFromRecord(session.binding,row);if(account?.health!=='connected'||!account?.capabilities.includes('read')||canonical(row.binding)!==canonical(session.binding)||row.secret.client_fingerprint!==fingerprint||!Number.isSafeInteger(row.setup_generation)||row.setup_generation<1)fail('EMAIL_DATA_CONNECTION_DENIED');checkLocal();return row.setup_generation;});
+      const seedDraft=async id=>{try{return recordView(await drafts.read(scope,id,checkLocal));}catch(error){if(error.code==='EMAIL_DRAFT_NOT_FOUND')return null;throw error;}};
+      // Native adoption already permits local saved-record reads while provider
+      // reconnection is required. Keep that exact scope only for an existing
+      // destination; it cannot authorize a new seed or any provider work.
+      const savedSeedReauth=allowNativeReauth&&sourceSeedRead&&input.seed.operation_key==='record_seed_snapshot'&&!!await seedDraft(input.seed.value?.record_id);
+      const custodyGeneration=async()=>formMode?(await heldForms.currentAccount()).custody_generation:custody.withAccount(session.binding,async tx=>{checkLocal();const row=tx.read(),account=accountFromRecord(session.binding,row,{allowNativeReauth:savedSeedReauth});if((account?.health!=='connected'&&!(savedSeedReauth&&account?.health==='reauth_required'))||!account?.capabilities.includes('read')||canonical(row.binding)!==canonical(session.binding)||row.secret.client_fingerprint!==fingerprint||!Number.isSafeInteger(row.setup_generation)||row.setup_generation<1)fail('EMAIL_DATA_CONNECTION_DENIED');checkLocal();return row.setup_generation;});
       // Internal saved-recipient reads retain the exact source lock and custody
       // generation throughout the bounded scan, then recheck Host authority.
       if(recipientRead){
@@ -119,7 +131,7 @@ export function createDataRuntime({registrations,getRegistrations,client,provide
       const localSettingRead=setting&&input.store_key==='preferences'&&['record_read','record_list'].includes(request.operation);
       const partialPublication=()=>({publication_intent:'partial_observation',sync_producer:{scope:request.scope,session_id:request.connection.session_id,runtime_session_ref:request.connection.runtime_session_ref,custody_generation:generation,client_fingerprint:formMode?digest({connection_protocol:fingerprint}):fingerprint}});
       const commitMailbox=(...args)=>withPinnedSession(async()=>{checkLocal();if(generation!==null&&await custodyGeneration()!==generation)fail('EMAIL_DATA_CONNECTION_DENIED');return mailbox.commit(...args);});
-      const generation=localReadPaths.has(request.operation)||localSettingRead||sourceSeedRead?await custodyGeneration():null,memoKey=memoEligible?memo.key(request,{client_fingerprint:fingerprint,custody_generation:generation}):null;let pendingMemo=null,disclosureStamp=null,seedSourceRef=null;
+      const generation=localReadPaths.has(request.operation)||localSettingRead||sourceSeedRead?await custodyGeneration():null,memoKey=memoEligible?memo.key(request,{client_fingerprint:fingerprint,custody_generation:generation}):null;let pendingMemo=null,disclosureStamp=null,seedSourceRef=null,seedDraftPin=null;
       let identities=[],primary_identity=null;
       // Cache-only reads still need current custody health/capability validation.
       // Provider-backed reads perform it in their native bridge; only record
@@ -193,7 +205,20 @@ export function createDataRuntime({registrations,getRegistrations,client,provide
         };
         if(request.operation==='connection_metadata'){
           inputObject(input,['store_key',...(Object.hasOwn(input,'seed')?['seed']:[])]);if(!input.seed)return {...base,identities,primary_identity};
-          exact(input.seed,['operation_key','destination_store_key','value']);if(input.seed.operation_key!=='record_seed'||input.seed.destination_store_key!=='drafts')fail('EMAIL_DATA_INPUT_INVALID');
+          exact(input.seed,['operation_key','destination_store_key','value']);if(!['record_seed','record_seed_snapshot'].includes(input.seed.operation_key)||input.seed.destination_store_key!=='drafts')fail('EMAIL_DATA_INPUT_INVALID');
+          if(input.seed.operation_key==='record_seed_snapshot'){
+            const snapshot=input.seed.value;exact(snapshot,['schema_version','record_id','value','expected']);
+            if(snapshot.schema_version!=='deft.record_seed_snapshot_request.v1'||!uuid(snapshot.record_id)||!snapshot.value||typeof snapshot.value!=='object'||Array.isArray(snapshot.value))fail('EMAIL_DATA_INPUT_INVALID');
+            const record=await seedDraft(snapshot.record_id);seedDraftPin={record_id:snapshot.record_id,record:canonical(record)};
+            // An already-saved destination is authoritative. A stale original
+            // nomination cannot replace its content, files or saved revision.
+            let value=null;if(!record){
+              if(savedSeedReauth)fail('EMAIL_DATA_CONNECTION_DENIED');
+              if(snapshot.value.record_seed)value=(await replySeed(snapshot.value)).value;
+              else{value=validateDraftContent(snapshot.value);if(value.mode!=='compose'||value.reply_record_id!==''||value.attachments.length)fail('EMAIL_DATA_INPUT_INVALID');}
+            }else if(record.source_refs?.some(ref=>ref.resource_key!==request.scope.resource_key))fail('EMAIL_DATA_SOURCE_CHANGED');
+            return {...base,identities,primary_identity,record_seed_value:{schema_version:'deft.record_seed_snapshot.v1',record_id:snapshot.record_id,account_ref:request.connection.account_ref,record,value}};
+          }
           const seeded=await replySeed(input.seed.value);return {...base,identities,primary_identity,record_seed_value:seeded.value};
         }
         if(request.operation==='record_create'){
@@ -273,7 +298,7 @@ export function createDataRuntime({registrations,getRegistrations,client,provide
         if(['resource_read_presentation','resource_list_files'].includes(request.operation)){inputObject(input,['store_key','resource_key','record_id','content_digest']);const presentation={...sourceView.presentation,source_digest:'sha256:'+sourceView.source_digest,...(request.operation==='resource_read_presentation'?{external_images:(await settings.list(scope,'preferences',{cursor:null,limit:1},checkLocal)).items[0]?.summary.external_images??'ask'}:{}),images:sourceView.presentation.images.map(image=>({...image,image_ref:'sha256:'+image.image_ref})),...(sourceView.reply_seed_unavailable?{reply_seed_unavailable:sourceView.reply_seed_unavailable}:{})};return request.operation==='resource_list_files'?{...base,files}:{...base,resource:resourceView(record),files,presentation:integrationKnowledgePresentation(record,presentation)};}
         fail('EMAIL_DATA_INPUT_INVALID');
       };
-      if(!mutationOperations.has(request.operation)){let result;try{result=await execute();}catch(error){if(['EMAIL_DRAFT_NOT_FOUND','EMAIL_DATA_NOT_FOUND','EMAIL_SETTINGS_NOT_FOUND','EMAIL_RULE_NOT_FOUND'].includes(error.code))result={...base,outcome:'not_found'};else if(['EMAIL_DRAFT_CONFLICT','EMAIL_SETTINGS_CONFLICT','EMAIL_RULE_CONFLICT'].includes(error.code))result={...base,outcome:'conflict'};else throw error;}try{validateDataResult(result,request);await check();if(optimistic&&result.outcome==='completed'&&input.record_id&&request.operation.startsWith('resource_')&&resourceView(await mailbox.get(scope,input.record_id,checkLocal)).content_digest!==input.content_digest)fail('EMAIL_DATA_SOURCE_CHANGED');if(seedSourceRef&&resourceView(await mailbox.get(scope,seedSourceRef.record_id,checkLocal)).content_digest!==seedSourceRef.content_digest)fail('EMAIL_DATA_SOURCE_CHANGED');if((localReadPaths.has(request.operation)||localSettingRead||sourceSeedRead)&&await custodyGeneration()!==generation)fail('EMAIL_DATA_CONNECTION_DENIED');if(memoEligible||request.operation==='resource_read_metadata'||sourceSeedRead){checkLocal();const snapshot=await mailbox.cacheSnapshot(scope,[],checkLocal);if(disclosureStamp&&canonical(snapshot.stamp)!==canonical(disclosureStamp))fail('EMAIL_DATA_SOURCE_CHANGED');if(pendingMemo&&result.outcome==='completed'){memo.set(memoKey,scope,snapshot.stamp,pendingMemo.payload,pendingMemo.observed_at);}}return result;}catch(error){result.bytes?.fill(0);throw error;}}
+      if(!mutationOperations.has(request.operation)){let result;try{result=await execute();}catch(error){if(['EMAIL_DRAFT_NOT_FOUND','EMAIL_DATA_NOT_FOUND','EMAIL_SETTINGS_NOT_FOUND','EMAIL_RULE_NOT_FOUND'].includes(error.code))result={...base,outcome:'not_found'};else if(['EMAIL_DRAFT_CONFLICT','EMAIL_SETTINGS_CONFLICT','EMAIL_RULE_CONFLICT'].includes(error.code))result={...base,outcome:'conflict'};else throw error;}try{validateDataResult(result,request);await check();if(optimistic&&result.outcome==='completed'&&input.record_id&&request.operation.startsWith('resource_')&&resourceView(await mailbox.get(scope,input.record_id,checkLocal)).content_digest!==input.content_digest)fail('EMAIL_DATA_SOURCE_CHANGED');if(seedSourceRef&&resourceView(await mailbox.get(scope,seedSourceRef.record_id,checkLocal)).content_digest!==seedSourceRef.content_digest)fail('EMAIL_DATA_SOURCE_CHANGED');if((localReadPaths.has(request.operation)||localSettingRead||sourceSeedRead)&&await custodyGeneration()!==generation)fail('EMAIL_DATA_CONNECTION_DENIED');if(memoEligible||request.operation==='resource_read_metadata'||sourceSeedRead){checkLocal();const snapshot=await mailbox.cacheSnapshot(scope,[],checkLocal);if(disclosureStamp&&canonical(snapshot.stamp)!==canonical(disclosureStamp))fail('EMAIL_DATA_SOURCE_CHANGED');if(pendingMemo&&result.outcome==='completed'){memo.set(memoKey,scope,snapshot.stamp,pendingMemo.payload,pendingMemo.observed_at);}}if(seedDraftPin&&canonical(await seedDraft(seedDraftPin.record_id))!==seedDraftPin.record)fail('EMAIL_DATA_SOURCE_CHANGED');checkLocal();return result;}catch(error){result.bytes?.fill(0);throw error;}}
       return store.withLock({key:journalKey(request.request_id)},async tx=>{
         await check();const row=await tx.read();if(row){if(row.value.input_digest!==base.input_digest||row.value.operation!==request.operation||canonical(row.value.scope)!==canonical(scope))fail('EMAIL_DATA_CONFLICT');await check();return row.value.state==='completed'?row.value.result:{...base,outcome:'indeterminate'};}
         const journal={schema_version:'email.app_mutation.v1',scope,operation:request.operation,input_digest:base.input_digest,input,state:'started',result:null};if(!await tx.compareAndSwap({expected_revision:null,value:journal}))fail('EMAIL_DATA_CONFLICT');

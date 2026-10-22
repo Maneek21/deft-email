@@ -26,7 +26,7 @@ test('fresh package authenticates its manifest and worker artifact against publi
   assert.equal(metadata.version, '1.9.1-preview.10');
   assert.equal(compatibility.email.tag, 'v' + rootMetadata.version);
   assert.equal(compatibility.email.app_version, metadata.version);
-  assert.equal(compatibility.host.minimum_version, '0.3.0-preview.136');
+  assert.equal(compatibility.host.minimum_version, '0.3.0-preview.137');
   assert.equal(compatibility.host.version, compatibility.host.minimum_version);
   const artifact = JSON.parse(readFileSync(new URL('./artifact.json', import.meta.url)));
   assert.equal(JSON.parse(artifact.content).background_refresh_description, "Keep mailbox metadata current while Email is closed. Background refresh makes new messages available for Tasks and Knowledge; each action keeps its own review.");
@@ -70,5 +70,5 @@ test('packed Worker opens Reply immediately with every further network request h
  const allNodes=()=>{const nodes=[],walk=node=>{nodes.push(node);node.children?.forEach(walk);node.items?.forEach(walk);};if(views.length)walk(views.at(-1).root);return nodes;},find=id=>allNodes().find(node=>node.id===id),wait=async predicate=>{const deadline=performance.now()+1000;while(!predicate()){assert.ok(performance.now()<deadline,'packed Worker event did not settle within one second');await new Promise(setImmediate);}},emit=node_id=>port.onmessage({data:{version:'deft.experience_bridge.v1',kind:'ui_event',session_id:session,event:{kind:'click',node_id}}});
  const self={};vm.runInNewContext(source,{self,crypto:webcrypto,TextEncoder,Date,Map,setTimeout,clearTimeout});self.onmessage({data:{kind:'start',port,session_id:session}});
  await wait(()=>find('mail_'+record.replaceAll('-',''))&&!find('compose').disabled);emit('mail_'+record.replaceAll('-',''));await wait(()=>find('reply')&&!find('reply').disabled);
- held=true;const before=requests.length,started=performance.now();emit('reply');await wait(()=>find('draft_form'));assert.ok(performance.now()-started<1000);const form=find('draft_form');assert.equal(form.expected_revision,0);assert.equal(form.seed.value.mode,'reply');assert.equal(form.seed.value.record_seed.source.record_id,record);assert.equal(requests.length,before,'Reply performs no Worker data/permission/write request');assert.equal(requests.some(request=>request.input?.operation==='record_create'||request.operation==='dialog'),false);
+ held=true;const before=requests.length,started=performance.now();emit('reply');await wait(()=>find('draft_form'));assert.ok(performance.now()-started<1000);const form=find('draft_form');assert.equal(form.expected_revision,0);assert.equal(form.seed.value.schema_version,'deft.record_seed_snapshot_seed.v1');assert.equal(form.seed.value.value.mode,'reply');assert.equal(form.seed.value.value.record_seed.source.record_id,record);assert.equal(requests.length,before,'Reply performs no Worker data/permission/write request');assert.equal(requests.some(request=>request.input?.operation==='record_create'||request.operation==='dialog'),false);
 });

@@ -296,8 +296,8 @@ test('Reply, Reply all and Forward open local source-pinned seeds without a draf
  for(const action of ['reply','reply_all','forward']){
   const creates=[],requests=[],ui=await start({createSaved:async(...args)=>{creates.push(args);throw Error('Opening must never create a draft');},request:async(...args)=>requests.push(args)});
   await ui.click('mail_'+id.replaceAll('-',''));await ui.click(action);
-  const form=node(ui,'draft_form');assert.ok(form);assert.equal(form.expected_revision,0);assert.equal(form.seed.value.mode,action);const admitted=DeftExperienceRecordFormV3NodeSchema.safeParse(JSON.parse(JSON.stringify(form)));assert.equal(admitted.success,true,admitted.success?'':JSON.stringify(admitted.error.issues));assert.equal(form.initial_change,undefined);
-  assert.deepEqual(JSON.parse(JSON.stringify(form.seed.value.record_seed.source)),{resource_key:'inbox',record_id:id,content_digest:digest});
+  const form=node(ui,'draft_form');assert.ok(form);assert.equal(form.expected_revision,0);assert.equal(form.seed.value.schema_version,'deft.record_seed_snapshot_seed.v1');assert.equal(form.seed.value.value.mode,action);const admitted=DeftExperienceRecordFormV3NodeSchema.safeParse(JSON.parse(JSON.stringify(form)));assert.equal(admitted.success,true,admitted.success?'':JSON.stringify(admitted.error.issues));assert.equal(form.initial_change,undefined);
+  assert.deepEqual(JSON.parse(JSON.stringify(form.seed.value.value.record_seed.source)),{resource_key:'inbox',record_id:id,content_digest:digest});
   assert.equal(creates.length,0);assert.equal(requests.length,0);assert.equal(node(ui,'status'),undefined);
   await ui.click('close_draft');assert.equal(node(ui,'compose').disabled,false);await ui.click('compose');assert.ok(node(ui,'draft_form'));assert.equal(creates.length,0);
  }
