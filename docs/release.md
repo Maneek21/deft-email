@@ -1,10 +1,10 @@
 # Developer-preview release procedure
 
-This release demonstrates an independently built connected App using public Author Kit contracts. It does not certify a production mail service or add roadmap features. [The compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.28/compatibility.json) is authoritative for the final integrated source and artifacts; [limitations](limitations.md) must accompany the prerelease.
+This release demonstrates an independently built connected App using public Author Kit contracts. It does not certify a production mail service or add roadmap features. [The compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.29/compatibility.json) is authoritative for the final integrated source and artifacts; [limitations](limitations.md) must accompany the prerelease.
 
 ## Freeze and integrate
 
-The preview.28 dependency order is green Deft #410 -> refreshed green #409 -> Host136 release and demo deployment -> green Email #22 (Host minimum136, App9, Runtime26) -> refreshed green #21 -> Email28 release -> App and single-writer Runtime deployment -> zero-step trusted upgrade and read-only live smoke. Kit42 remains the exact immutable Host134 artifact; do not relabel its producer. Pre-check the deployed Host136 before staging or activating App9. No Send is authorized for this train. Refresh protected checks after base changes. Do not bypass security or provenance checks.
+The preview.29 candidate pairs App10 with Runtime27 and retains minimum Host136 because no new wire contract is required. Exact green CI and the coordinated Host137 acceptance step must precede release or deployment. Kit42 remains the exact immutable Host134 artifact; do not relabel its producer. Retain matched backups and the single-writer Runtime rule, then verify a zero-step trusted upgrade and visible read-only Reply opening without creating a draft. No Send is authorized. Refresh protected checks after base changes; do not bypass security or provenance checks.
 
 Use the final integrated commits, not the pre-merge demo commits, as release source. Keep generated outputs, credentials, mailbox data, custody and private operational evidence outside Git. Record which historical evidence remains valid because the relevant executable artifacts are unchanged.
 
