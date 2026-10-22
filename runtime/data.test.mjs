@@ -35,8 +35,8 @@ test('actual query-only arrival is consumable by the unchanged signed Host sync 
  f.deny();await assert.rejects(f.run(f.request('resource_read_metadata',{store_key:'drafts',resource_key:'inbox',record_id:result.items[0].record_id,content_digest:result.items[0].content_digest})),/revoked/);
 });
 async function fixture(t,provider=providerFixture,options={}){const parent=await mkdtemp(join(tmpdir(),'email-e2-data-')),root=join(parent,'private');let store;const encryption_key=Buffer.alloc(32,41),scope={...makeScope(),...(options.persistent?{consent_expires_at:null,consent_lifetime:'until_revoked'}:{})},registration=registrationFor(scope);let calls=0,allowed=true;const fetch=async(...args)=>{calls++;return provider(...args);};store=await createDurableStore({root,encryption_key,key_id:'fixture-data',allow_windows_fixture:process.platform==='win32'});const connectionRuntime=createConnectionRuntime({registration,client,store,encryption_key,key_id:'fixture-data',assertCurrent:authority,fetch});const begin=beginFor(scope);if(options.sessionId)begin.session_id=options.sessionId;const begun=await connectionRuntime.request(begin),connected=await connectionRuntime.request(nextFor(begin,begun,'callback'));
-  let lose=false;const dataStore={withLock(options,work){return store.withLock(options,tx=>work({...tx,async compareAndSwap(value){if(lose&&value.value.schema_version==='email.app_mutation.v1'&&value.value.state==='completed'){lose=false;throw Error('synthetic response journal loss after draft CAS');}return tx.compareAndSwap(value);}}));}};
-  const dependencies=()=>({registrations:[registration],client,store:dataStore,encryption_key,key_id:'fixture-data',imageDependencies:options.imageDependencies,onDiagnostic:options.onDiagnostic??(()=>{}),assertCurrent:async input=>{if(!allowed)throw Error('revoked');await options.onAuthority?.(input);return {...input,allowed:true};},fetch});let runtime=createDataRuntime(dependencies());
+  let lose=false;const dataStore={withLock(lockOptions,work){options.onStoreLock?.(lockOptions.key);return store.withLock(lockOptions,tx=>work({...tx,async compareAndSwap(value){options.onStoreWrite?.(lockOptions.key);if(lose&&value.value.schema_version==='email.app_mutation.v1'&&value.value.state==='completed'){lose=false;throw Error('synthetic response journal loss after draft CAS');}return tx.compareAndSwap(value);}}));}};
+  const dependencies=()=>({registrations:[registration],client,store:dataStore,encryption_key,key_id:'fixture-data',imageDependencies:options.imageDependencies,onDiagnostic:options.onDiagnostic??(()=>{}),assertCurrent:async(input,signal)=>{if(!allowed)throw Error('revoked');return await options.onAuthority?.(input,signal)??{...input,allowed:true};},fetch});let runtime=createDataRuntime(dependencies());
   const request=(operation,input)=>{const result={schema_version:'deft.app_data_runtime.v1',request_id:randomUUID(),scope,connection:{session_id:begin.session_id,session_revision:5,runtime_session_ref:begun.runtime_session_ref,account_ref:connected.account.account_ref},authority:{consent_id:randomUUID(),consent_digest:'sha256:'+'d'.repeat(64),data_policy_digest:'sha256:'+'e'.repeat(64)},operation,expires_at:new Date(Date.now()+29000).toISOString(),input};if(operation==='connection_metadata'&&input.seed?.operation_key==='record_seed_snapshot'&&!input.seed.value.expected)input.seed.value.expected=compoundSeedPins(result);return result;};
   const binding=(await store.withLock({key:'email.runtime.session.'+begin.session_id},tx=>tx.read())).value.binding;
   t.after(async()=>{await store.close();await rm(parent,{recursive:true,force:true});});return {root,binding,store,request,run:(...args)=>runtime.request(...args),get runtime(){return runtime;},loseNextCompletion(){lose=true;},get calls(){return calls;},deny(){allowed=false;},async restart(){await store.close();store=await createDurableStore({root,encryption_key,key_id:'fixture-data',allow_windows_fixture:process.platform==='win32'});runtime=createDataRuntime(dependencies());}};
@@ -362,5 +362,72 @@ test('reply seed read: actual reader quote handoff never drops the current polic
   request.input.seed.value.expected=compoundSeedPins(request);const before=f.rawReads,result=await f.run(request);
   assert.equal(checks,4);assert.equal(f.rawReads,before+1,changed+' must miss the exact reader data key');assert.match(result.record_seed_value.value.body,/Native first body/);
   assert.equal((await f.runtime.drafts.list(f.local,{cursor:null,limit:25},()=>{})).items.length,0);
+ }
+});
+
+
+test('inflight data authority fresh opening calls stay independent and use per-dispatch deadline ceilings',async()=>{
+ let clock=Date.now();const ends=[],request={scope:makeScope(),request_id:randomUUID(),connection:{},authority:{},operation:'connection_metadata',input:{},expires_at:new Date(clock+29000).toISOString()},checker=createDataChecker({request,now:()=>clock,assertCurrent:async input=>new Promise(resolve=>ends.push(expires_at=>resolve({...input,allowed:true,expires_at})))});
+ try{
+  assert.equal(typeof checker.checkFresh,'function');const first=checker.checkFresh(),second=checker.checkFresh();assert.equal(ends.length,2,'both independent checks dispatch before either completes');
+  ends[1](new Date(clock+1000).toISOString());await second;assert.equal(checker.expires_at,clock+1000);
+  ends[0](new Date(clock+2000).toISOString());await first;assert.equal(checker.expires_at,clock+1000,'late longer response cannot extend the shorter shared deadline');
+  const final=checker.check();assert.equal(ends.length,3);ends[2](new Date(clock+1001).toISOString());await assert.rejects(final,{code:'EMAIL_DATA_AUTHORITY_DENIED'});
+ }finally{checker.dispose();}
+});
+
+test('reply seed read: compound entry and admission start independently before private reads and retain final freshness',async t=>{
+ let armed=false,calls=0;const pending=[],locks=[],writes=[],f=await fixture(t,providerFixture,{onAuthority:async(input,signal)=>{
+  if(!armed)return;calls++;if(calls<=2)await new Promise((resolve,reject)=>{pending.push({resolve,reject,signal});signal.addEventListener('abort',()=>reject(signal.reason),{once:true});});
+ },onStoreLock:key=>{if(armed)locks.push(key);},onStoreWrite:key=>{if(armed)writes.push(key);}}),request=f.request('connection_metadata',compoundSeedInput(randomUUID(),{...empty,to:'',subject:'',body:''})),before=f.calls;
+ armed=true;const opening=f.run(request);opening.catch(()=>{});
+ try{
+  for(let i=0;i<100&&calls<2;i++)await new Promise(resolve=>setTimeout(resolve,5));
+  assert.equal(calls,2,'admission must start while entry is still held');
+  const opaque=key=>key.startsWith('email.runtime.session.')||key.startsWith('email.data.native_adoption.')||key.startsWith('email.native.activation.')||key.startsWith('email.native.continuity.');
+  assert.ok(locks.length>0);assert.deepEqual(locks.filter(key=>!opaque(key)),[],'only opaque session/visibility capture before both checks');assert.equal(f.calls,before);assert.deepEqual(writes,[]);
+  pending[1].resolve();await new Promise(resolve=>setTimeout(resolve,20));assert.equal(calls,2);assert.deepEqual(locks.filter(key=>!opaque(key)),[]);assert.equal(f.calls,before);
+  pending[0].resolve();const result=await opening;assert.equal(calls,3,'entry admission and final disclosure all dispatch independently');assert.equal(result.record_seed_value.record,null);assert.equal(result.record_seed_value.value.body,'');assert.equal(f.calls,before);assert.deepEqual(writes,[]);
+ }finally{armed=false;for(const call of pending)call.resolve();await Promise.allSettled([opening]);}
+});
+
+
+test('inflight data authority fresh opening calls fail closed on denial schema pins cancellation and shortened expiry',async()=>{
+ for(const scenario of ['denied','schema','pins','ceiling','abort','expiry']){
+  let clock=Date.now();const ends=[],controller=new AbortController(),request={scope:makeScope(),request_id:randomUUID(),connection:{},authority:{},operation:'connection_metadata',input:{},expires_at:new Date(clock+29000).toISOString()},checker=createDataChecker({request,signal:controller.signal,now:()=>clock,assertCurrent:async input=>new Promise(resolve=>ends.push(override=>resolve({...input,allowed:true,...override})))});
+  try{
+   const first=checker.checkFresh(),second=checker.checkFresh(),results=Promise.allSettled([first,second]);assert.equal(ends.length,2);
+   ends[1]({expires_at:new Date(clock+100).toISOString()});await second;assert.equal(checker.expires_at,clock+100);
+   if(scenario==='abort')controller.abort();if(scenario==='expiry')clock+=101;
+   ends[0](scenario==='denied'?{allowed:false}:scenario==='schema'?{extra:true}:scenario==='pins'?{request_id:randomUUID()}:scenario==='ceiling'?{expires_at:new Date(clock+30000).toISOString()}:{});
+   const settled=await results;assert.equal(settled[0].status,'rejected',scenario);assert.equal(checker.expires_at,Date.parse(request.expires_at)-28900,scenario+' cannot extend the narrowed deadline');
+   if(['abort','expiry'].includes(scenario))assert.throws(checker.checkLocal);
+  }finally{checker.dispose();}
+ }
+});
+
+test('reply seed read: compound opening aborts and drains both fresh barriers before any private work on failure',async t=>{
+ for(const scenario of ['entry','admission','schema','pins','session','abort','short_expiry','capture']){
+  let armed=false,calls=0,settled=0,sessionReads=0;const pending=[],locks=[],writes=[],controller=new AbortController(),f=await fixture(t,providerFixture,{onAuthority:async(input,signal)=>{
+   if(!armed)return;const call=++calls;if(call>2)return;
+   try{return await new Promise((resolve,reject)=>{const abort=()=>reject(signal.reason);signal.addEventListener('abort',abort,{once:true});pending.push({resolve:override=>{signal.removeEventListener('abort',abort);resolve({...input,allowed:true,...override});}});});}finally{settled++;}
+  },onStoreLock:key=>{if(!armed)return;locks.push(key);if(key.startsWith('email.runtime.session.')&&++sessionReads===2&&scenario==='capture')throw Object.assign(Error('capture denied'),{code:'EMAIL_DATA_CONNECTION_DENIED'});},onStoreWrite:key=>{if(armed)writes.push(key);}}),request=f.request('connection_metadata',compoundSeedInput(randomUUID(),{...empty,to:'',subject:'',body:''})),before=f.calls;
+  armed=true;const opening=f.run(request,controller.signal);opening.catch(()=>{});
+  try{
+   for(let i=0;i<100&&calls<(scenario==='capture'?1:2);i++)await new Promise(resolve=>setTimeout(resolve,5));
+   if(scenario!=='capture')assert.equal(calls,2,scenario);
+   if(scenario==='entry')pending[0].resolve({allowed:false});
+   if(scenario==='admission')pending[1].resolve({allowed:false});
+   if(scenario==='schema')pending[0].resolve({extra:true});
+   if(scenario==='pins')pending[1].resolve({connection:{...request.connection,account_ref:randomUUID()}});
+   if(scenario==='session'){
+    await f.store.withLock({key:'email.runtime.session.'+request.connection.session_id},async tx=>{const row=await tx.read();await tx.compareAndSwap({expected_revision:row.revision,value:{...row.value,state:'revoked'}});});for(const call of pending)call.resolve();
+   }
+   if(scenario==='abort')controller.abort();
+   if(scenario==='short_expiry'){pending[1].resolve({expires_at:new Date(Date.now()+30).toISOString()});await new Promise(resolve=>setTimeout(resolve,50));pending[0].resolve();}
+   await assert.rejects(opening,undefined,scenario);assert.equal(settled,calls,scenario+' drains every started guard');
+   const opaque=key=>key.startsWith('email.runtime.session.')||key.startsWith('email.data.native_adoption.')||key.startsWith('email.native.activation.')||key.startsWith('email.native.continuity.');
+   assert.deepEqual(locks.filter(key=>!opaque(key)),[],scenario+' prevents custody identity source saved record and file reads');assert.equal(f.calls,before);assert.deepEqual(writes,[]);
+  }finally{armed=false;controller.abort();for(const call of pending)call.resolve();await Promise.allSettled([opening]);}
  }
 });
