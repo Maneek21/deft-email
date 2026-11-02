@@ -146,7 +146,7 @@ self.onmessage=event=>{
   sdk.render({schema_version:'deft.experience_view.v2',capabilities:['menu.v1','record_form_seed.v1','repeated_fields.v1','record_mirror.v1','keyboard_controls.v1','local_job.v1','record_document.v1','record_document_policy.v1','record_form.v3','record_form.v2','record_initial_change.v1','record_change_parameters.v1','record_form_presentation.v1'],...(keyboard?{keyboard}:{}),
    root:stack('email_root',[...(mode==='reader'?[...(accountTargets.length>1?[stack('account_catalog',[button('account_all','All accounts','ghost',{selected:accountChoice==='all',disabled:busy||!canChangeAccount()}),...accountTargets.map((target,index)=>button('account_pick_'+index,target.label,'ghost',{selected:accountChoice===target.key,disabled:busy||!canChangeAccount()}))],{layout:'horizontal'})]:[]),...(composeAccountMismatch&&!minimizedDraft?[text('compose_account_notice',`Compose uses ${composeAccountLabel}. Switch it in Email settings → Accounts.`,'caption')]:[])]:[]),...(pendingLabel?[text('mail_progress',pendingLabel,'caption')]:[]),...(status?[text('status',status,'caption')]:[]),...(composeAccountRetry?[button('compose_retry','Retry opening draft','secondary',{disabled:busy})]:[]),content,...(minimizedDraft?[{...emailRecordForm(minimizedDraft,{disabled:true}),presentation:'minimized'},stack('minimized_draft',[button('restore_draft','Resume saved draft','secondary',{description:minimizedDraft.summary?.subject||'Draft',disabled:busy||!canClose()}),button('dismiss_minimized','Keep in Drafts','ghost',{disabled:busy})],{layout:'toolbar'})]:[])],{layout:'workspace'}),navigation:navigation()});
  }
- async function mailbox({append=false,refresh=false,nextFolder=folder,nextQuery=appliedQuery,resetSelection=false}={}){
+ async function mailbox({append=false,refresh=false,retry=false,nextFolder=folder,nextQuery=appliedQuery,resetSelection=false}={}){
   const request=++generation;
   if(!Object.hasOwn(folders,nextFolder))throw Error('Unknown mailbox folder');
   const support=emailProviderSupport(emailRowsProvider(items));if(nextFolder==='archive'&&!nextQuery.trim()&&support&&!support.archiveQuery){status='Archive search is unavailable for this provider. Showing the last loaded messages.';return;}
@@ -174,7 +174,7 @@ self.onmessage=event=>{
   if(resetSelection){selected=null;pane='list';query=nextQuery;conversation=null;checked.clear();selectionMode=false;}
   else if(selected){const fresh=items.find(item=>item.record_id===selected.record_id);selected=fresh??null;}
   conversation=null;mode='reader';draft=null;setting=null;settingIdentities=[];status=retrying?'Syncing…':notices.join(' · ');
-  if(retrying){const retried=request;setTimeout(()=>{if(retried!==generation)return;void mailbox({refresh:true}).catch(()=>{}).finally(()=>render());},3000);}
+  if(retrying&&!retry){const retried=request;setTimeout(()=>{if(retried!==generation)return;void mailbox({refresh:true,retry:true}).catch(()=>{}).finally(()=>render());},3000);}
  }
  async function related({append=false}={}){
   const anchor=append?conversation.anchor:selected.record_id,request=++generation;
