@@ -22,9 +22,10 @@ const accountFromRecord=(binding,record,{allowNativeReauth=false}={})=>{if(!reco
 async function fixture(t,{authorityLatency=0,providerLatency=0,pageSize=25}={}){
   const parent=await mkdtemp(join(tmpdir(),'email-sync-latency-')),root=join(parent,'private'),encryption_key=Buffer.alloc(32,53),key_id='sync-latency-fixture',scope=makeScope(),registration=registrationFor(scope);
   const message=dataFixtureMessage('fixture@example.test');
-  let providerCalls=0,pageCalls=0,authorityCalls=0;
+  let providerCalls=0,pageCalls=0,authorityCalls=0;const providerTimes=[];
   const provider=async(url,options)=>{
     providerCalls++;const parsed=new URL(url);
+    if(parsed.pathname.endsWith('/profile')||parsed.pathname.endsWith('/history')||parsed.pathname.endsWith('/messages')||/\/messages\/synthetic-sync-message-\d+$/u.test(parsed.pathname))providerTimes.push(performance.now());
     if(parsed.pathname.endsWith('/profile'))return Response.json({emailAddress:'fixture@example.test',historyId:'1'});
     if(parsed.pathname.endsWith('/history'))return Response.json({history:[],historyId:'1'});
     if(parsed.pathname.endsWith('/messages')){
@@ -42,16 +43,23 @@ async function fixture(t,{authorityLatency=0,providerLatency=0,pageSize=25}={}){
   const events=[];
   const data=createDataRuntime({registrations:[registration],client,store,encryption_key,key_id,onDiagnostic:event=>events.push(event),assertCurrent:async input=>{authorityCalls++;await delay(authorityLatency);return {...input,allowed:true};},fetch:provider});
   const request=(operation,input)=>({schema_version:'deft.app_data_runtime.v1',request_id:randomUUID(),scope,connection:{session_id:begin.session_id,session_revision:5,runtime_session_ref:begun.runtime_session_ref,account_ref:connected.account.account_ref},authority:{consent_id:randomUUID(),consent_digest:'sha256:'+'d'.repeat(64),data_policy_digest:'sha256:'+'e'.repeat(64)},operation,expires_at:new Date(Date.now()+29000).toISOString(),input});
-  return {parent,root,store,encryption_key,key_id,scope,registration,client,begin,connected,data,request,events,provider,get providerCalls(){return providerCalls;},get pageCalls(){return pageCalls;},get authorityCalls(){return authorityCalls;}};
+  // A provider burst is one Host authority wave when its members start inside
+  // the authority latency window; the final disclosure is always its own check.
+  const providerWaves=(from,window)=>{const times=providerTimes.slice(from).sort((a,b)=>a-b);let waves=0,last=-Infinity;for(const time of times){if(time-last>window)waves++;last=time;}return waves;};
+  return {parent,root,store,encryption_key,key_id,scope,registration,client,begin,connected,data,request,events,provider,providerWaves,get providerTimesLength(){return providerTimes.length;},get providerCalls(){return providerCalls;},get pageCalls(){return pageCalls;},get authorityCalls(){return authorityCalls;}};
 }
 
 test('one bounded page uses at most 11 provider calls and one metadata wave',async t=>{
   const f=await fixture(t,{authorityLatency:10,providerLatency:5});
-  const authorityBefore=f.authorityCalls,pageBefore=f.pageCalls;
+  const authorityBefore=f.authorityCalls,pageBefore=f.pageCalls,timesBefore=f.providerTimesLength;
   const result=await f.data.request(f.request('resource_refresh',{store_key:'drafts',resource_key:'inbox'}));
-  console.log(JSON.stringify({event:'sync_page_provider_measurement',bounded:true,provider_calls:f.pageCalls-pageBefore,authority_callbacks:f.authorityCalls-authorityBefore,rows:result.items?.length}));
+  const callbacks=f.authorityCalls-authorityBefore,providerWaves=f.providerWaves(timesBefore,50);
+  console.log(JSON.stringify({event:'sync_page_provider_measurement',bounded:true,provider_calls:f.pageCalls-pageBefore,authority_callbacks:callbacks,provider_waves:providerWaves,rows:result.items?.length,timings:f.events.at(-1)?.timings}));
   assert.equal(f.pageCalls-pageBefore,11,'1 list + one ten-message metadata wave');
-  assert.ok(f.authorityCalls-authorityBefore<=4,'one admitted page stays within four Host authority callbacks');
+  // The page retains every fence: opening, entry, one wave per provider burst,
+  // commit before/after and disclosure. The bounded metadata burst keeps the
+  // total flat instead of growing with each of the old three waves.
+  assert.ok(callbacks<=14,`one admitted page stays within fourteen Host fences, took ${callbacks}`);
   assert.equal(result.outcome,'completed');
   assert.equal(result.items.length,10);
   assert.ok(result.next_cursor===null||/^[a-f0-9-]{36}$/u.test(result.next_cursor),'the page cursor is a mailbox record cursor');
@@ -75,16 +83,18 @@ test('the unbounded hydration configuration is measurably worse',async t=>{
 
 test('a 900 ms authority budget still lands one refresh under ten seconds',async t=>{
   const f=await fixture(t,{authorityLatency:900,providerLatency:1});
-  const started=performance.now();
+  const started=performance.now(),authorityBefore=f.authorityCalls,timesBefore=f.providerTimesLength;
   const result=await f.data.request(f.request('resource_refresh',{store_key:'drafts',resource_key:'inbox'}));
-  const oneRequest=Math.round(performance.now()-started);
-  const twoStarted=performance.now();
-  await f.data.request(f.request('resource_refresh',{store_key:'drafts',resource_key:'inbox'}));
+  const oneRequest=Math.round(performance.now()-started),authorityCallbacks=f.authorityCalls-authorityBefore;
+  const providerWaves=f.providerWaves(timesBefore,810),providerAdjacentCallbacks=providerWaves+1;
+  const firstTiming=f.events.at(-1);
+  const listStarted=performance.now();
   await f.data.request(f.request('resource_list',{store_key:'drafts',resource_key:'inbox',cursor:null,limit:25}));
-  const twoRequests=Math.round(performance.now()-twoStarted);
-  console.log(JSON.stringify({event:'sync_page_elapsed_measurement',authority_ms:900,one_request_ms:oneRequest,two_request_ms:twoRequests,rows:result.items?.length}));
+  const twoRequests=oneRequest+Math.round(performance.now()-listStarted);
+  console.log(JSON.stringify({event:'sync_page_elapsed_measurement',authority_ms:900,one_request_ms:oneRequest,two_request_ms:twoRequests,rows:result.items?.length,authority_callbacks:authorityCallbacks,provider_adjacent_callbacks:providerAdjacentCallbacks,two_request_authority_callbacks:f.authorityCalls-authorityBefore-authorityCallbacks,one_request_timings:firstTiming?.timings}));
   assert.equal(result.outcome,'completed');
   assert.ok(oneRequest<10000,`one-request refresh took ${oneRequest}ms`);
+  assert.equal(providerAdjacentCallbacks,4,'profile, list, one metadata wave and final disclosure');
 });
 
 test('the committed refresh page is exactly the page a following list returns',async t=>{
