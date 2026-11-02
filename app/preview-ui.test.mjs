@@ -5,6 +5,7 @@ import {readFile} from 'node:fs/promises';
 import {webcrypto} from 'node:crypto';
 import {DeftExperienceRecordFormV3NodeSchema,parseDeftExperienceMenuNode} from '@deft/app-kit/core';
 import {senderDisplay} from './mail-presentation.mjs';
+import {sentReceiptNotice} from './sent-status.mjs';
 
 const id='11111111-1111-4111-8111-111111111111',digest='sha256:'+'a'.repeat(64);
 const mail={record_id:id,content_digest:digest,label:'Preview message',data:{provider:'gmail',subject:'Preview message',sender:'Sender <sender@example.test>',date:'2026-10-13T10:00:00Z',preview:'A controlled preview message.'}};
@@ -123,6 +124,16 @@ test('inbox sender summaries show display names or a single address and keep ful
  }
 });
 
+test('unread message rows show a bullet on the eyebrow while read and legacy rows do not',async()=>{
+ const unread={...mail,record_id:'22222222-2222-4222-8222-222222222222',data:{...mail.data,seen:false,sender:'Unread Sender <unread@example.test>'}};
+ const read={...mail,data:{...mail.data,seen:true}};
+ const ui=await start({messages:[unread,read]});
+ assert.equal(node(ui,'mail_'+unread.record_id.replaceAll('-','')).eyebrow,'● Unread Sender');
+ assert.equal(node(ui,'mail_'+id.replaceAll('-','')).eyebrow,'Sender');
+ await ui.click('mail_'+unread.record_id.replaceAll('-',''));
+ assert.equal(node(ui,'mail_sender').text,'From: '+unread.data.sender);
+});
+
 test('reader addresses have their full row before the date and Reply controls on narrow screens',async()=>{
  const data={...mail.data,sender:'Maneek Mohan <maneek.mohan21@gmail.com>',recipients:'maneek.hyprcstm@gmail.com',cc:'Copy <copy@example.test>'},ui=await start({messages:[{...mail,data}]});
  await ui.click('mail_'+id.replaceAll('-',''));
@@ -197,6 +208,25 @@ test('a read filter different from the compose account explains the existing acc
  const ui=await start({targets:[{key:'primary',label:'Sender'},{key:'other',label:'Recipient'}]});await ui.click('account_pick_1');
  assert.equal(node(ui,'compose').disabled,true);assert.match(node(ui,'compose_account_notice').text,/Sender/);
  assert.match(node(ui,'compose_account_notice').text,/Email settings.*Accounts/);
+});
+
+test('switch_to_compose_account switches from a secondary account to the compose account',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Sender'},{key:'secondary',label:'Recipient'}]});
+ await ui.click('account_pick_1');
+ assert.equal(node(ui,'compose').disabled,true);assert.ok(node(ui,'switch_to_compose_account'));
+ assert.equal(node(ui,'switch_to_compose_account').label,'Switch to Sender');assert.equal(node(ui,'switch_to_compose_account').disabled,false);
+ await ui.click('switch_to_compose_account');
+ assert.equal(node(ui,'account_pick_0').selected,true);assert.equal(node(ui,'compose').disabled,false);assert.equal(node(ui,'compose_account_notice'),undefined);
+ await ui.click('compose');assert.ok(node(ui,'draft_form'));
+});
+
+test('switch_to_compose_account switches from all accounts to the compose account',async()=>{
+ const primaryMail={...mail},secondaryMail={...mail,record_id:'22222222-2222-4222-8222-222222222222'};
+ const ui=await start({targets:[{key:'primary',label:'Sender'},{key:'secondary',label:'Recipient'}],listMailbox:target=>({outcome:'completed',items:[target==='primary'?primaryMail:secondaryMail],next_cursor:null,freshness:{complete:true}})});
+ await ui.click('account_all');
+ assert.equal(node(ui,'compose').disabled,true);assert.ok(node(ui,'switch_to_compose_account'));
+ await ui.click('switch_to_compose_account');
+ assert.equal(node(ui,'account_pick_0').selected,true);assert.equal(node(ui,'compose').disabled,false);assert.equal(node(ui,'compose_account_notice'),undefined);
 });
 test('clicking the selected account filter performs no duplicate mailbox read',async()=>{
  const ui=await start();await ui.click('account_pick_0');assert.deepEqual(ui.listedTargets,['primary']);
@@ -286,10 +316,27 @@ test('contextual folder choices do not offer restoring or unspamming an Inbox me
  await ui.click('folder_spam');await ui.click('mail_'+id.replaceAll('-',''));assert.ok(node(ui,'organize_not_spam'));assert.equal(node(ui,'organize_spam'),undefined);
 });
 
-test('compact actions still submit exact current sources for human review and block a second unknown dispatch',async()=>{
+test('compact actions still submit exact current sources for human review and allow retry when no run was created',async()=>{
  const calls=[];const ui=await start({request:async(...args)=>{calls.push(args);throw Error('lost review response');}});await ui.click('mail_'+id.replaceAll('-',''));
  await ui.click('organize_archive');assert.equal(calls.length,1);assert.equal(calls[0][0],'dialog');assert.equal(calls[0][1],'review_resource_action');assert.equal(calls[0][2].operation_key,'archive');assert.deepEqual(JSON.parse(JSON.stringify(calls[0][2].sources)),[{resource_key:'inbox',record_id:id,content_digest:digest}]);
- assert.equal(node(ui,'organize_archive').disabled,true);assert.match(node(ui,'status').text,/could not be confirmed/);await ui.click('organize_archive');assert.equal(calls.length,1);
+ assert.equal(node(ui,'organize_archive').disabled,false);assert.match(node(ui,'status').text,/could not start/);assert.doesNotMatch(node(ui,'status').text,/Activity/);assert.equal(node(ui,'check_mailbox_action'),undefined);
+ await ui.click('organize_archive');assert.equal(calls.length,2);
+});
+
+test('a failed batch organize dialog before run creation does not lock selection actions',async()=>{
+ const messages=Array.from({length:26},(_,index)=>({...mail,record_id:`11111111-1111-4111-8111-${String(index+1).padStart(12,'0')}`}));
+ const calls=[];const ui=await start({messages,request:async(...args)=>{calls.push(args);throw Error('lost batch review response');}});
+ await ui.click('toggle_selection');await ui.click('select_loaded');await ui.click('organize_archive');
+ assert.equal(calls.length,1);assert.equal(calls[0][1],'review_resource_action_batch');
+ assert.equal(node(ui,'organize_archive').disabled,false);assert.match(node(ui,'status').text,/could not start/);assert.doesNotMatch(node(ui,'status').text,/Activity/);assert.equal(node(ui,'check_mailbox_action'),undefined);
+});
+
+test('an unknown organize outcome locks actions only until Refresh clears the no-run recovery lock',async()=>{
+ const calls=[];const ui=await start({request:async(...args)=>{calls.push(args);return {unknown:true};}});
+ await ui.click('mail_'+id.replaceAll('-',''));await ui.click('organize_archive');
+ assert.equal(calls.length,1);assert.equal(node(ui,'organize_archive').disabled,true);assert.equal(node(ui,'check_mailbox_action'),undefined);assert.doesNotMatch(node(ui,'status').text,/Activity/);
+ await ui.click('refresh');
+ assert.equal(node(ui,'organize_archive').disabled,false);assert.equal(node(ui,'check_mailbox_action'),undefined);
 });
 
 test('Reply, Reply all and Forward open local source-pinned seeds without a draft write or compose lock',async()=>{
@@ -370,4 +417,19 @@ test('empty mailbox and search states say what is missing and whether older mail
  const synced=await start({messages:[]});
  assert.equal(node(synced,'mail_empty').text,'No messages in Inbox.');
  assert.match(node(synced,'mail_freshness').text,/^Synced · updated /);
+});
+
+test('submitted notice points to Drafts submitted messages instead of Activity',async()=>{
+ const ui=await start();await ui.click('compose');
+ const form=node(ui,'draft_form');
+ await ui.input({node_id:'draft_form',record_id:form.record_id,record_revision:1,content_digest:digest,record_state:'submitted',dirty:false,valid:true});
+ assert.match(node(ui,'submitted_notice').text,/Open Drafts → Submitted messages/);
+ assert.doesNotMatch(node(ui,'submitted_notice').text,/Activity/);
+});
+
+test('sent receipt notices use delivery status wording not Activity',async()=>{
+ const runId='22222222-2222-4222-8222-222222222222';
+ assert.doesNotMatch(sentReceiptNotice({id:runId,state:'cancelled'},runId),/Activity/);
+ assert.match(sentReceiptNotice({id:runId,state:'cancelled'},runId),/Check delivery status again/);
+ assert.doesNotMatch(sentReceiptNotice({id:runId,state:'succeeded',output:{operation_id:'wrong-id',primary_outcome:'accepted'}},runId),/Activity/);
 });

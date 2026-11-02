@@ -8,3 +8,7 @@ export function senderDisplay(value){
  const name=mailbox[1].trim().replace(/^"((?:[^"\\]|\\.)*)"$/,(_match,text)=>text.replace(/\\(["\\])/g,'$1')).trim();
  return name&&name.toLowerCase()!==address.toLowerCase()?name:address;
 }
+/** Prefix an inbox/folder row label with an unread indicator without altering the reader headers. */
+export function messageRowMeta(text,seen){
+ return (seen===false?'● ':'')+text;
+}
