@@ -62,6 +62,23 @@ test('package rejects a changed account declaration without a rebuilt digest', a
   changed.manifest.private_capabilities.find(v => v.key === 'send_message').input_schema.properties.account_ref.maxLength = 513;
   await assert.rejects(() => verifyDeftAppPackageJson(JSON.stringify(changed)));
 });
+test('delegated read tools are read-only and mirror policy covers create/update', () => {
+  const tools = manifest.integration_tools;
+  for (const key of ['email_list', 'email_read', 'email_thread', 'email_search']) {
+    const tool = tools.find(row => row.key === key);
+    assert.ok(tool, key);
+    assert.equal(tool.operation, 'read', key + ' operation');
+    assert.equal(tool.mode, 'data', key + ' mode');
+    assert.equal(tool.visibility, 'delegated_tools', key + ' visibility');
+    assert.equal(tool.action_key, undefined, key + ' action_key');
+    for (const op of tool.data_operations)
+      assert.ok(['resource_list', 'resource_read_presentation'].includes(op), key + ' data_operations read-only');
+  }
+  const mirror = manifest.record_stores.find(store => store.key === 'drafts').record_mirrors.find(row => row.action_key === 'mirror_drafts');
+  assert.ok(mirror);
+  for (const op of ['create', 'update', 'inspect', 'delete']) assert.ok(mirror.operations.includes(op), 'mirror policy covers ' + op);
+});
+
 
 
 test('packed Worker opens Reply immediately with every further network request held and no create or Send',async()=>{
