@@ -79,6 +79,20 @@ export function createDataRuntime({registrations,getRegistrations,client,provide
       catch(error){openingAbort.abort(error);await Promise.allSettled(started);throw error;}
      }else{
       await hostCheck();
+      // A foreground Refresh must not queue behind a running observation that
+      // already holds the account session lock. The probe is read-only; return
+      // only the local cache stamp (never rows) after the opening Host admission
+      // and the identical credential-repair fence. Visibility is skipped because
+      // reading it acquires the very session lock we are avoiding; a no-row
+      // answer cannot disclose adopted mail.
+      if(!formMode&&request.operation==='resource_refresh'&&store.isHeld?.('email.runtime.session.'+request.connection.session_id)){
+       await assertNoCredentialRepair({store,scope:request.scope});
+       const cacheScope={org_id:request.scope.org_id,owner_user_id:request.scope.owner_user_id,account_id:request.connection.account_ref};
+       const snapshot=await mailbox.cacheSnapshot(cacheScope,[],guard.checkLocal);
+       const result={schema_version:'deft.app_data_result.v1',request_id:request.request_id,operation:request.operation,input_digest:dataInputDigest(request),outcome:'completed',freshness:{observed_at:null,complete:false,provider_observed:false,checkpoint_generation:snapshot.stamp.checkpoint_generation,coverage_generation:snapshot.stamp.coverage_generation}};
+       validateDataResult(result,request);
+       return result;
+      }
       // Read the adoption journal before holding a session lock; publication
       // locks journal then session. Visibility only advances after both commits.
       if(!formMode)await visibility();

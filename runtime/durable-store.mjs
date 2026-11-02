@@ -83,6 +83,7 @@ export async function createDurableStore({root, encryption_key, key_id, allow_wi
     await fence(); await rename(temporary, pathFor(id)); await syncDirectory(); await fence(); return true;
   }
   return Object.freeze({
+    isHeld(id) { return pending.has(id); },
     async withLock({key: id}, work) {
       if (typeof id !== 'string' || id.length > 512 || !id || typeof work !== 'function') fail('EMAIL_RUNTIME_STORE_INPUT_INVALID');
       const prior = pending.get(id) ?? Promise.resolve(); let release; const next = new Promise(done => {release = done;}); pending.set(id, next);
