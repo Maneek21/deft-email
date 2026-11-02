@@ -371,3 +371,79 @@ test('empty mailbox and search states say what is missing and whether older mail
  assert.equal(node(synced,'mail_empty').text,'No messages in Inbox.');
  assert.match(node(synced,'mail_freshness').text,/^Synced · updated /);
 });
+
+const healthInstallation='11111111-1111-4111-8111-111111111111';
+const healthTarget=(health,key='primary',label='Primary account')=>({key,label,health:{installation_id:healthInstallation,...health}});
+const endedCopy='Knowledge capture is paused — access to this account ended. Reconnect to resume.';
+
+test('settings reports everything healthy without a paused or ended notice when Host health is healthy',async()=>{
+ const ui=await start({targets:[healthTarget({connection:'connected',capture:{state:'healthy',account_grant_active:true},sync:{state:'healthy'},background_refresh:{state:'healthy'}})]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,'Everything is healthy.');
+ assert.equal(ui.nodes().some(item=>/paused|ended|Reconnect|Restore access/i.test(item.text??'')),false);
+});
+
+test('settings shows the ended-grant reason and a restore link into the Phase 2 review',async()=>{
+ const ui=await start({targets:[healthTarget({connection:'reauth_required',capture:{state:'grant_ended',account_grant_active:false},sync:{state:'healthy'},background_refresh:{state:'healthy'}})]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,endedCopy);
+ assert.equal(node(ui,'health_restore_primary').label,'Restore access');
+ assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_restore_primary').connection_action)),{kind:'restore_access',installation_id:healthInstallation,target_key:'primary'});
+ assert.equal(node(ui,'health_reconnect_primary'),undefined);
+ await ui.click('health_restore_primary');assert.match(node(ui,'status').text,/Deft settings to restore background access/);
+});
+
+test('a background-refresh stall is visible instead of the account merely reading Connected',async()=>{
+ const ui=await start({targets:[healthTarget({connection:'connected',capture:{state:'healthy',account_grant_active:true},sync:{state:'healthy'},background_refresh:{state:'paused',paused_since:'2026-10-13T10:00:00Z'}})]});
+ await ui.click('email_settings');
+ assert.match(node(ui,'health_summary').text,/^Background sync paused since /);
+ assert.equal(node(ui,'health_reconnect_primary').label,'Reconnect');
+ assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_reconnect_primary').connection_action)),{kind:'reconnect',installation_id:healthInstallation,target_key:'primary'});
+ assert.equal(ui.nodes().some(item=>item.text==='Connected'),false);
+});
+
+test('an absent Host health payload is never reported as healthy',async()=>{
+ const ui=await start({messages:[]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,'Health status unavailable.');
+ assert.equal(ui.nodes().some(item=>/Everything is healthy/i.test(item.text??'')),false);
+});
+
+test('a retrying capture is specific rather than reported healthy',async()=>{
+ const ui=await start({targets:[healthTarget({connection:'connected',capture:{state:'retrying',account_grant_active:true},sync:{state:'healthy'},background_refresh:{state:'healthy'}})]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,'Knowledge capture is retrying.');
+ assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
+});
+
+test('the flat Host capture-health payload also surfaces an ended grant',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:{installation_id:healthInstallation,state:'grant_ended',account_grant_active:false}}]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,endedCopy);
+ assert.ok(node(ui,'health_restore_primary'));
+});
+
+test('health reasons are attributed to the specific account when several are connected',async()=>{
+ const ui=await start({targets:[healthTarget({connection:'connected',capture:{state:'healthy',account_grant_active:true},sync:{state:'healthy'},background_refresh:{state:'healthy'}}),
+  healthTarget({connection:'reauth_required',capture:{state:'grant_ended',account_grant_active:false},sync:{state:'healthy'},background_refresh:{state:'healthy'}},'second','Second account')]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,'Second account: '+endedCopy);
+ assert.ok(node(ui,'health_restore_second'));
+ assert.equal(node(ui,'health_restore_primary'),undefined);
+});
+
+test('a missing health payload on any account blocks the everything-is-healthy summary',async()=>{
+ const ui=await start({targets:[healthTarget({connection:'connected',capture:{state:'healthy',account_grant_active:true},sync:{state:'healthy'},background_refresh:{state:'healthy'}}),
+  {key:'second',label:'Second account'}]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,'Health status unavailable.');
+ assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
+});
+
+test('a reauth-required account is never reported as healthy',async()=>{
+ const ui=await start({targets:[healthTarget({connection:'reauth_required',capture:{state:'healthy',account_grant_active:true},sync:{state:'healthy'},background_refresh:{state:'healthy'}})]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,'Reconnect this account to resume background jobs.');
+ assert.ok(node(ui,'health_reconnect_primary'));
+ assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
+});
