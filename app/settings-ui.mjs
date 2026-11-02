@@ -34,3 +34,25 @@ export function verifiedSettingIdentities(result){
 
 /** Readable declared support, not current consent or live provider certification. */
 export function providerSettingsNodes(){return [{kind:'text',id:'provider_setup_help',text:EMAIL_PROVIDER_SETUP_NOTE,tone:'caption'},...['gmail','microsoft','imap_smtp'].map(provider=>{const support=emailProviderSupport(provider);return {kind:'text',id:'provider_support_'+provider,text:support.label+': '+support.notice,tone:'caption'};})];}
+
+/** Connection status and recovery actions. Email owns the wording; the Host maps
+ * each action kind to its app-connection-sessions endpoints. ids are pinned
+ * (UUID installation, key-shaped target) — never free text. This module is
+ * bundled into the Worker, so it keeps its own browser-safe copy of the health
+ * wording rather than importing the server-side account registry. */
+const CONNECTION_HEALTH_LABELS={connected:'Connected',reauth_required:'Needs reconnect',revoked:'Access revoked',unavailable:'Unavailable'};
+const connectionKey=value=>typeof value==='string'&&/^[a-z][a-z0-9_]{0,47}$/u.test(value);
+export const CONNECTION_ACTION_KINDS=Object.freeze(['reconnect','restore_access']);
+export function connectionStatusNode(health){const label=Object.hasOwn(CONNECTION_HEALTH_LABELS,health)?CONNECTION_HEALTH_LABELS[health]:'Status unavailable';return {kind:'text',id:'connection_status',text:label,tone:'caption'};}
+function connectionAction(kind,installation_id,target_key){if(!CONNECTION_ACTION_KINDS.includes(kind)||!uuid(installation_id)||!connectionKey(target_key))throw Error('EMAIL_CONNECTION_ACTION_INVALID');return {kind,installation_id,target_key};}
+export function reconnectActionNode(connection){return {kind:'button',id:'reconnect',label:'Reconnect',connection_action:connectionAction('reconnect',connection.installation_id,connection.target_key)};}
+export function restoreAccessReviewNode(connection){return {kind:'button',id:'restore_access',label:'Restore access',connection_action:connectionAction('restore_access',connection.installation_id,connection.target_key)};}
+export function connectionSettingsNodes(connection){return [connectionStatusNode(connection.health),reconnectActionNode(connection),restoreAccessReviewNode(connection)];}
+/** The Host endpoints a single Restore access review dispatches, in order. */
+export function restoreAccessCalls(connection){const action=connectionAction('restore_access',connection.installation_id,connection.target_key);return [
+ {method:'GET',path:`/api/app-connection-sessions/installations/${action.installation_id}/restore-context`},
+ {method:'POST',path:'/api/app-connection-sessions/restore/review'},
+ {method:'POST',path:'/api/app-connection-sessions/restore/activate'},
+];}
+/** The Host reattach review a Reconnect action dispatches. */
+export function reconnectCall(connection){connectionAction('reconnect',connection.installation_id,connection.target_key);return {method:'POST',path:'/api/app-connection-sessions/reattach/review'};}
