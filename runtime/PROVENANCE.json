@@ -384,10 +384,11 @@
     {
       "source": "examples/apps/email/providers/native-imap-reader.mjs",
       "target": "vendor/providers/native-imap-reader.mjs",
-      "sha256": "0621ff126d05966a2761f2a17c7bf0275d137de4c06424a925727ee927b942f6",
+      "sha256": "237c5fc7a5176c0c881a6475e9b50a1bef3de75472a4fdb2864be6e2309c8d40",
       "source_sha256": "8135ebe0fda75053527fda130d664aae06bd18a0dbc3d165e409c3c6910d3429",
-      "mode": "line_endings_normalized",
-      "normalization": "CRLF to LF only; module text unchanged"
+      "mode": "reviewed_adaptation",
+      "normalization": "CRLF to LF only; module text unchanged",
+      "p5_adaptation": "Reviewed P5 attachment authority: keep every bounded I/O await and the abort timer, keep the Host value.check() before getMailboxLock and after the last byte, and replace the per-chunk Host check with the local session signal, reviewed deadline and open TLS/authenticated state."
     },
     {
       "source": "examples/apps/email/providers/native-imap-query.mjs",

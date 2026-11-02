@@ -12,17 +12,18 @@ export function createSourceSnapshotCache({now=Date.now,maxEntries=8,maxBytes=32
  const wait=async(work,signal)=>{let abort;const cancelled=new Promise((_,reject)=>{abort=()=>reject(signal.reason);if(signal?.aborted)abort();else signal?.addEventListener('abort',abort,{once:true});});try{return await Promise.race([work,cancelled]);}finally{signal?.removeEventListener('abort',abort);}};
  return api=Object.freeze({
   async read({key,load,validateHit,check,signal}){
+   const local=validateHit==='local';
    signal?.throwIfAborted();await check();if(closed||!(/^[a-f0-9]{64}$/u.test(key)))fail('EMAIL_DATA_CACHE_INVALID');prune();
    const hit=entries.get(key);let result;
    try{
-    if(hit){result=copy(hit.source);await validateHit();}
+    if(hit){result=copy(hit.source);if(local)await check();else await validateHit();}
     else{
      let row=pending.get(key),owner=false;
      if(!row&&pending.size>=maxEntries)result=await load();
      else{
       if(!row){owner=true;row={users:0,done:false,signal};pending.set(key,row);row.work=(async()=>{try{const source=await load();row.source=source;await check();signal?.throwIfAborted();store(key,source);return source;}finally{row.done=true;if(pending.get(key)===row)pending.delete(key);if(!row.users)row.source?.mime_bytes.fill(0);}})();row.work.catch(()=>{});}
       row.users++;
-      try{let source;try{source=await wait(row.work,signal);}catch(error){if(!owner&&row.signal?.aborted&&!signal?.aborted)return api.read({key,load,validateHit,check,signal});throw error;}signal?.throwIfAborted();result=copy(source);if(!owner)await validateHit();}
+      try{let source;try{source=await wait(row.work,signal);}catch(error){if(!owner&&row.signal?.aborted&&!signal?.aborted)return api.read({key,load,validateHit,check,signal});throw error;}signal?.throwIfAborted();result=copy(source);if(!owner){if(local)await check();else await validateHit();}}
       finally{row.users--;if(row.done&&!row.users)row.source?.mime_bytes.fill(0);}
      }
     }

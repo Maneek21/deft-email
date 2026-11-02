@@ -24,6 +24,10 @@ export function createNativeImapReaderBridge({runtime,host,now=Date.now,imageDep
     });void interrupted.catch(()=>{});
     const bounded=async promise=>{context.signal?.throwIfAborted();const row=await Promise.race([Promise.resolve(promise),interrupted]);context.signal?.throwIfAborted();return row;};
     const check=async()=>{await bounded(value.check());if(context.expires_at<=now())fail('EMAIL_SOURCE_ABORTED');};
+    // Per-chunk fences are local: the session signal, the reviewed deadline and
+    // the open TLS/authenticated session. Host authority is read at open and
+    // after the last byte, so a 5 MiB source is not 160 host transactions.
+    const local=async()=>{context.signal?.throwIfAborted();if(context.expires_at<=now())fail('EMAIL_SOURCE_ABORTED');if(client.authenticated!==true||client.secureConnection!==true)fail('EMAIL_SOURCE_ABORTED');};
     try{
      await check();lock=await bounded(client.getMailboxLock(locator.mailbox,{readOnly:true}));await check();
      if(client.mailbox?.readOnly!==true||String(client.mailbox.uidValidity)!==locator.uidvalidity||client.mailbox.path!==locator.mailbox)fail('EMAIL_NATIVE_SOURCE_STALE');
@@ -31,7 +35,7 @@ export function createNativeImapReaderBridge({runtime,host,now=Date.now,imageDep
      if(!row||row.uid!==locator.uid||!Number.isSafeInteger(row.size)||row.size<1)fail('EMAIL_NATIVE_SOURCE_STALE');if(row.size>NATIVE_INCOMING_LIMITS.source_bytes)fail('EMAIL_PROVIDER_RESPONSE_LIMIT');
      const download=await bounded(client.download(locator.uid,undefined,{uid:true,maxBytes:NATIVE_INCOMING_LIMITS.source_bytes+1,chunkSize:65536}));stream=download?.content;await check();
      if(download?.meta?.expectedSize!==row.size||typeof stream?.[Symbol.asyncIterator]!=='function'||typeof stream.destroy!=='function')fail('EMAIL_SOURCE_RESPONSE_INVALID');
-     let size=0;const iterator=stream[Symbol.asyncIterator]();for(;;){await check();const next=await bounded(iterator.next());await check();if(next.done)break;
+     let size=0;const iterator=stream[Symbol.asyncIterator]();for(;;){await local();const next=await bounded(iterator.next());await local();if(next.done)break;
       if(!(next.value instanceof Uint8Array))fail('EMAIL_SOURCE_RESPONSE_INVALID');size+=next.value.byteLength;if(size>NATIVE_INCOMING_LIMITS.source_bytes||size>row.size)fail('EMAIL_PROVIDER_RESPONSE_LIMIT');chunks.push(Buffer.from(next.value));
      }
      if(size!==row.size||String(client.mailbox.uidValidity)!==locator.uidvalidity)fail('EMAIL_NATIVE_SOURCE_STALE');joined=Buffer.concat(chunks,size);await check();
