@@ -25,8 +25,7 @@ self.onmessage=event=>{
  let originalRule=null,originalOrganize=null,undoSources=[],pendingOrganizeBatch=null,batchUndo=[];
  let folderRows=[],folderCursor=null,folderChoice=null,folderPurpose=null,folderName='',folderPreferences=[],folderPreferencePending=null,folderFavoritesOnly=false,folderAccountTarget=null;
  let selectionMode=false,checked=new Map(),actionPending=false,pendingActionRun=null,pendingLabel='';
- let backfillTimer=null,backfillPolls=0,backfillCapped=false,backfillInFlight=false,backfillStartTime=0;
- const SIGNATURE_UNAVAILABLE='Signature catalog unavailable',RULE_ORDER_UNAVAILABLE='Rule order unavailable',RULE_PREVIEW_UNAVAILABLE='Rule preview unavailable',SAVED_CONTENT_UNAVAILABLE='Saved content unavailable',FOLDER_PREFERENCE_LIMIT='Folder preference capacity reached',DRAFT_KEPT='Draft created in Drafts. Your current draft is kept.',REVIEW_RESOURCE_ACTION='review_resource_action';
+ let backfillTimer=null,backfillPolls=0,backfillCapped=false,backfillInFlight=false,backfillStartTime=0,backfillPaused=false; const SIGNATURE_UNAVAILABLE='Signature catalog unavailable',RULE_ORDER_UNAVAILABLE='Rule order unavailable',RULE_PREVIEW_UNAVAILABLE='Rule preview unavailable',SAVED_CONTENT_UNAVAILABLE='Saved content unavailable',FOLDER_PREFERENCE_LIMIT='Folder preference capacity reached',DRAFT_KEPT='Draft created in Drafts. Your current draft is kept.',REVIEW_RESOURCE_ACTION='review_resource_action';
  const SMTP_STORE='smtp_preferences',FOLDER_PREFS='folder_preferences',ORGANIZE_ACTION='organize_messages',HEALTH_UNKNOWN='Health status unavailable.';
  const PREFERENCE_UNCONFIRMED='Preference outcome is unconfirmed. Check the saved preference before another edit.',MAIL_UNAVAILABLE='Mail could not be loaded. Try Refresh or check the account status.';
 const RETRY_HINT='Use Check action status or Refresh before trying again.',PERMISSION_HINT='Check your account permissions in Email settings or Refresh and try again';
@@ -191,6 +190,7 @@ const RETRY_HINT='Use Check action status or Refresh before trying again.',PERMI
    ...(items.length?{navigation:{previous_key:'k',next_key:'j',list_id:'message_list'}}:{})}:undefined;
   sdk.render({schema_version:'deft.experience_view.v2',capabilities:['menu.v1','record_form_seed.v1','repeated_fields.v1','record_mirror.v1','keyboard_controls.v1','local_job.v1','record_document.v1','record_document_policy.v1','record_form.v3','record_form.v2','record_initial_change.v1','record_change_parameters.v1','record_form_presentation.v1'],...(keyboard?{keyboard}:{}),
    root:stack('email_root',[...(mode==='reader'?[...(accountTargets.length>1?[stack('account_catalog',[button('account_all','All accounts','ghost',{selected:accountChoice==='all',disabled:busy||!canChangeAccount()}),...accountTargets.map((target,index)=>button('account_pick_'+index,target.label,'ghost',{selected:accountChoice===target.key,disabled:busy||!canChangeAccount()}))],{layout:'horizontal'})]:[]),...(composeAccountMismatch&&!minimizedDraft?[stack('compose_account_notice_row',[text('compose_account_notice',`Compose uses ${composeAccountLabel}. Switch it in Email settings → Accounts.`,'caption'),button('switch_to_compose_account','Switch to '+composeAccountLabel,'ghost',{disabled:busy||!canChangeAccount()})],{layout:'horizontal'})]:[])]:[]),...(pendingLabel?[text('mail_progress',pendingLabel,'caption')]:[]),...(status&&!pendingLabel?[text('status',status,'caption')]:[]),...(composeAccountRetry?[button('compose_retry','Retry opening draft','secondary',{disabled:busy})]:[]),content,...(minimizedDraft?[{...emailRecordForm(minimizedDraft,{disabled:true}),presentation:'minimized'},stack('minimized_draft',[button('restore_draft','Resume saved draft','secondary',{description:minimizedDraft.summary?.subject||'Draft',disabled:busy||!canClose()}),button('dismiss_minimized','Keep in Drafts','ghost',{disabled:busy})],{layout:'toolbar'})]:[])],{layout:'workspace'}),navigation:navigation()});
+  syncBackfillState();
  }
  async function setAccountChoice(choice){
   if(choice===accountChoice)return;
@@ -201,8 +201,28 @@ const RETRY_HINT='Use Check action status or Refresh before trying again.',PERMI
  }
 
  function clearBackfillTimer(){ if(backfillTimer){ clearTimeout(backfillTimer); backfillTimer=null; } }
- function resetBackfill(){ clearBackfillTimer(); backfillPolls=0; backfillCapped=false; backfillInFlight=false; backfillStartTime=Date.now(); }
- async function mailbox({append=false,refresh=false,retry=false,nextFolder=folder,nextQuery=appliedQuery,resetSelection=false}={}){
+ function resetBackfill(){ clearBackfillTimer(); backfillPolls=0; backfillCapped=false; backfillInFlight=false; backfillStartTime=Date.now(); backfillPaused=false; }
+ function isMailboxList(){ return mode==='reader'&&selected===null; }
+ function scheduleBackfillPoll(){
+  if(!isMailboxList())return;
+  clearBackfillTimer();
+  if(complete||backfillCapped||backfillInFlight)return;
+  if(backfillPolls>=30){backfillCapped=true;return;}
+  if(!backfillStartTime)backfillStartTime=Date.now();
+  const delays=[3000,5000,10000];const delay=backfillPolls<delays.length?delays[backfillPolls]:20000;
+  const elapsed=Date.now()-backfillStartTime;
+  if(elapsed>=5*60*1000||elapsed+delay>5*60*1000){backfillCapped=true;return;}
+  backfillPolls++;
+  const owner=generation;
+  backfillTimer=setTimeout(()=>{if(owner!==generation)return;if(backfillInFlight)return;if(!isMailboxList()){backfillPaused=true;clearBackfillTimer();return;}backfillInFlight=true;void mailbox({refresh:true,retry:true}).catch(()=>{backfillCapped=true;clearBackfillTimer();}).finally(()=>{backfillInFlight=false;render();});},delay);
+  if(typeof backfillTimer?.unref==='function')backfillTimer.unref();
+  backfillCapped=false;
+ }
+ function syncBackfillState(){
+  if(!isMailboxList()){if(!backfillPaused)backfillPaused=true;clearBackfillTimer();return;}
+  if(backfillPaused){backfillPaused=false;backfillPolls=0;backfillCapped=false;backfillInFlight=false;backfillStartTime=Date.now();}
+  if(!backfillTimer&&backfillStartTime&&!complete&&!backfillCapped&&!backfillInFlight)scheduleBackfillPoll();
+ } async function mailbox({append=false,refresh=false,retry=false,nextFolder=folder,nextQuery=appliedQuery,resetSelection=false}={}){
   const request=++generation;
   if(!retry)resetBackfill();
   if(!Object.hasOwn(folders,nextFolder))throw Error('Unknown mailbox folder');
@@ -228,13 +248,15 @@ const RETRY_HINT='Use Check action status or Refresh before trying again.',PERMI
   checked=new Map([...checked].filter(([id,digest])=>items.some(item=>item.record_id===id&&item.content_digest===digest)));
   cursor=result.next_cursor??null;observed=result.freshness?.observed_at??null;complete=result.freshness?.complete===true;
   folder=nextFolder;appliedQuery=nextQuery.trim();
-  if(resetSelection){selected=null;pane='list';query=nextQuery;conversation=null;checked.clear();selectionMode=false;}
-  else if(selected){const fresh=items.find(item=>item.record_id===selected.record_id);selected=fresh??null;}
-  conversation=null;mode='reader';draft=null;setting=null;settingIdentities=[];status=retrying?'Syncing…':notices.join(' · ');
+  if(!retry){
+   if(resetSelection){selected=null;pane='list';query=nextQuery;conversation=null;checked.clear();selectionMode=false;}
+   else if(selected){const fresh=items.find(item=>item.record_id===selected.record_id);selected=fresh??null;}
+   conversation=null;mode='reader';draft=null;setting=null;settingIdentities=[];
+  }
+  status=retrying?'Syncing…':notices.join(' · ');
   const incomplete=result.freshness?.complete!==true;
   if(!append&&incomplete&&request===generation){
-   if(backfillPolls>=30||(backfillStartTime&&Date.now()-backfillStartTime>=5*60*1000)){backfillCapped=true;clearBackfillTimer();}
-   else{const delays=[3000,5000,10000];const delay=backfillPolls<delays.length?delays[backfillPolls]:20000;backfillPolls++;const owner=request;clearBackfillTimer();backfillTimer=setTimeout(()=>{if(owner!==generation)return;if(backfillInFlight)return;backfillInFlight=true;void mailbox({refresh:true,retry:true}).catch(()=>{backfillCapped=true;clearBackfillTimer();}).finally(()=>{backfillInFlight=false;render();});},delay);if(typeof backfillTimer?.unref==='function')backfillTimer.unref();backfillCapped=false;}
+   scheduleBackfillPoll();
   } else { clearBackfillTimer(); if(result.freshness?.complete===true)backfillCapped=false; }
  }
  async function related({append=false}={}){
