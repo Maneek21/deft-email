@@ -59,7 +59,7 @@ export function createDataRuntime({registrations,getRegistrations,client,provide
   async function executeRequest(raw,signal,uploadedBytes,recipientRead){
     const change=raw?.schema_version==='deft.app_data_runtime.v2',request=change?validateChangeRequest(raw):validateDataRequest(raw),registration=(getRegistrations?getRegistrations().map(({connection_protocol,...r})=>validateRegistration(r)):registrations).find(value=>value.org_id===request.scope.org_id&&value.runtime_registration_id===request.scope.runtime_registration_id);
     if(!registration||Object.keys(registration).some(field=>registration[field]!==request.scope[field]))fail('EMAIL_RUNTIME_REGISTRATION_DENIED');
-    const trace=createForegroundDiagnostics({request_id:request.request_id,operation:request.operation,onDiagnostic});let requestError;
+    const trace=createForegroundDiagnostics({request_id:request.request_id,operation:request.operation,onDiagnostic});let requestError,opening;
     const compoundOpening=!formMode&&!change&&request.operation==='connection_metadata'&&request.input.store_key==='drafts'&&request.input.seed?.operation_key==='record_seed_snapshot',openingAbort=compoundOpening?new AbortController():null;
     const guard=(change?createChangeChecker:createDataChecker)({request,assertCurrent,signal:openingAbort?AbortSignal.any([signal,openingAbort.signal].filter(Boolean)):signal,now}),hostCheck=()=>trace.span('authority',guard.check);let openingSession;
     const sessionLock=async work=>{const queued=trace.start('session_queue');try{return await store.withLock({key:'email.runtime.session.'+request.connection.session_id},tx=>{queued();return trace.span('session_hold',()=>work(tx));});}catch(error){queued(error);throw error;}};
@@ -78,7 +78,14 @@ export function createDataRuntime({registrations,getRegistrations,client,provide
       try{await visibility();openingSession=await createReadSessionSnapshot({withLock:sessionLock,check:guard.checkLocal});const admission=fresh();await Promise.all([entry,admission]);await openingSession.assertCurrent();}
       catch(error){openingAbort.abort(error);await Promise.allSettled(started);throw error;}
      }else{
-      await hostCheck();
+      // A foreground Refresh may prepare only its local session and adoption
+      // journal snapshot while admission is in flight. Its entry check still
+      // gates every custody, source, record and provider read, and joins this
+      // exact in-flight dispatch instead of paying a second round trip. Other
+      // optimistic reads keep the opening barrier settled before entry so a
+      // later authority decision is never answered by an earlier dispatch.
+      const detachedOpening=optimistic&&request.operation==='resource_refresh';
+      opening=hostCheck();opening.catch(()=>{});if(!detachedOpening)await opening;
       // A foreground Refresh must not queue behind a running observation that
       // already holds the account session lock. The probe is read-only; return
       // only the local cache stamp (never rows) after the opening Host admission
@@ -86,6 +93,7 @@ export function createDataRuntime({registrations,getRegistrations,client,provide
       // reading it acquires the very session lock we are avoiding; a no-row
       // answer cannot disclose adopted mail.
       if(!formMode&&request.operation==='resource_refresh'&&store.isHeld?.('email.runtime.session.'+request.connection.session_id)){
+       await opening;
        await assertNoCredentialRepair({store,scope:request.scope});
        const cacheScope={org_id:request.scope.org_id,owner_user_id:request.scope.owner_user_id,account_id:request.connection.account_ref};
        const snapshot=await mailbox.cacheSnapshot(cacheScope,[],guard.checkLocal);
@@ -103,7 +111,11 @@ export function createDataRuntime({registrations,getRegistrations,client,provide
       let changeGeneration=null,changeIdentityPins=null;
       const identityPins=account=>canonical([account.primary_address,account.verified_sender_identities.map(address=>address.trim().toLocaleLowerCase('en-US')).sort()]);
       const currentChangeAccount=async()=>{if(formMode){checkLocal();const row=await sessionTx.currentAccount();const account={primary_address:row.profile.primary_address,display_label:row.profile.display_label,verified_sender_identities:[row.profile.primary_address],capabilities:row.capabilities};if(!account.capabilities.includes('read')||!Number.isSafeInteger(row.custody_generation)||row.custody_generation<1||changeGeneration!==null&&changeGeneration!==row.custody_generation||changeIdentityPins!==null&&changeIdentityPins!==identityPins(account))fail('EMAIL_DATA_CONNECTION_DENIED');checkLocal();return {account,generation:row.custody_generation};}return custody.withAccount(session.binding,async tx=>{checkLocal();const row=tx.read(),account=accountFromRecord(session.binding,row);if(account?.health!=='connected'||!account?.capabilities.includes('read')||canonical(row.binding)!==canonical(session.binding)||row.secret.client_fingerprint!==fingerprint||!Number.isSafeInteger(row.setup_generation)||row.setup_generation<1||changeGeneration!==null&&changeGeneration!==row.setup_generation||changeIdentityPins!==null&&changeIdentityPins!==identityPins(account))fail('EMAIL_DATA_CONNECTION_DENIED');checkLocal();return {account,generation:row.setup_generation};});};
-      const check=async()=>{await hostCheck();if(optimistic)await sessionTx.assertCurrent();checkLocal();if(change&&changeGeneration!==null)await currentChangeAccount();};
+      // The read-only session fence is independent of the online authority
+      // decision, so overlap it with that round trip instead of adding its
+      // lock/row work to the critical path. The opening admission is still
+      // awaited here, so a failed opening barrier always fails the request.
+      const check=async()=>{await Promise.all([opening??null,hostCheck(),optimistic?sessionTx.assertCurrent():null]);checkLocal();if(change&&changeGeneration!==null)await currentChangeAccount();};
       // Record changes recheck online under their journal lock. Local checks
       // retain the request deadline, session and current custody at every read.
       const checkChangeLocal=async()=>{checkLocal();if(changeGeneration!==null)await currentChangeAccount();};
