@@ -286,6 +286,8 @@ test('compose and draft list have one contextual header without disabled mailbox
 test('a slow foreground refresh shows one progress notice while keeping the original reader and clears it after completion',async()=>{
  let finish,entered;const started=new Promise(resolve=>entered=resolve);const ui=await start({refresh:()=>new Promise(resolve=>{finish=resolve;entered();})});await ui.click('mail_'+id.replaceAll('-',''));const pending=ui.click('refresh');await started;
  assert.equal(node(ui,'mail_progress').text,'Refreshing…');assert.equal(node(ui,'refresh').disabled,true);assert.equal(node(ui,'mail_subject').text,mail.data.subject);
+ assert.equal(node(ui,'status'),undefined,'a pending refresh must not add a second progress caption');
+ assert.equal(ui.nodes().filter(item=>item.kind==='text'&&/^(Refreshing|Syncing)…$/u.test(item.text??'')).length,1);
  finish({outcome:'completed'});await pending;assert.equal(node(ui,'mail_progress'),undefined);assert.equal(node(ui,'refresh').disabled,false);assert.equal(node(ui,'mail_subject').text,mail.data.subject);
 });
 

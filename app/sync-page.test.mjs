@@ -25,11 +25,12 @@ async function start({refresh=async()=>({outcome:'completed'}),messages=[mail],l
 function nodes(view){const result=[];const walk=node=>{result.push(node);node.children?.forEach(walk);node.items?.forEach(walk);};walk(view.root);view.navigation?.forEach(walk);return result;}
 const node=(ui,node_id)=>ui.nodes().find(item=>item.id===node_id);
 
-test('Refresh paints the cached rows with a Syncing status before the network resolves',async()=>{
+test('Refresh paints the cached rows with one progress notice before the network resolves',async()=>{
   const network=deferred(),ui=await start({refresh:()=>network.promise});
   const pending=ui.click('refresh');
   assert.ok(node(ui,'mail_'+id.replaceAll('-','')),'the cached row is painted immediately');
-  assert.match(node(ui,'status').text,/Syncing/);
+  assert.match(node(ui,'mail_progress').text,/Refreshing/);
+  assert.equal(node(ui,'status'),undefined,'a pending refresh is announced once');
   assert.equal(node(ui,'mail_empty'),undefined);
   network.resolve({outcome:'completed',items:[arrived],next_cursor:null,freshness:{complete:true,provider_observed:true}});
   await pending;
