@@ -59,7 +59,7 @@ test('Refresh follows the displayed account without refreshing the compose accou
  const refreshed=[];
  const ui=await start({targets:[{key:'primary',label:'Sender'},{key:'secondary',label:'Recipient'}],refresh:async(_store,_resource,target)=>{refreshed.push(target);if(target!=='secondary')throw Error('Unrelated compose account unavailable');return {outcome:'completed'};}});
  await ui.click('account_pick_1');await ui.click('refresh');
- assert.deepEqual(refreshed,['secondary']);assert.equal(node(ui,'status'),undefined);assert.equal(node(ui,'account_pick_1').selected,true);
+ assert.deepEqual(refreshed,['secondary']);assert.equal(node(ui,'status').text,'\u00a0');assert.equal(node(ui,'account_pick_1').selected,true);
 });
 
 test('All accounts refreshes each displayed target once with bounded concurrency and keeps unavailable rows',async()=>{
@@ -285,8 +285,9 @@ test('compose and draft list have one contextual header without disabled mailbox
 
 test('a slow foreground refresh shows one progress notice while keeping the original reader and clears it after completion',async()=>{
  let finish,entered;const started=new Promise(resolve=>entered=resolve);const ui=await start({refresh:()=>new Promise(resolve=>{finish=resolve;entered();})});await ui.click('mail_'+id.replaceAll('-',''));const pending=ui.click('refresh');await started;
- assert.equal(node(ui,'mail_progress').text,'Refreshing…');assert.equal(node(ui,'refresh').disabled,true);assert.equal(node(ui,'mail_subject').text,mail.data.subject);
- finish({outcome:'completed'});await pending;assert.equal(node(ui,'mail_progress'),undefined);assert.equal(node(ui,'refresh').disabled,false);assert.equal(node(ui,'mail_subject').text,mail.data.subject);
+ assert.equal(node(ui,'status').text,'Refreshing…');assert.equal(node(ui,'refresh').disabled,true);assert.equal(node(ui,'mail_subject').text,mail.data.subject);
+ assert.equal(ui.nodes().filter(item=>item.kind==='text'&&/^(Refreshing|Syncing)…$/u.test(item.text??'')).length,1);
+ finish({outcome:'completed'});await pending;assert.equal(node(ui,'status').text,'\u00a0');assert.equal(node(ui,'refresh').disabled,false);assert.equal(node(ui,'mail_subject').text,mail.data.subject);
 });
 
 test('selection replaces the mailbox header and uses menus instead of an inline action grid',async()=>{
@@ -345,7 +346,7 @@ test('Reply, Reply all and Forward open local source-pinned seeds without a draf
   await ui.click('mail_'+id.replaceAll('-',''));await ui.click(action);
   const form=node(ui,'draft_form');assert.ok(form);assert.equal(form.expected_revision,0);assert.equal(form.seed.value.schema_version,'deft.record_seed_snapshot_seed.v1');assert.equal(form.seed.value.value.mode,action);const admitted=DeftExperienceRecordFormV3NodeSchema.safeParse(JSON.parse(JSON.stringify(form)));assert.equal(admitted.success,true,admitted.success?'':JSON.stringify(admitted.error.issues));assert.equal(form.initial_change,undefined);
   assert.deepEqual(JSON.parse(JSON.stringify(form.seed.value.value.record_seed.source)),{resource_key:'inbox',record_id:id,content_digest:digest});
-  assert.equal(creates.length,0);assert.equal(requests.length,0);assert.equal(node(ui,'status'),undefined);
+  assert.equal(creates.length,0);assert.equal(requests.length,0);assert.equal(node(ui,'status').text,'\u00a0');
   await ui.click('close_draft');assert.equal(node(ui,'compose').disabled,false);await ui.click('compose');assert.ok(node(ui,'draft_form'));assert.equal(creates.length,0);
  }
 });
@@ -409,10 +410,11 @@ test('creating reading preferences starts with Ask and never rewrites an existin
  await other.click('email_settings');await other.click('saved_content');await other.click('settings_preferences');assert.equal(node(other,'new_setting').disabled,true);assert.ok(other.nodes().some(item=>item.description==='Ask before loading'));
 });
 
-test('empty mailbox and search states say what is missing and whether older mail is still syncing',async()=>{
- const syncing=await start({listMailbox:async()=>({outcome:'completed',items:[],next_cursor:null,freshness:{complete:false,observed_at:'2026-10-13T10:00:00Z'}})});
- assert.equal(node(syncing,'mail_empty').text,'No messages in Inbox. Older mail is still syncing.');
- assert.match(node(syncing,'mail_freshness').text,/^Older mail is still syncing · updated \w{3}, Oct 1[23], \d{1,2}:\d{2} [AP]M$/);
+const backfillTimers={setTimeout:(work,ms)=>{return 1;},clearTimeout:()=>{}};
+test('empty mailbox and search states say what is missing while older mail loads',async()=>{
+ const syncing=await start({timers:backfillTimers,listMailbox:async()=>({outcome:'completed',items:[],next_cursor:null,freshness:{complete:false,observed_at:'2026-10-13T10:00:00Z'}})});
+ assert.equal(node(syncing,'mail_empty').text,'No messages in Inbox. Loading older mail…');
+ assert.match(node(syncing,'mail_freshness').text,/^Loading older mail… · updated \w{3}, Oct 1[23], \d{1,2}:\d{2} [AP]M$/);
  assert.equal(node(syncing,'reader_empty').text,'Select a message to read it here.');
  const synced=await start({messages:[]});
  assert.equal(node(synced,'mail_empty').text,'No messages in Inbox.');
@@ -452,7 +454,7 @@ test('settings shows the ended-grant reason and a restore link into the Phase 2 
  assert.equal(node(ui,'health_restore_primary').label,'Restore access');
  assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_restore_primary').connection_action)),{kind:'restore_access',installation_id:healthInstallation,target_key:'primary'});
  assert.equal(node(ui,'health_reconnect_primary'),undefined);
- await ui.click('health_restore_primary');assert.match(node(ui,'status').text,/Deft settings to restore background access/);
+ await ui.click('health_restore_primary');assert.equal(node(ui,'status').text,'\u00a0','the Host dispatches the connection action, not local status copy');
 });
 
 test('a background-refresh stall is visible instead of the account merely reading Connected',async()=>{
@@ -462,6 +464,7 @@ test('a background-refresh stall is visible instead of the account merely readin
  assert.equal(node(ui,'health_reconnect_primary').label,'Reconnect');
  assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_reconnect_primary').connection_action)),{kind:'reconnect',installation_id:healthInstallation,target_key:'primary'});
  assert.equal(ui.nodes().some(item=>item.text==='Connected'),false);
+ await ui.click('health_reconnect_primary');assert.equal(node(ui,'status').text,'\u00a0','Reconnect must be handed to the Host connection flow');
 });
 
 test('an absent Host health payload is never reported as healthy',async()=>{
@@ -508,4 +511,129 @@ test('a reauth-required account is never reported as healthy',async()=>{
  assert.equal(node(ui,'health_summary').text,'Reconnect this account to resume background jobs.');
  assert.ok(node(ui,'health_reconnect_primary'));
  assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
+});
+
+const hostHealth=(connection,background)=>({connection,...(background?{background}:{})});
+const background=(state,reason='live',since='2026-11-04T09:30:00.000Z')=>({state,reason,since});
+
+test('the Host catalog health shape reports healthy from background.state',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('healthy'))}]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,'Everything is healthy.');
+ assert.equal(node(ui,'health_reconnect_primary'),undefined);
+ assert.equal(node(ui,'health_restore_primary'),undefined);
+});
+
+test('the Host catalog paused background shows the reported since instant',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('paused','lapsed','2026-11-03T10:00:00.000Z'))}]});
+ await ui.click('email_settings');
+ assert.match(node(ui,'health_summary').text,/^Background sync paused since /);
+ assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_reconnect_primary').connection_action)),{kind:'reconnect',target_key:'primary'});
+ assert.equal(ui.nodes().some(item=>item.text==='Connected'),false);
+});
+
+test('the Host catalog ended background offers the grant-ended restore action',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('ended','expired'))}]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,endedCopy);
+ assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_restore_primary').connection_action)),{kind:'restore_access',target_key:'primary'});
+ assert.equal(node(ui,'health_reconnect_primary'),undefined);
+});
+
+test('the Host catalog disconnected account is never healthy and offers Reconnect',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('disconnected',background('healthy'))}]});
+ await ui.click('email_settings');
+ assert.match(node(ui,'health_summary').text,/Reconnect this account/u);
+ assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_reconnect_primary').connection_action)),{kind:'reconnect',target_key:'primary'});
+ assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
+ assert.equal(ui.nodes().some(item=>item.text==='Connected'),false);
+});
+
+test('the Host catalog health without a background lease is off, never healthy',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected')}]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,'Background sync is off.');
+ assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
+});
+
+test('the Host catalog background refresh off is reported as off, never healthy',async()=>{
+ for(const health of [{connection:'connected',capture:{state:'healthy',account_grant_active:true},sync:{state:'healthy'},background:{state:'off'}},{connection:'connected',capture:{state:'healthy',account_grant_active:true},sync:{state:'healthy'},background_refresh:{state:'off'}}]){
+  const ui=await start({targets:[{key:'primary',label:'Primary account',health}]});
+  await ui.click('email_settings');
+  assert.equal(node(ui,'health_summary').text,'Background sync is off.');
+  assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
+  assert.equal(node(ui,'health_reconnect_primary'),undefined);
+ }
+});
+
+test('health without connection evidence is unavailable even with a healthy lease',async()=>{
+ for(const health of [{background:background('healthy')},{}]){
+  const ui=await start({targets:[{key:'primary',label:'Primary account',health}]});
+  await ui.click('email_settings');
+  assert.equal(node(ui,'health_summary').text,'Health status unavailable.');
+  assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
+ }
+});
+
+test('folder catalog keeps one compact heading and one overflow menu of folder actions',async()=>{
+ const catalog={record_id:id,revision:1,content_digest:digest,status:'submitted',summary:{kind:'catalog',name:'Folders'}};
+ const ui=await start({listSaved:async store=>({outcome:'completed',items:store==='folders'?[catalog]:[],next_cursor:null})});
+ await ui.click('email_settings');await ui.click('folder_catalog');
+ const heading=node(ui,'folder_catalog_heading'),panel=node(ui,'folder_catalog_panel'),menuNode=node(ui,'folder_catalog_menu');
+ assert.deepEqual(Array.from(heading.children,item=>item.id),['folder_catalog_title','folder_catalog_back','folder_catalog_menu']);
+ assert.equal(menuNode.kind,'menu');
+ assert.deepEqual(Array.from(menuNode.items,item=>item.id),['folder_catalog_refresh','folder_favorites_only']);
+ assert.deepEqual(parseDeftExperienceMenuNode(JSON.parse(JSON.stringify(menuNode))),JSON.parse(JSON.stringify(menuNode)));
+ const input=panel.children.findIndex(item=>item.id==='folder_name'),create=panel.children.findIndex(item=>item.id==='folder_create');
+ assert.ok(input>=0&&create>input,'the create action follows its name field');
+});
+
+test('empty favorites explain the state and offer Show all folders',async()=>{
+ const folder={record_id:'22222222-2222-4222-8222-222222222222',revision:1,content_digest:digest,status:'submitted',summary:{kind:'folder',name:'Receipts',move_allowed:true}};
+ const ui=await start({listSaved:async store=>({outcome:'completed',items:store==='folders'?[folder]:[],next_cursor:null})});
+ await ui.click('email_settings');await ui.click('folder_catalog');await ui.click('folder_favorites_only');
+ assert.equal(node(ui,'folders_empty').text,'No favorite folders yet.');
+ assert.ok(node(ui,'folder_show_all'));
+ await ui.click('folder_show_all');
+ assert.equal(node(ui,'folders_empty'),undefined);
+ assert.ok(node(ui,'catalog_'+folder.record_id.replaceAll('-','')));
+});
+
+test('folder favorites distinguish loading from an empty result',async()=>{
+ const folder={record_id:'22222222-2222-4222-8222-222222222222',revision:1,content_digest:digest,status:'submitted',summary:{kind:'folder',name:'Receipts',move_allowed:true}};
+ let release,folderCalls=0;
+ const ui=await start({listSaved:async store=>{
+  if(store==='folders'){folderCalls++;if(folderCalls===2)return new Promise(resolve=>{release=()=>resolve({outcome:'completed',items:[folder],next_cursor:null});});return {outcome:'completed',items:[folder],next_cursor:null};}
+  return {outcome:'completed',items:[],next_cursor:null};
+ }});
+ await ui.click('email_settings');await ui.click('folder_catalog');await ui.click('folder_favorites_only');
+ const pending=ui.click('folder_catalog_refresh');await new Promise(resolve=>setTimeout(resolve,0));
+ assert.equal(node(ui,'folders_empty').text,'Loading folders…');
+ release();await pending;
+ assert.equal(node(ui,'folders_empty').text,'No favorite folders yet.');
+});
+
+test('empty rules explain the state and offer the single New rule action',async()=>{
+ const order={record_id:id,revision:1,content_digest:digest,status:'draft',summary:{order_digest:digest}};
+ const ui=await start({listSaved:async store=>({outcome:'completed',items:store==='rules_order'?[{record_id:order.record_id}]:[],next_cursor:null}),readRecordMeta:async()=>order});
+ await ui.click('email_settings');await ui.click('manual_rules');
+ assert.equal(node(ui,'rules_empty').text,'No rules yet.');
+ assert.equal(ui.nodes().filter(item=>item.id==='rules_new').length,1);
+ assert.equal(node(ui,'rules_new').disabled,false);
+});
+
+test('rules distinguish loading from an empty catalog',async()=>{
+ const order={record_id:id,revision:1,content_digest:digest,status:'draft',summary:{order_digest:digest}};
+ let release,rulesCalls=0;
+ const ui=await start({listSaved:async store=>{
+  if(store==='rules'){rulesCalls++;if(rulesCalls===2)return new Promise(resolve=>{release=()=>resolve({outcome:'completed',items:[],next_cursor:null});});return {outcome:'completed',items:[],next_cursor:null};}
+  return {outcome:'completed',items:store==='rules_order'?[{record_id:order.record_id}]:[],next_cursor:null};
+ },readRecordMeta:async()=>order});
+ await ui.click('email_settings');await ui.click('manual_rules');
+ const pending=ui.click('rules_refresh');await new Promise(resolve=>setTimeout(resolve,0));
+ assert.equal(node(ui,'rules_empty').text,'Loading rules…');
+ assert.equal(node(ui,'rules_new'),undefined);
+ release();await pending;
+ assert.equal(node(ui,'rules_empty').text,'No rules yet.');
+ assert.ok(node(ui,'rules_new'));
 });

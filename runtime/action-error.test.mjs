@@ -20,6 +20,26 @@ test('a review_consent next_step is on-enum and maps to a review action',()=>{
   assert.deepEqual(parseNextStep(body),{kind:'review_consent',label:'Review access',installation_id:installationId,target_key:targetKey});
 });
 
+test('a bare review_consent next_step needs no ids',()=>{
+  const body={code:'APP_REVIEW_REQUIRED',details:{next_step:{kind:'review_consent'}}};
+  assert.deepEqual(parseNextStep(body),{kind:'review_consent',label:'Review access'});
+});
+
+test('Host ids are optional when present and are validated before use',()=>{
+  assert.deepEqual(parseNextStep({details:{next_step:{kind:'restore_access',target_key:targetKey}}}),
+    {kind:'restore_access',label:'Restore access',target_key:targetKey});
+  assert.deepEqual(parseNextStep({details:{next_step:{kind:'reconnect',installation_id:installationId}}}),
+    {kind:'reconnect',label:'Reconnect',installation_id:installationId});
+  assert.deepEqual(parseNextStep({details:{next_step:{kind:'review_consent',consent_id:'22222222-2222-4222-8222-222222222222'}}}),
+    {kind:'review_consent',label:'Review access',consent_id:'22222222-2222-4222-8222-222222222222'});
+});
+
+test('unknown extra next_step fields are ignored and never echoed',()=>{
+  const action=parseNextStep({details:{next_step:{kind:'restore_access',installation_id:installationId,target_key:targetKey,extra:'raw callback data'}}});
+  assert.deepEqual(action,{kind:'restore_access',label:'Restore access',installation_id:installationId,target_key:targetKey});
+  assert.equal(Object.hasOwn(action,'extra'),false);
+});
+
 test('malformed or off-enum next_step is dropped',()=>{
   assert.equal(parseNextStep(null),null);
   assert.equal(parseNextStep({}),null);
@@ -29,7 +49,7 @@ test('malformed or off-enum next_step is dropped',()=>{
   assert.equal(parseNextStep({code:'APP_ACCESS_DENIED',details:{next_step:{kind:'free_text',installation_id:installationId,target_key:targetKey}}}),null);
   assert.equal(parseNextStep({code:'APP_ACCESS_DENIED',details:{next_step:{kind:'restore_access',installation_id:'not-a-uuid',target_key:targetKey}}}),null);
   assert.equal(parseNextStep({code:'APP_ACCESS_DENIED',details:{next_step:{kind:'restore_access',installation_id:installationId,target_key:'Bad Target Key!'}}}),null);
-  assert.equal(parseNextStep({code:'APP_ACCESS_DENIED',details:{next_step:{kind:'restore_access',installation_id:installationId,target_key:targetKey,extra:'raw callback data'}}}),null);
+  assert.equal(parseNextStep({code:'APP_ACCESS_DENIED',details:{next_step:{kind:'review_consent',consent_id:'not-a-uuid'}}}),null);
 });
 
 test('EMAIL_PROVIDER_REAUTH_REQUIRED maps to reconnect',()=>{
