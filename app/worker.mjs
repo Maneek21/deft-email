@@ -73,6 +73,7 @@ const RETRY_HINT='Use Check action status or Refresh before trying again.',PERMI
   if(capture?.state==='retrying')return 'Knowledge capture is retrying.';
   if(capture?.state==='never_enabled')return 'Knowledge capture is off.';
   if(['reauth_required','disconnected','revoked','unavailable'].includes(value.connection))return HEALTH_REAUTH;
+  if(background?.state==='off')return value.connection==='connected'?BACKGROUND_OFF:HEALTH_UNKNOWN;
   if(background?.state==='healthy')return value.connection==='connected'?null:HEALTH_UNKNOWN;
   if(capture?.state==='healthy'&&sync?.state==='healthy')return value.connection==='connected'?null:HEALTH_UNKNOWN;
   if(!background)return value.connection==='connected'?BACKGROUND_OFF:HEALTH_UNKNOWN;
