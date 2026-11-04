@@ -509,3 +509,46 @@ test('a reauth-required account is never reported as healthy',async()=>{
  assert.ok(node(ui,'health_reconnect_primary'));
  assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
 });
+
+const hostHealth=(connection,background)=>({connection,...(background?{background}:{})});
+const background=(state,reason='live',since='2026-11-04T09:30:00.000Z')=>({state,reason,since});
+
+test('the Host catalog health shape reports healthy from background.state',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('healthy'))}]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,'Everything is healthy.');
+ assert.equal(node(ui,'health_reconnect_primary'),undefined);
+ assert.equal(node(ui,'health_restore_primary'),undefined);
+});
+
+test('the Host catalog paused background shows the reported since instant',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('paused','lapsed','2026-11-03T10:00:00.000Z'))}]});
+ await ui.click('email_settings');
+ assert.match(node(ui,'health_summary').text,/^Background sync paused since /);
+ assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_reconnect_primary').connection_action)),{kind:'reconnect',target_key:'primary'});
+ assert.equal(ui.nodes().some(item=>item.text==='Connected'),false);
+});
+
+test('the Host catalog ended background offers the grant-ended restore action',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('ended','expired'))}]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,endedCopy);
+ assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_restore_primary').connection_action)),{kind:'restore_access',target_key:'primary'});
+ assert.equal(node(ui,'health_reconnect_primary'),undefined);
+});
+
+test('the Host catalog disconnected account is never healthy and offers Reconnect',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('disconnected',background('healthy'))}]});
+ await ui.click('email_settings');
+ assert.match(node(ui,'health_summary').text,/Reconnect this account/u);
+ assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_reconnect_primary').connection_action)),{kind:'reconnect',target_key:'primary'});
+ assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
+ assert.equal(ui.nodes().some(item=>item.text==='Connected'),false);
+});
+
+test('the Host catalog health without a background lease is off, never healthy',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected')}]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,'Background sync is off.');
+ assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
+});

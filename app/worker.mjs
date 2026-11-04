@@ -54,19 +54,28 @@ const RETRY_HINT='Use Check action status or Refresh before trying again.',PERMI
  const shortDate=value=>{const date=new Date(value),today=new Date();if(!value||!Number.isFinite(date.getTime()))return '';const sameDay=date.getFullYear()===today.getFullYear()&&date.getMonth()===today.getMonth()&&date.getDate()===today.getDate();return new Intl.DateTimeFormat('en',{...(sameDay?{hour:'numeric',minute:'2-digit'}:{month:'short',day:'numeric',...(date.getFullYear()!==today.getFullYear()?{year:'numeric'}:{})})}).format(date);};
  const fullDate=value=>{const date=new Date(value);if(!value||!Number.isFinite(date.getTime()))return '';return new Intl.DateTimeFormat('en',{weekday:'short',month:'short',day:'numeric',...(date.getFullYear()!==new Date().getFullYear()?{year:'numeric'}:{}),hour:'numeric',minute:'2-digit'}).format(date);};
  // Host background health. Email owns this wording; unknown is never healthy.
+ // The catalog contract is health:{connection,background:{state,since,reason}};
+ // older flat capture/sync and background_refresh shapes stay readable.
+ const BACKGROUND_OFF='Background sync is off.',HEALTH_REAUTH='Reconnect this account to resume background jobs.';
+ const healthUuid=value=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value);
+ const healthKey=value=>typeof value==='string'&&/^[a-z][a-z0-9_]{0,47}$/u.test(value);
  const healthObject=value=>value&&typeof value==='object'?value:null,healthCapture=health=>healthObject(health?.capture)??(typeof health?.state==='string'?health:null);
  const healthPaused=(prefix,value)=>fullDate(value)?prefix+' since '+fullDate(value):prefix+'.';
+ const healthBackground=value=>healthObject(value?.background)??healthObject(value?.background_refresh);
+ const healthEnded=value=>healthCapture(value)?.state==='grant_ended'||healthBackground(value)?.state==='ended';
  function healthIssue(health){
   const value=healthObject(health);if(!value)return null;
-  const capture=healthCapture(value),sync=healthObject(value.sync),background=healthObject(value.background_refresh);
-  if(capture?.state==='grant_ended')return 'Knowledge capture is paused — access to this account ended. Reconnect to resume.';
-  if(background?.state==='paused')return healthPaused('Background sync paused',background.paused_since);
+  const capture=healthCapture(value),sync=healthObject(value.sync),background=healthBackground(value);
+  if(healthEnded(value))return 'Knowledge capture is paused — access to this account ended. Reconnect to resume.';
+  if(background?.state==='paused')return healthPaused('Background sync paused',background.since??background.paused_since);
   if(sync?.state==='paused')return 'Mail sync paused.';
   if(sync?.state==='error')return 'Mail sync needs attention.';
   if(capture?.state==='retrying')return 'Knowledge capture is retrying.';
   if(capture?.state==='never_enabled')return 'Knowledge capture is off.';
-  if(value.connection==='reauth_required')return 'Reconnect this account to resume background jobs.';
-  if(capture?.state==='healthy'&&sync?.state==='healthy'&&background?.state==='healthy')return null;
+  if(['reauth_required','disconnected','revoked','unavailable'].includes(value.connection))return HEALTH_REAUTH;
+  if(background?.state==='healthy')return null;
+  if(capture?.state==='healthy'&&sync?.state==='healthy')return null;
+  if(!background)return BACKGROUND_OFF;
   return HEALTH_UNKNOWN;
  }
  function healthSummary(){
@@ -75,10 +84,12 @@ const RETRY_HINT='Use Check action status or Refresh before trying again.',PERMI
   for(const target of targets){const issue=healthIssue(target.health);if(issue)return {text:(accountTargets.length>1?target.label+': ':'')+issue,target};}
   return {text:'Everything is healthy.'};
  }
- function healthActionNodes(target){const health=healthObject(target.health);if(!health||typeof health.installation_id!=='string')return [];
-  const issue=healthIssue(health);if(!issue)return [];
-  const restore=healthCapture(health)?.state==='grant_ended',kind=restore?'restore_access':'reconnect';
-  return [{kind:'button',id:'health_'+(restore?'restore':'reconnect')+'_'+target.key,label:restore?'Restore access':'Reconnect',connection_action:{kind,installation_id:health.installation_id,target_key:target.key}}];}
+ function healthActionNodes(target){const health=healthObject(target.health);if(!health)return [];
+  const issue=healthIssue(health);if(!issue||issue===HEALTH_UNKNOWN||issue===BACKGROUND_OFF)return [];
+  const restore=healthEnded(health),kind=restore?'restore_access':'reconnect',action={kind};
+  if(healthUuid(health.installation_id))action.installation_id=health.installation_id;
+  if(healthKey(target.key))action.target_key=target.key;
+  return [{kind:'button',id:'health_'+(restore?'restore':'reconnect')+'_'+target.key,label:restore?'Restore access':'Reconnect',connection_action:action}];}
  const newRecordId=()=>{const bytes=crypto.getRandomValues(new Uint8Array(16));bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;const hex=Array.from(bytes,value=>value.toString(16).padStart(2,'0')).join('');return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;};
  const label=item=>scalar(item,'subject')||item?.label||'(No subject)';
  const rowId=(prefix,item)=>prefix+'_'+String(item.record_id).replaceAll('-','').toLowerCase();
