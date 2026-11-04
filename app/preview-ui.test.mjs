@@ -553,3 +553,12 @@ test('the Host catalog health without a background lease is off, never healthy',
  assert.equal(node(ui,'health_summary').text,'Background sync is off.');
  assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
 });
+
+test('health without connection evidence is unavailable even with a healthy lease',async()=>{
+ for(const health of [{background:background('healthy')},{}]){
+  const ui=await start({targets:[{key:'primary',label:'Primary account',health}]});
+  await ui.click('email_settings');
+  assert.equal(node(ui,'health_summary').text,'Health status unavailable.');
+  assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
+ }
+});
