@@ -562,3 +562,16 @@ test('health without connection evidence is unavailable even with a healthy leas
   assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
  }
 });
+
+test('folder catalog keeps one compact heading and one overflow menu of folder actions',async()=>{
+ const catalog={record_id:id,revision:1,content_digest:digest,status:'submitted',summary:{kind:'catalog',name:'Folders'}};
+ const ui=await start({listSaved:async store=>({outcome:'completed',items:store==='folders'?[catalog]:[],next_cursor:null})});
+ await ui.click('email_settings');await ui.click('folder_catalog');
+ const heading=node(ui,'folder_catalog_heading'),panel=node(ui,'folder_catalog_panel'),menuNode=node(ui,'folder_catalog_menu');
+ assert.deepEqual(Array.from(heading.children,item=>item.id),['folder_catalog_title','folder_catalog_back','folder_catalog_menu']);
+ assert.equal(menuNode.kind,'menu');
+ assert.deepEqual(Array.from(menuNode.items,item=>item.id),['folder_catalog_refresh','folder_favorites_only']);
+ assert.deepEqual(parseDeftExperienceMenuNode(JSON.parse(JSON.stringify(menuNode))),JSON.parse(JSON.stringify(menuNode)));
+ const input=panel.children.findIndex(item=>item.id==='folder_name'),create=panel.children.findIndex(item=>item.id==='folder_create');
+ assert.ok(input>=0&&create>input,'the create action follows its name field');
+});
