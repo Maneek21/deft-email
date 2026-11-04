@@ -29,8 +29,8 @@ test('Refresh paints the cached rows with one progress notice before the network
   const network=deferred(),ui=await start({refresh:()=>network.promise});
   const pending=ui.click('refresh');
   assert.ok(node(ui,'mail_'+id.replaceAll('-','')),'the cached row is painted immediately');
-  assert.match(node(ui,'mail_progress').text,/Refreshing/);
-  assert.equal(node(ui,'status'),undefined,'a pending refresh is announced once');
+  assert.match(node(ui,'status').text,/Refreshing/);
+  assert.equal(node(ui,'mail_progress'),undefined,'the old progress id is gone');
   assert.equal(node(ui,'mail_empty'),undefined);
   network.resolve({outcome:'completed',items:[arrived],next_cursor:null,freshness:{complete:true,provider_observed:true}});
   await pending;
@@ -210,6 +210,19 @@ test('backfill polling caps within three hundred seconds of fake time',async()=>
   assert.ok(node(ui,'load_older_mail'),'Load older mail is offered');
   const total=delays.reduce((a,b)=>a+b,0);
   assert.ok(total<=300000,'the last poll runs at or before 300 seconds');
+});
+
+test('the idle and refreshing workspace keep one caption node at the same index',async()=>{
+  const network=deferred(),ui=await start({refresh:()=>network.promise});
+  const idle=ui.views.at(-1);
+  const idleIndex=idle.root.children.findIndex(node=>node.id==='status');
+  const pending=ui.click('refresh');
+  const refreshing=ui.views.at(-1);
+  const refreshingIndex=refreshing.root.children.findIndex(node=>node.id==='status');
+  assert.equal(idleIndex,refreshingIndex);
+  assert.notEqual(idle.root.children[idleIndex].text,refreshing.root.children[refreshingIndex].text);
+  network.resolve({outcome:'completed',items:[arrived],next_cursor:null,freshness:{complete:true,provider_observed:true}});
+  await pending;
 });
 
 test('a background poll result preserves mode, selection and draft',async()=>{

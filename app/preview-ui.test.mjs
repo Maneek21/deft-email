@@ -59,7 +59,7 @@ test('Refresh follows the displayed account without refreshing the compose accou
  const refreshed=[];
  const ui=await start({targets:[{key:'primary',label:'Sender'},{key:'secondary',label:'Recipient'}],refresh:async(_store,_resource,target)=>{refreshed.push(target);if(target!=='secondary')throw Error('Unrelated compose account unavailable');return {outcome:'completed'};}});
  await ui.click('account_pick_1');await ui.click('refresh');
- assert.deepEqual(refreshed,['secondary']);assert.equal(node(ui,'status'),undefined);assert.equal(node(ui,'account_pick_1').selected,true);
+ assert.deepEqual(refreshed,['secondary']);assert.equal(node(ui,'status').text,'\u00a0');assert.equal(node(ui,'account_pick_1').selected,true);
 });
 
 test('All accounts refreshes each displayed target once with bounded concurrency and keeps unavailable rows',async()=>{
@@ -285,10 +285,9 @@ test('compose and draft list have one contextual header without disabled mailbox
 
 test('a slow foreground refresh shows one progress notice while keeping the original reader and clears it after completion',async()=>{
  let finish,entered;const started=new Promise(resolve=>entered=resolve);const ui=await start({refresh:()=>new Promise(resolve=>{finish=resolve;entered();})});await ui.click('mail_'+id.replaceAll('-',''));const pending=ui.click('refresh');await started;
- assert.equal(node(ui,'mail_progress').text,'Refreshing…');assert.equal(node(ui,'refresh').disabled,true);assert.equal(node(ui,'mail_subject').text,mail.data.subject);
- assert.equal(node(ui,'status'),undefined,'a pending refresh must not add a second progress caption');
+ assert.equal(node(ui,'status').text,'Refreshing…');assert.equal(node(ui,'refresh').disabled,true);assert.equal(node(ui,'mail_subject').text,mail.data.subject);
  assert.equal(ui.nodes().filter(item=>item.kind==='text'&&/^(Refreshing|Syncing)…$/u.test(item.text??'')).length,1);
- finish({outcome:'completed'});await pending;assert.equal(node(ui,'mail_progress'),undefined);assert.equal(node(ui,'refresh').disabled,false);assert.equal(node(ui,'mail_subject').text,mail.data.subject);
+ finish({outcome:'completed'});await pending;assert.equal(node(ui,'status').text,'\u00a0');assert.equal(node(ui,'refresh').disabled,false);assert.equal(node(ui,'mail_subject').text,mail.data.subject);
 });
 
 test('selection replaces the mailbox header and uses menus instead of an inline action grid',async()=>{
@@ -347,7 +346,7 @@ test('Reply, Reply all and Forward open local source-pinned seeds without a draf
   await ui.click('mail_'+id.replaceAll('-',''));await ui.click(action);
   const form=node(ui,'draft_form');assert.ok(form);assert.equal(form.expected_revision,0);assert.equal(form.seed.value.schema_version,'deft.record_seed_snapshot_seed.v1');assert.equal(form.seed.value.value.mode,action);const admitted=DeftExperienceRecordFormV3NodeSchema.safeParse(JSON.parse(JSON.stringify(form)));assert.equal(admitted.success,true,admitted.success?'':JSON.stringify(admitted.error.issues));assert.equal(form.initial_change,undefined);
   assert.deepEqual(JSON.parse(JSON.stringify(form.seed.value.value.record_seed.source)),{resource_key:'inbox',record_id:id,content_digest:digest});
-  assert.equal(creates.length,0);assert.equal(requests.length,0);assert.equal(node(ui,'status'),undefined);
+  assert.equal(creates.length,0);assert.equal(requests.length,0);assert.equal(node(ui,'status').text,'\u00a0');
   await ui.click('close_draft');assert.equal(node(ui,'compose').disabled,false);await ui.click('compose');assert.ok(node(ui,'draft_form'));assert.equal(creates.length,0);
  }
 });
@@ -455,7 +454,7 @@ test('settings shows the ended-grant reason and a restore link into the Phase 2 
  assert.equal(node(ui,'health_restore_primary').label,'Restore access');
  assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_restore_primary').connection_action)),{kind:'restore_access',installation_id:healthInstallation,target_key:'primary'});
  assert.equal(node(ui,'health_reconnect_primary'),undefined);
- await ui.click('health_restore_primary');assert.equal(node(ui,'status'),undefined,'the Host dispatches the connection action, not local status copy');
+ await ui.click('health_restore_primary');assert.equal(node(ui,'status').text,'\u00a0','the Host dispatches the connection action, not local status copy');
 });
 
 test('a background-refresh stall is visible instead of the account merely reading Connected',async()=>{
@@ -465,7 +464,7 @@ test('a background-refresh stall is visible instead of the account merely readin
  assert.equal(node(ui,'health_reconnect_primary').label,'Reconnect');
  assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_reconnect_primary').connection_action)),{kind:'reconnect',installation_id:healthInstallation,target_key:'primary'});
  assert.equal(ui.nodes().some(item=>item.text==='Connected'),false);
- await ui.click('health_reconnect_primary');assert.equal(node(ui,'status'),undefined,'Reconnect must be handed to the Host connection flow');
+ await ui.click('health_reconnect_primary');assert.equal(node(ui,'status').text,'\u00a0','Reconnect must be handed to the Host connection flow');
 });
 
 test('an absent Host health payload is never reported as healthy',async()=>{
