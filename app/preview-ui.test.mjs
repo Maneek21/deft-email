@@ -577,3 +577,53 @@ test('folder catalog keeps one compact heading and one overflow menu of folder a
  const input=panel.children.findIndex(item=>item.id==='folder_name'),create=panel.children.findIndex(item=>item.id==='folder_create');
  assert.ok(input>=0&&create>input,'the create action follows its name field');
 });
+
+test('empty favorites explain the state and offer Show all folders',async()=>{
+ const folder={record_id:'22222222-2222-4222-8222-222222222222',revision:1,content_digest:digest,status:'submitted',summary:{kind:'folder',name:'Receipts',move_allowed:true}};
+ const ui=await start({listSaved:async store=>({outcome:'completed',items:store==='folders'?[folder]:[],next_cursor:null})});
+ await ui.click('email_settings');await ui.click('folder_catalog');await ui.click('folder_favorites_only');
+ assert.equal(node(ui,'folders_empty').text,'No favorite folders yet.');
+ assert.ok(node(ui,'folder_show_all'));
+ await ui.click('folder_show_all');
+ assert.equal(node(ui,'folders_empty'),undefined);
+ assert.ok(node(ui,'catalog_'+folder.record_id.replaceAll('-','')));
+});
+
+test('folder favorites distinguish loading from an empty result',async()=>{
+ const folder={record_id:'22222222-2222-4222-8222-222222222222',revision:1,content_digest:digest,status:'submitted',summary:{kind:'folder',name:'Receipts',move_allowed:true}};
+ let release,folderCalls=0;
+ const ui=await start({listSaved:async store=>{
+  if(store==='folders'){folderCalls++;if(folderCalls===2)return new Promise(resolve=>{release=()=>resolve({outcome:'completed',items:[folder],next_cursor:null});});return {outcome:'completed',items:[folder],next_cursor:null};}
+  return {outcome:'completed',items:[],next_cursor:null};
+ }});
+ await ui.click('email_settings');await ui.click('folder_catalog');await ui.click('folder_favorites_only');
+ const pending=ui.click('folder_catalog_refresh');await new Promise(resolve=>setTimeout(resolve,0));
+ assert.equal(node(ui,'folders_empty').text,'Loading folders…');
+ release();await pending;
+ assert.equal(node(ui,'folders_empty').text,'No favorite folders yet.');
+});
+
+test('empty rules explain the state and offer the single New rule action',async()=>{
+ const order={record_id:id,revision:1,content_digest:digest,status:'draft',summary:{order_digest:digest}};
+ const ui=await start({listSaved:async store=>({outcome:'completed',items:store==='rules_order'?[{record_id:order.record_id}]:[],next_cursor:null}),readRecordMeta:async()=>order});
+ await ui.click('email_settings');await ui.click('manual_rules');
+ assert.equal(node(ui,'rules_empty').text,'No rules yet.');
+ assert.equal(ui.nodes().filter(item=>item.id==='rules_new').length,1);
+ assert.equal(node(ui,'rules_new').disabled,false);
+});
+
+test('rules distinguish loading from an empty catalog',async()=>{
+ const order={record_id:id,revision:1,content_digest:digest,status:'draft',summary:{order_digest:digest}};
+ let release,rulesCalls=0;
+ const ui=await start({listSaved:async store=>{
+  if(store==='rules'){rulesCalls++;if(rulesCalls===2)return new Promise(resolve=>{release=()=>resolve({outcome:'completed',items:[],next_cursor:null});});return {outcome:'completed',items:[],next_cursor:null};}
+  return {outcome:'completed',items:store==='rules_order'?[{record_id:order.record_id}]:[],next_cursor:null};
+ },readRecordMeta:async()=>order});
+ await ui.click('email_settings');await ui.click('manual_rules');
+ const pending=ui.click('rules_refresh');await new Promise(resolve=>setTimeout(resolve,0));
+ assert.equal(node(ui,'rules_empty').text,'Loading rules…');
+ assert.equal(node(ui,'rules_new'),undefined);
+ release();await pending;
+ assert.equal(node(ui,'rules_empty').text,'No rules yet.');
+ assert.ok(node(ui,'rules_new'));
+});
