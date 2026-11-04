@@ -452,7 +452,7 @@ test('settings shows the ended-grant reason and a restore link into the Phase 2 
  assert.equal(node(ui,'health_restore_primary').label,'Restore access');
  assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_restore_primary').connection_action)),{kind:'restore_access',installation_id:healthInstallation,target_key:'primary'});
  assert.equal(node(ui,'health_reconnect_primary'),undefined);
- await ui.click('health_restore_primary');assert.match(node(ui,'status').text,/Deft settings to restore background access/);
+ await ui.click('health_restore_primary');assert.equal(node(ui,'status'),undefined,'the Host dispatches the connection action, not local status copy');
 });
 
 test('a background-refresh stall is visible instead of the account merely reading Connected',async()=>{
@@ -462,6 +462,7 @@ test('a background-refresh stall is visible instead of the account merely readin
  assert.equal(node(ui,'health_reconnect_primary').label,'Reconnect');
  assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_reconnect_primary').connection_action)),{kind:'reconnect',installation_id:healthInstallation,target_key:'primary'});
  assert.equal(ui.nodes().some(item=>item.text==='Connected'),false);
+ await ui.click('health_reconnect_primary');assert.equal(node(ui,'status'),undefined,'Reconnect must be handed to the Host connection flow');
 });
 
 test('an absent Host health payload is never reported as healthy',async()=>{

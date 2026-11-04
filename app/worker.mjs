@@ -392,7 +392,7 @@ const RETRY_HINT='Use Check action status or Refresh before trying again.',PERMI
    else if(event.node_id==='folder_preference_check')await checkFolderPreference();
    else if(event.node_id==='email_settings'||event.node_id==='settings_back'){if(canClose()){mode='settings_home';draft=null;setting=null;status='';}}
    else if(event.node_id==='settings_mailbox'){mode='reader';}
-   else if(event.node_id.startsWith('health_'))status='Open this account in Deft settings to restore background access.';
+   else if(event.node_id.startsWith('health_')){/* The Host dispatches connection_action. */}
    else if(event.node_id==='provider_help')providerHelpOpen=!providerHelpOpen;
    else if(event.node_id==='saved_content')await settings('templates');
    else if(event.node_id==='settings_templates')await settings('templates');
