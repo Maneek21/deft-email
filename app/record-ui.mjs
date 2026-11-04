@@ -27,7 +27,7 @@ export function emailRecordDocument(record,{id='mail_body',printControl='print_m
 }
 export function emptyEmailRecord(mode='compose',parent=null){
  if(!['compose','reply','reply_all','forward'].includes(mode)||mode!=='compose'&&!uuid(parent?.record_id))throw Error('EMAIL_COMPOSE_INTENT_INVALID');
- return {mode,to:'',cc:'',bcc:'',subject:'',body:'',body_html:'',reply_record_id:'',attachments:[],author_note:''};
+ return {mode,to:'',cc:'',bcc:'',subject:'',body:'',body_html:'',reply_record_id:'',attachments:[],from_identity:null,author_note:''};
 }
 export function emailRecordEvent(previous,event){
  if(event?.record_seed===true){if(!previous?.seed||previous.revision!==0||event.node_id!=='draft_form'||event.expected_seed_record_id!==previous.record_id||event.record_revision!==0||!uuid(event.record_id)||event.content_digest!=='sha256:'+'0'.repeat(64)||event.dirty!==false||event.record_state!=='saved')throw Error('EMAIL_SEED_IDENTITY_INVALID');return {...previous,record_id:event.record_id};}
