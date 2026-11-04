@@ -192,7 +192,7 @@ const RETRY_HINT='Use Check action status or Refresh before trying again.',PERMI
  async function setAccountChoice(choice){
   if(choice===accountChoice)return;
   accountChoice=choice;
-  items=[];selected=null;conversation=null;cursor=null;observed=null;complete=false;pane='list';checked.clear();selectionMode=false;draft=null;minimizedDraft=null;draftRows=[];historyRows=[];initialDraftId=null;mode='reader';importedRows=[];importedCursor=null;importedChoice=null;importedAccount=null;undoSources=[];batchUndo=[];originalOrganize=null;originalRule=null;ruleRows=[];ruleOrder=null;ruleChoice=null;ruleEditor=null;rulePreview=[];ruleChecked.clear();ruleAccount=null;folderRows=[];folderCursor=null;folderChoice=null;folderPurpose=null;folderName='';folderPreferences=[];folderAccountTarget=null;sendNotice='';inspectionRun=null;accountPages.clear();
+  items=[];selected=null;conversation=null;cursor=null;observed=null;complete=false;pane='list';checked.clear();selectionMode=false;draft=null;minimizedDraft=null;draftRows=[];draftCursor=null;historyRows=[];initialDraftId=null;mode='reader';folder='inbox';query='';appliedQuery='';searchOpen=false;searchHelpOpen=false;folderFavoritesOnly=false;importedRows=[];importedCursor=null;importedChoice=null;importedAccount=null;undoSources=[];batchUndo=[];originalOrganize=null;originalRule=null;ruleRows=[];ruleOrder=null;ruleChoice=null;ruleEditor=null;rulePreview=[];ruleChecked.clear();ruleAccount=null;folderRows=[];folderCursor=null;folderChoice=null;folderPurpose=null;folderName='';folderPreferences=[];folderAccountTarget=null;sendNotice='';inspectionRun=null;accountPages.clear();
   render();
   await mailbox({resetSelection:true});
  }
