@@ -25,6 +25,7 @@ self.onmessage=event=>{
  let originalRule=null,originalOrganize=null,undoSources=[],pendingOrganizeBatch=null,batchUndo=[];
  let folderRows=[],folderCursor=null,folderChoice=null,folderPurpose=null,folderName='',folderPreferences=[],folderPreferencePending=null,folderFavoritesOnly=false,folderAccountTarget=null;
  let selectionMode=false,checked=new Map(),actionPending=false,pendingActionRun=null,pendingLabel='';
+ let backfillTimer=null,backfillPolls=0,backfillCapped=false,backfillInFlight=false,backfillStartTime=0;
  const SIGNATURE_UNAVAILABLE='Signature catalog unavailable',RULE_ORDER_UNAVAILABLE='Rule order unavailable',RULE_PREVIEW_UNAVAILABLE='Rule preview unavailable',SAVED_CONTENT_UNAVAILABLE='Saved content unavailable',FOLDER_PREFERENCE_LIMIT='Folder preference capacity reached',DRAFT_KEPT='Draft created in Drafts. Your current draft is kept.',REVIEW_RESOURCE_ACTION='review_resource_action';
  const SMTP_STORE='smtp_preferences',FOLDER_PREFS='folder_preferences',ORGANIZE_ACTION='organize_messages',HEALTH_UNKNOWN='Health status unavailable.';
  const PREFERENCE_UNCONFIRMED='Preference outcome is unconfirmed. Check the saved preference before another edit.',MAIL_UNAVAILABLE='Mail could not be loaded. Try Refresh or check the account status.';
@@ -164,9 +165,10 @@ const RETRY_HINT='Use Check action status or Refresh before trying again.',PERMI
     ...((pendingActionRun||pendingOrganizeBatch)?[button('check_mailbox_action','Check action status','ghost',{disabled:busy})]:[]),
     ...rowGroups('mail_rows',items.map(item=>button(rowId('mail',item),label(item),'list',{selected:selectionMode?checked.has(item.record_id):selected?.record_id===item.record_id,
      ...(selectionMode?{icon:checked.has(item.record_id)?'check':'select'}:{}),eyebrow:messageRowMeta(senderDisplay(scalar(item,'sender')||scalar(item,'from')),item.data?.seen),description:[accountChoice==='all'&&accountTargets.length>1?item.account_label:'',scalar(item,'preview')||scalar(item,'snippet')].filter(Boolean).join(' · '),meta:shortDate(scalar(item,'date')),disabled:busy||selectionMode&&!checked.has(item.record_id)&&checked.size>=100}))),
-    ...(!items.length?[text('mail_empty',busy?'Loading mail…':appliedQuery?'No messages match this search. Check the spelling, or open Search help for supported filters.':`No messages in ${folders[folder].label}.${observed&&!complete?' Older mail is still syncing.':''}`,'muted')]:[]),
+    ...(!items.length?[text('mail_empty',busy?'Loading mail…':appliedQuery?'No messages match this search. Check the spelling, or open Search help for supported filters.':`No messages in ${folders[folder].label}.${observed&&!complete?(backfillTimer||backfillInFlight?' Loading older mail…':' Some older mail hasn\'t loaded yet.'):''}`,'muted')]:[]),
     ...(cursor?[button('more',items.length>=100?'100 messages loaded':'Load more','secondary',{disabled:busy||items.length>=100})]:[]),
-    ...(observed?[text('mail_freshness',`${complete?'Synced':'Older mail is still syncing'}${fullDate(observed)?' · updated '+fullDate(observed):''}`,'caption')]:[]),
+    ...(!complete&&!backfillTimer&&!backfillInFlight&&observed?[button('load_older_mail','Load older mail','secondary',{disabled:busy})]:[]),
+    ...(observed?[text('mail_freshness',`${complete?'Synced':(backfillTimer||backfillInFlight?'Loading older mail…':'Some older mail hasn\'t loaded yet')}${fullDate(observed)?' · updated '+fullDate(observed):''}`,'caption')]:[]),
    ],{layout:'list',surface:'sidebar',...(pane==='reader'?{mobile:'hidden'}:{})});
    const detail=selected?stack('reader_panel',[
     stack('reader_heading',[stack('reader_back',[button('back','Back','ghost',{icon:'back'})],{layout:'horizontal',mobile:'only'}),text('mail_subject',label(selected),'heading',1024),stack('reader_actions',[...primaryReader.map(({danger,...item})=>button(item.id,item.label,'ghost',item)),menu('reader_more','More message actions',[{id:'create_task',label:'Create task',integration:{kind:'task',document_id:'mail_body'}},{id:'knowledge',label:'Save to Knowledge',integration:{kind:'knowledge',document_id:'mail_body'}},{id:'reply_all',label:'Reply all',icon:'reply',disabled:busy},{id:'forward',label:'Forward',disabled:busy},{id:'conversation',label:conversation?'Hide conversation':'Show conversation',disabled:busy},{id:'print_message',label:'Print',icon:'print',disabled:busy},...moreReader],{icon:'more',disabled:busy})],{layout:'horizontal'})],{layout:'toolbar'}),
@@ -197,8 +199,12 @@ const RETRY_HINT='Use Check action status or Refresh before trying again.',PERMI
   render();
   await mailbox({resetSelection:true});
  }
+
+ function clearBackfillTimer(){ if(backfillTimer){ clearTimeout(backfillTimer); backfillTimer=null; } }
+ function resetBackfill(){ clearBackfillTimer(); backfillPolls=0; backfillCapped=false; backfillInFlight=false; backfillStartTime=Date.now(); }
  async function mailbox({append=false,refresh=false,retry=false,nextFolder=folder,nextQuery=appliedQuery,resetSelection=false}={}){
   const request=++generation;
+  if(!retry)resetBackfill();
   if(!Object.hasOwn(folders,nextFolder))throw Error('Unknown mailbox folder');
   const support=emailProviderSupport(emailRowsProvider(items));if(nextFolder==='archive'&&!nextQuery.trim()&&support&&!support.archiveQuery){status='Archive search is unavailable for this provider. Showing the last loaded messages.';return;}
   const filter=nextQuery.trim()||folders[nextFolder].query;
@@ -225,7 +231,11 @@ const RETRY_HINT='Use Check action status or Refresh before trying again.',PERMI
   if(resetSelection){selected=null;pane='list';query=nextQuery;conversation=null;checked.clear();selectionMode=false;}
   else if(selected){const fresh=items.find(item=>item.record_id===selected.record_id);selected=fresh??null;}
   conversation=null;mode='reader';draft=null;setting=null;settingIdentities=[];status=retrying?'Syncing…':notices.join(' · ');
-  if(retrying&&!retry){const retried=request;setTimeout(()=>{if(retried!==generation)return;void mailbox({refresh:true,retry:true}).catch(()=>{}).finally(()=>render());},3000);}
+  const incomplete=result.freshness?.complete!==true;
+  if(!append&&incomplete&&request===generation){
+   if(backfillPolls>=30||(backfillStartTime&&Date.now()-backfillStartTime>=5*60*1000)){backfillCapped=true;clearBackfillTimer();}
+   else{const delays=[3000,5000,10000];const delay=backfillPolls<delays.length?delays[backfillPolls]:20000;backfillPolls++;const owner=request;clearBackfillTimer();backfillTimer=setTimeout(()=>{if(owner!==generation)return;if(backfillInFlight)return;backfillInFlight=true;void mailbox({refresh:true,retry:true}).catch(()=>{backfillCapped=true;clearBackfillTimer();}).finally(()=>{backfillInFlight=false;render();});},delay);if(typeof backfillTimer?.unref==='function')backfillTimer.unref();backfillCapped=false;}
+  } else { clearBackfillTimer(); if(result.freshness?.complete===true)backfillCapped=false; }
  }
  async function related({append=false}={}){
   const anchor=append?conversation.anchor:selected.record_id,request=++generation;
@@ -355,7 +365,7 @@ const RETRY_HINT='Use Check action status or Refresh before trying again.',PERMI
   if(folderPreferencePending&&(event.node_id==='folder_favorite'||event.node_id.startsWith('folder_color_'))){status=PREFERENCE_UNCONFIRMED;render();return;}
   if((mode==='compose'||mode==='setting')&&!canClose()){status='Save the draft or reopen its saved version before leaving.';render();return;}
   if(!pendingSetting&&event.node_id.startsWith('folder_')&&Object.hasOwn(folders,event.node_id.slice(7))){selected=null;conversation=null;pane='list';}
-  composeAccountRetry=false;busy=true;pendingLabel=event.node_id==='compose'||event.node_id==='compose_retry'?'Checking compose account…':event.node_id==='refresh'?'Refreshing…':event.node_id==='search'?'Searching…':event.node_id==='compose'||event.node_id==='restore_draft'||/^draft_[a-f0-9]{32}$/.test(event.node_id)?'Opening draft…':event.node_id==='drafts'||event.node_id==='drafts_more'?'Loading drafts…':event.node_id==='more'||/^folder_(inbox|sent|archive|starred|spam|trash)$/.test(event.node_id)||event.node_id==='account_all'||event.node_id.startsWith('account_pick_')?'Loading messages…':event.node_id.startsWith('check_')?'Checking original status…':'';status='';render();
+  composeAccountRetry=false;busy=true;pendingLabel=event.node_id==='compose'||event.node_id==='compose_retry'?'Checking compose account…':event.node_id==='refresh'?'Refreshing…':event.node_id==='load_older_mail'?'Loading older mail…':event.node_id==='search'?'Searching…':event.node_id==='compose'||event.node_id==='restore_draft'||/^draft_[a-f0-9]{32}$/.test(event.node_id)?'Opening draft…':event.node_id==='drafts'||event.node_id==='drafts_more'?'Loading drafts…':event.node_id==='more'||/^folder_(inbox|sent|archive|starred|spam|trash)$/.test(event.node_id)||event.node_id==='account_all'||event.node_id.startsWith('account_pick_')?'Loading messages…':event.node_id.startsWith('check_')?'Checking original status…':'';status='';render();
   try{
    if(event.node_id==='search_help'){searchHelpOpen=!searchHelpOpen;}
    else if(event.node_id==='local_jobs_snooze'||event.node_id==='local_jobs_follow_up'){mode=event.node_id.slice(11);selected=null;conversation=null;selectionMode=false;checked.clear();}
@@ -438,6 +448,7 @@ const RETRY_HINT='Use Check action status or Refresh before trying again.',PERMI
    }else if(/^mail_[a-f0-9]{32}$/.test(event.node_id)){const item=items.find(row=>rowId('mail',row)===event.node_id);if(item){if(selectionMode){if(checked.has(item.record_id))checked.delete(item.record_id);else if(checked.size<100)checked.set(item.record_id,item.content_digest);}else{selected=item;pane='reader';conversation=null;}}}
    else if(event.node_id.startsWith('folder_')&&Object.hasOwn(folders,event.node_id.slice(7)))await mailbox({nextFolder:event.node_id.slice(7),nextQuery:'',resetSelection:true});
    else if(event.node_id==='refresh'){if(actionPending&&!pendingActionRun&&!pendingOrganizeBatch)actionPending=false;if(mode==='snooze'||mode==='follow_up'){}else if(mode==='settings'||mode==='setting')await settings();else if(mode==='drafts'||mode==='history')await drafts();else await mailbox({refresh:true});}
+   else if(event.node_id==='load_older_mail'){await mailbox({refresh:true});}
    else if(event.node_id==='more')await mailbox({append:true});
    else if(event.node_id==='search')await mailbox({nextQuery:query,resetSelection:true});
    else if(event.node_id==='clear_search')await mailbox({nextQuery:'',resetSelection:true});

@@ -411,10 +411,11 @@ test('creating reading preferences starts with Ask and never rewrites an existin
  await other.click('email_settings');await other.click('saved_content');await other.click('settings_preferences');assert.equal(node(other,'new_setting').disabled,true);assert.ok(other.nodes().some(item=>item.description==='Ask before loading'));
 });
 
-test('empty mailbox and search states say what is missing and whether older mail is still syncing',async()=>{
- const syncing=await start({listMailbox:async()=>({outcome:'completed',items:[],next_cursor:null,freshness:{complete:false,observed_at:'2026-10-13T10:00:00Z'}})});
- assert.equal(node(syncing,'mail_empty').text,'No messages in Inbox. Older mail is still syncing.');
- assert.match(node(syncing,'mail_freshness').text,/^Older mail is still syncing · updated \w{3}, Oct 1[23], \d{1,2}:\d{2} [AP]M$/);
+const backfillTimers={setTimeout:(work,ms)=>{return 1;},clearTimeout:()=>{}};
+test('empty mailbox and search states say what is missing while older mail loads',async()=>{
+ const syncing=await start({timers:backfillTimers,listMailbox:async()=>({outcome:'completed',items:[],next_cursor:null,freshness:{complete:false,observed_at:'2026-10-13T10:00:00Z'}})});
+ assert.equal(node(syncing,'mail_empty').text,'No messages in Inbox. Loading older mail…');
+ assert.match(node(syncing,'mail_freshness').text,/^Loading older mail… · updated \w{3}, Oct 1[23], \d{1,2}:\d{2} [AP]M$/);
  assert.equal(node(syncing,'reader_empty').text,'Select a message to read it here.');
  const synced=await start({messages:[]});
  assert.equal(node(synced,'mail_empty').text,'No messages in Inbox.');

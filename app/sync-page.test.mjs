@@ -67,7 +67,7 @@ test('a failed refresh keeps the rows and shows an error instead of an empty pag
 
 test('a still-syncing refresh keeps the rows and re-polls once after three seconds',async()=>{
   const scheduled=[];const timers={setTimeout:(work,ms)=>{scheduled.push(work);return scheduled.length;},clearTimeout:()=>{}};
-  let refreshCount=0;const ui=await start({timers,refresh:async()=>{refreshCount++;return refreshCount===1?{outcome:'completed',freshness:{complete:false,provider_observed:false}}:{outcome:'completed',items:[arrived],next_cursor:null,freshness:{complete:true,provider_observed:true}};}});
+  let refreshCount=0;const ui=await start({timers,refresh:async()=>{refreshCount++;return refreshCount===1?{outcome:'completed',freshness:{complete:false,provider_observed:false,observed_at:'2026-11-02T10:00:00Z'}}:{outcome:'completed',items:[arrived],next_cursor:null,freshness:{complete:true,provider_observed:true,observed_at:'2026-11-02T10:00:00Z'}};}});
   await ui.click('refresh');
   assert.ok(node(ui,'mail_'+id.replaceAll('-','')),'the cached row is still shown while syncing');
   assert.match(node(ui,'status').text,/Syncing/);
@@ -76,4 +76,64 @@ test('a still-syncing refresh keeps the rows and re-polls once after three secon
   await new Promise(resolve=>setTimeout(resolve,10));
   assert.equal(refreshCount,2);
   assert.ok(node(ui,'mail_'+secondId.replaceAll('-','')),'the observation result appears after the re-poll');
+});
+
+test('backfill polling stops as soon as the mailbox becomes complete',async()=>{
+  const scheduled=[];const timers={setTimeout:(work,ms)=>{scheduled.push(work);return scheduled.length;},clearTimeout:()=>{}};
+  let refreshCount=0;const ui=await start({timers,listMailbox:async()=>({outcome:'completed',items:[mail],next_cursor:null,freshness:{complete:false,observed_at:'2026-11-02T10:00:00Z'}}),refresh:async()=>{refreshCount++;return refreshCount===1?{outcome:'completed',freshness:{complete:false,provider_observed:false,observed_at:'2026-11-02T10:00:00Z'}}:{outcome:'completed',items:[arrived],next_cursor:null,freshness:{complete:true,provider_observed:true,observed_at:'2026-11-02T10:00:00Z'}};}});
+  assert.equal(scheduled.length,1,'one bounded re-poll is scheduled while incomplete');
+  assert.match(node(ui,'mail_freshness').text,/^Loading older mail…/,'polling copy while scheduled');
+  scheduled[0]();
+  await new Promise(resolve=>setTimeout(resolve,10));
+  assert.equal(scheduled.length,2,'the incomplete poll schedules one more');
+  scheduled[1]();
+  await new Promise(resolve=>setTimeout(resolve,10));
+  assert.equal(refreshCount,2);
+  assert.equal(scheduled.length,2,'no further poll is scheduled after completion');
+  assert.match(node(ui,'mail_freshness').text,/^Synced/,'synced copy after completion');
+  assert.equal(node(ui,'load_older_mail'),undefined,'no manual load action once complete');
+});
+
+test('backfill polling stops at the cap and offers Load older mail',async()=>{
+  const scheduled=[];const timers={setTimeout:(work,ms)=>{scheduled.push(work);return scheduled.length;},clearTimeout:()=>{}};
+  const ui=await start({timers,listMailbox:async()=>({outcome:'completed',items:[mail],next_cursor:null,freshness:{complete:false,observed_at:'2026-11-02T10:00:00Z'}}),refresh:async()=>({outcome:'completed',freshness:{complete:false,provider_observed:false,observed_at:'2026-11-02T10:00:00Z'}})});
+  for(let i=0;i<scheduled.length && i<40;i++){const cb=scheduled[i];if(!cb)break;cb();await new Promise(resolve=>setTimeout(resolve,0));}
+  assert.equal(scheduled.length,30,'polling caps at thirty scheduled polls');
+  assert.match(node(ui,'mail_freshness').text,/^Some older mail hasn.t loaded yet/,'capped copy when incomplete');
+  assert.ok(node(ui,'load_older_mail'),'a visible Load older mail action is offered at the cap');
+});
+
+test('account switch cancels a pending backfill poll',async()=>{
+  const scheduled=[];const timers={setTimeout:(work,ms)=>{scheduled.push(work);return scheduled.length;},clearTimeout:()=>{}};
+  let refreshCount=0;const ui=await start({timers,listTargets:()=>({targets:[{key:'a',label:'A'},{key:'b',label:'B'}],selected_target_key:'a'}),listMailbox:async()=>({outcome:'completed',items:[mail],next_cursor:null,freshness:{complete:false,observed_at:'2026-11-02T10:00:00Z'}}),refresh:async()=>{refreshCount++;return {outcome:'completed',freshness:{complete:false,provider_observed:false}};}});
+  assert.equal(scheduled.length,1);
+  await ui.click('account_pick_1');
+  const before=refreshCount;
+  scheduled[0]();
+  await new Promise(resolve=>setTimeout(resolve,10));
+  assert.equal(refreshCount,before,'a stale poll does not run after an account switch');
+});
+
+test('backfill polls never overlap',async()=>{
+  const scheduled=[];const timers={setTimeout:(work,ms)=>{scheduled.push(work);return scheduled.length;},clearTimeout:()=>{}};
+  const gate=deferred();let refreshCount=0;const ui=await start({timers,listMailbox:async()=>({outcome:'completed',items:[mail],next_cursor:null,freshness:{complete:false,observed_at:'2026-11-02T10:00:00Z'}}),refresh:async(...a)=>{refreshCount++; return gate.promise;}});
+  assert.equal(scheduled.length,1);
+  const poll=scheduled[0];
+  poll();
+  poll();
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(refreshCount,1,'a second invocation does not start while a poll is in flight');
+  gate.resolve({outcome:'completed',items:[arrived],next_cursor:null,freshness:{complete:true,provider_observed:true}});
+  await new Promise(resolve=>setTimeout(resolve,10));
+});
+
+test('Load older mail runs one more bounded step',async()=>{
+  const scheduled=[];const timers={setTimeout:(work,ms)=>{scheduled.push(work);return scheduled.length;},clearTimeout:()=>{}};
+  const ui=await start({timers,listMailbox:async()=>({outcome:'completed',items:[mail],next_cursor:null,freshness:{complete:false,observed_at:'2026-11-02T10:00:00Z'}}),refresh:async()=>({outcome:'completed',freshness:{complete:false,provider_observed:false,observed_at:'2026-11-02T10:00:00Z'}})});
+  for(let i=0;i<scheduled.length && i<40;i++){const cb=scheduled[i];if(!cb)break;cb();await new Promise(resolve=>setTimeout(resolve,0));}
+  assert.ok(node(ui,'load_older_mail'));
+  const before=scheduled.length;
+  await ui.click('load_older_mail');
+  await new Promise(resolve=>setTimeout(resolve,10));
+  assert.ok(scheduled.length>before,'Load older mail schedules another bounded poll');
 });
