@@ -268,8 +268,10 @@
     {
       "source": "examples/apps/email/providers/native-send.mjs",
       "target": "vendor/providers/native-send.mjs",
-      "sha256": "67fee351dd60f57f74a0111e0d100f9503152c11b2ac6ccdcf9ff50f67c95fb4",
-      "mode": "byte_copy"
+      "sha256": "c965870d2f9686ad99f3296ec3baa3449b468985daf08922bdbc418519197f9f",
+      "source_sha256": "67fee351dd60f57f74a0111e0d100f9503152c11b2ac6ccdcf9ff50f67c95fb4",
+      "mode": "reviewed_adaptation",
+      "live_send_adaptation": "Reviewed accepted-send outcome: after the provider returns provider_accepted for the immutable MIME packet, drop the trailing Host value.check() so a later deadline or custody re-read cannot turn a definitive acceptance into an unknown outcome. Reservation, the pre-send authority checks, the bounded adapter call and the exact result-shape validation are unchanged; any other result still fails as EMAIL_NATIVE_SEND_RESULT_UNKNOWN (uncertain)."
     },
     {
       "source": "examples/apps/email/providers/native-graph-send.mjs",
