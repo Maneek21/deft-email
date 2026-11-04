@@ -15,14 +15,18 @@ export const NEXT_STEP_ACTIONS=Object.freeze({
 });
 
 /** Parse `details.next_step` out of a Host error body. Returns a validated
- * action (kind, label, installation_id, target_key) or null. */
+ * action (kind, label and any valid optional id) or null. The Host sends ids
+ * only when it can point at the exact installation, target or consent, so a
+ * bare `review_consent` is valid and unknown extra fields are ignored. */
 export function parseNextStep(body){
  const step=body?.details?.next_step;
  if(!step||typeof step!=='object'||Array.isArray(step))return null;
- if(Object.keys(step).some(field=>!['kind','installation_id','target_key'].includes(field)))return null;
- if(!NEXT_STEP_KINDS.includes(step.kind)||!hostUuid(step.installation_id)||!key(step.target_key))return null;
- const action=NEXT_STEP_ACTIONS[step.kind];
- return {kind:action.kind,label:action.label,installation_id:step.installation_id,target_key:step.target_key};
+ if(!NEXT_STEP_KINDS.includes(step.kind))return null;
+ const valid=(field,value)=>field==='target_key'?key(value):hostUuid(value);
+ for(const field of ['installation_id','target_key','consent_id'])if(step[field]!==undefined&&!valid(field,step[field]))return null;
+ const action=NEXT_STEP_ACTIONS[step.kind],result={kind:action.kind,label:action.label};
+ for(const field of ['installation_id','target_key','consent_id'])if(step[field]!==undefined)result[field]=step[field];
+ return result;
 }
 
 /** Map a runtime provider/custody failure code to a recoverable action. Reauth
