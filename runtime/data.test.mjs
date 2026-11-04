@@ -484,3 +484,20 @@ test('whole-operation authority callbacks retain final revocation epoch owner re
   assert.equal((await f.runtime.drafts.list(f.local,{cursor:null,limit:25},()=>{})).items.length,0);
  }
 });
+
+test('a transient Host authority transport failure on the confirming read still confirms the saved reply draft',async t=>{
+ const message=dataFixtureMessage('fixture@example.test'),provider=(url,options)=>{const parsed=new URL(url);if(parsed.pathname.endsWith('/messages'))return Response.json({messages:[{id:message.metadata.id}],resultSizeEstimate:1});if(parsed.pathname.endsWith('/messages/'+message.metadata.id))return Response.json(parsed.searchParams.get('format')==='raw'?{id:message.metadata.id,threadId:message.metadata.threadId,raw:message.mime.toString('base64url')}:message.metadata);return providerFixture(url,options);};
+ let attempts=0,failAt=null,failures=0;
+ const f=await fixture(t,provider,{onAuthority:async input=>{attempts++;if(failAt!==null&&attempts===failAt){failAt=null;failures++;throw Object.assign(new Error('synthetic transient authority transport'),{code:'EMAIL_RUNTIME_TRANSPORT_DENIED'});}return {...input,allowed:true};}}),page=await f.run(f.request('resource_list',{store_key:'drafts',resource_key:'inbox',cursor:null,limit:25,query:'in:inbox'})),source={resource_key:'inbox',record_id:page.items[0].record_id,content_digest:page.items[0].content_digest};
+ const opened=await f.run(f.request('connection_metadata',{store_key:'drafts',seed:{operation_key:'record_seed',destination_store_key:'drafts',value:{...empty,mode:'reply',to:'',subject:'',body:'',record_seed:{schema_version:'deft.email_reply_seed.v1',source}}}}));
+ const id=randomUUID(),edited={...opened.record_seed_value,to:'edited@example.test',subject:'User subject',body:'User exact edited body'},created=await f.run(f.request('record_create',{store_key:'drafts',record_id:id,value:edited}));
+ assert.equal(created.record.revision,1);
+ // Arm the failure on the confirming read's second fence, the exact C7 shape:
+ // the create completed, then one follow-up authority dispatch failed.
+ failAt=attempts+2;const before=attempts,confirm=await f.run(f.request('record_read',{store_key:'drafts',record_id:id}));
+ assert.equal(failures,1,'the transient failure actually fired');
+ assert.equal(attempts-before,4,'opening, failed entry, one retry and the final disclosure');
+ assert.equal(confirm.record.revision,1);
+ assert.equal(confirm.record.value.subject,'User subject');
+ assert.equal(confirm.record.value.body,'User exact edited body');
+});

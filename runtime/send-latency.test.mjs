@@ -29,3 +29,16 @@ test('changed authority pins at provider HTTP boundary prevent dispatch and pres
  const f=await setup(t,{latencyMs:1100,authorizeOverride:(value,count)=>count===4?{...value,session_epoch:value.session_epoch+1}:value});
  assert.deepEqual(await f.execute(),{status:'indeterminate'});assert.equal(f.sendCalls,0);assert.equal((await snapshot(f)).state,'unknown');
 });
+test('a Gmail send the provider accepted is recorded and returned even when the deadline passes after acceptance',async t=>{
+ let advanceClock;
+ const f=await setup(t,{latencyMs:0,sendProvider:async()=>{advanceClock(31000);return Response.json({id:'synthetic-provider-accepted',threadId:'synthetic-thread'});}});
+ advanceClock=f.advanceClock;
+ const result=await f.execute();
+ assert.equal(f.sendCalls,1,'the provider POST happened exactly once');
+ assert.equal(result.status,'returned','a definitive provider acceptance is not reported as unknown');
+ assert.equal(result.provider_succeeded,true);
+ const retained=await snapshot(f);
+ assert.equal(retained.state,'accepted','the accepted effect is durably recorded, not downgraded to unknown');
+ assert.equal(retained.effect.provider_receipt.provider_message_id,'synthetic-provider-accepted');
+ await f.restart();assert.deepEqual(await f.execute(),result);assert.equal(f.sendCalls,1,'reopening never resends');
+});

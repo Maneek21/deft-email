@@ -52,7 +52,16 @@ export function createDataChecker({request,assertCurrent,signal,now=Date.now}){
     if(!entry||entry.key!==key){
       entry={key};if(!fresh)pending=entry;
       entry.work=(async()=>{try{
-        const response=await assertCurrent(expected,combined);exact(response,[...Object.keys(expected),'allowed']);const {expires_at,allowed,...pins}=response,{expires_at:ignored,...expectedPins}=expected;
+        // A Host transport failure (for example HTTP 503 with no usable JSON)
+        // decided nothing. Repeat that exact dispatch once so a single
+        // transient outage cannot fail an otherwise-authorized request. An
+        // explicit denial, abort or expired deadline is final: never retried
+        // and never downgraded.
+        let retried=false;
+        const attempt=async()=>{try{return await assertCurrent(expected,combined);}
+          catch(error){if(retried||error?.code!=='EMAIL_RUNTIME_TRANSPORT_DENIED'||combined.aborted||deadline<=now())throw error;
+            retried=true;combined.throwIfAborted();return attempt();}};
+        const response=await attempt();exact(response,[...Object.keys(expected),'allowed']);const {expires_at,allowed,...pins}=response,{expires_at:ignored,...expectedPins}=expected;
         if(allowed!==true||canonical(pins)!==canonical(expectedPins)||!isoTime(expires_at)||Date.parse(expires_at)<=now()||Date.parse(expires_at)>dispatchDeadline)fail('EMAIL_DATA_AUTHORITY_DENIED');
         deadline=Math.min(deadline,Date.parse(expires_at));arm();
       }finally{if(pending===entry)pending=undefined;}})();

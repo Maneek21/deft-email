@@ -106,3 +106,20 @@ test('the committed refresh page is exactly the page a following list returns',a
   assert.equal(refreshed.freshness.provider_observed,true);
   assert.equal(listed.freshness.provider_observed,false);
 });
+
+test('bounded foreground backfill never strands: incomplete pages advance, then the walk completes',async t=>{
+  const f=await fixture(t,{authorityLatency:1,providerLatency:1,pageSize:25}),seen=[];let result;
+  for(let call=1;call<=8;call++){
+    const before=f.pageCalls;
+    result=await f.data.request(f.request('resource_refresh',{store_key:'drafts',resource_key:'inbox'}));
+    seen.push({call,provider_calls:f.pageCalls-before,rows:result.items.length,complete:result.freshness.complete});
+    if(result.freshness.complete)break;
+  }
+  console.log(JSON.stringify({event:'sync_backfill_pacing',pages:seen}));
+  assert.equal(seen[0].rows,10,'the first bounded page hydrates ten rows');
+  assert.ok(seen[0].provider_calls<=11,'the first page keeps its one list plus one ten-row metadata wave');
+  assert.equal(seen[0].complete,false,'one page never claims finished coverage');
+  assert.equal(result.freshness.complete,true,'the pool eventually reports complete coverage instead of stranding');
+  assert.equal(result.items.length,25);
+  assert.ok(seen.length<=8,`the bounded walk converged in ${seen.length} refreshes`);
+});
