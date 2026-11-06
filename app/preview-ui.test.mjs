@@ -437,7 +437,6 @@ test('sent receipt notices use delivery status wording not Activity',async()=>{
 });
 
 const healthInstallation='11111111-1111-4111-8111-111111111111';
-const endedRevokedCopy='Knowledge capture is paused — access to this account ended. Restore access to resume.';
 const endedOtherCopy='Knowledge capture is paused — background sync ended. Resume background sync to continue.';
 
 const hostHealth=(connection,background)=>({connection,...(background?{background}:{})});
@@ -460,13 +459,13 @@ test('the Host catalog paused background shows the reported since instant',async
  assert.equal(ui.nodes().some(item=>item.text==='Connected'),false);
 });
 
-test('the Host catalog ended background with revoked reason offers Restore access',async()=>{
+test('the Host catalog ended background with revoked reason offers Resume background sync',async()=>{
  const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('ended','revoked'))}]});
  await ui.click('email_settings');
- assert.equal(node(ui,'health_summary').text,endedRevokedCopy);
- assert.equal(node(ui,'health_restore_primary').label,'Restore access');
- assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_restore_primary').connection_action)),{kind:'restore_access',target_key:'primary'});
- assert.equal(node(ui,'health_reconnect_primary'),undefined);
+ assert.equal(node(ui,'health_summary').text,endedOtherCopy);
+ assert.equal(node(ui,'health_reconnect_primary').label,'Resume background sync');
+ assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_reconnect_primary').connection_action)),{kind:'reconnect',target_key:'primary'});
+ assert.equal(node(ui,'health_restore_primary'),undefined);
 });
 
 test('the Host catalog ended background with another reason offers Resume background sync',async()=>{
@@ -519,8 +518,10 @@ test('health reasons are attributed to the specific account when several are con
  const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('healthy'))},
   {key:'second',label:'Second account',health:hostHealth('connected',background('ended','revoked'))}]});
  await ui.click('email_settings');
- assert.equal(node(ui,'health_summary').text,'Second account: '+endedRevokedCopy);
- assert.ok(node(ui,'health_restore_second'));
+ assert.equal(node(ui,'health_summary').text,'Second account: '+endedOtherCopy);
+ assert.ok(node(ui,'health_reconnect_second'));
+ assert.equal(node(ui,'health_reconnect_primary'),undefined);
+ assert.equal(node(ui,'health_restore_second'),undefined);
  assert.equal(node(ui,'health_restore_primary'),undefined);
 });
 

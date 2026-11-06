@@ -69,7 +69,7 @@ const RETRY_HINT='Use Check action status or Refresh before trying again.',PERMI
   if(background===undefined)return BACKGROUND_OFF;
   if(!healthBackgroundValid(background))return HEALTH_UNKNOWN;
   if(background.state==='paused')return healthPaused('Background sync paused',background.since);
-  if(background.state==='ended')return 'Knowledge capture is paused — '+(background.reason==='revoked'?'access to this account ended. Restore access to resume.':'background sync ended. Resume background sync to continue.');
+  if(background.state==='ended')return 'Knowledge capture is paused — background sync ended. Resume background sync to continue.';
   if(background.state==='healthy')return null;
   return HEALTH_UNKNOWN;
  }
@@ -87,7 +87,7 @@ const RETRY_HINT='Use Check action status or Refresh before trying again.',PERMI
   if(!healthBackgroundValid(background))return [];
   let kind=null,label=null;
   if(background.state==='paused'){kind='reconnect';label='Resume background sync';}
-  else if(background.state==='ended'){if(background.reason==='revoked'){kind='restore_access';label='Restore access';}else{kind='reconnect';label='Resume background sync';}}
+  else if(background.state==='ended'){kind='reconnect';label='Resume background sync';}
   else return [];
   const action={kind};if(healthKey(target.key))action.target_key=target.key;
   return [{kind:'button',id:'health_'+(kind==='restore_access'?'restore':'reconnect')+'_'+target.key,label,connection_action:action}];}

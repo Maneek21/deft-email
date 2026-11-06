@@ -37,7 +37,7 @@ test('probe worker: absent and partial health never claim healthy',async()=>{
 });
 
 test('probe worker: Reconnect and Restore access carry the exact account reference',async()=>{
- for(const [health,kind,name]of [[{...healthy,connection:'disconnected'},'reconnect','health_reconnect_primary'],[{...healthy,background:{state:'ended',since:'2026-10-13T10:00:00Z',reason:'revoked'}},'restore_access','health_restore_primary']]){
+ for(const [health,kind,name]of [[{...healthy,connection:'disconnected'},'reconnect','health_reconnect_primary'],[{...healthy,background:{state:'ended',since:'2026-10-13T10:00:00Z',reason:'revoked'}},'reconnect','health_reconnect_primary']]){
   const ui=await start({accounts:[{...targets[0],health}]});await ui.click('email_settings');noHealthy(ui);
   const action=node(ui,name);assert.ok(action);assert.deepEqual(JSON.parse(JSON.stringify(action.connection_action)),{kind,target_key:'primary'});
   if(process.env.PROBE_WRITE_HEALTH_VIEW)await writeFile(process.env.PROBE_WRITE_HEALTH_VIEW,JSON.stringify(ui.views.at(-1)));
