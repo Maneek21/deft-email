@@ -52,11 +52,5 @@ function connectionAction(kind,connection={}){if(!CONNECTION_ACTION_KINDS.includ
 export function reconnectActionNode(connection={}){return {kind:'button',id:'reconnect',label:'Reconnect',connection_action:connectionAction('reconnect',connection)};}
 export function restoreAccessReviewNode(connection={}){return {kind:'button',id:'restore_access',label:'Restore access',connection_action:connectionAction('restore_access',connection)};}
 export function connectionSettingsNodes(connection){return [connectionStatusNode(connection.health),reconnectActionNode(connection),restoreAccessReviewNode(connection)];}
-/** The Host endpoints a single Restore access review dispatches, in order. */
-export function restoreAccessCalls(connection){const action=connectionAction('restore_access',connection);if(!action.installation_id)throw Error('EMAIL_CONNECTION_ACTION_INVALID');return [
- {method:'GET',path:`/api/app-connection-sessions/installations/${action.installation_id}/restore-context`},
- {method:'POST',path:'/api/app-connection-sessions/restore/review'},
- {method:'POST',path:'/api/app-connection-sessions/restore/activate'},
-];}
 /** The Host reattach review a Reconnect action dispatches. */
 export function reconnectCall(connection){connectionAction('reconnect',connection);return {method:'POST',path:'/api/app-connection-sessions/reattach/review'};}

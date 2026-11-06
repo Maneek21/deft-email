@@ -9,7 +9,7 @@ const root=process.env.PROBE_EMAIL_ROOT?pathToFileURL(process.env.PROBE_EMAIL_RO
 const id='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222',digest='sha256:'+'a'.repeat(64);
 const mail={record_id:id,content_digest:digest,label:'Message A',data:{provider:'gmail',subject:'Message A',sender:'Sender <sender@example.test>',date:'2026-10-13T10:00:00Z',preview:'Preview',seen:false}};
 const page=items=>({outcome:'completed',items,next_cursor:null,freshness:{complete:true,observed_at:'2026-10-13T10:00:00Z'}});
-const healthy={installation_id:id,connection:'connected',capture:{state:'healthy',account_grant_active:true},sync:{state:'healthy'},background_refresh:{state:'healthy'}};
+const healthy={connection:'connected',background:{state:'healthy',since:'2026-10-13T10:00:00Z',reason:'live'}};
 const targets=[{key:'primary',label:'Account A'},{key:'secondary',label:'Account B'}];
 const flatten=view=>{const result=[];const walk=node=>{result.push(node);node.children?.forEach(walk);node.items?.forEach(walk);};walk(view.root);view.navigation?.forEach(walk);return result;};
 async function start({accounts=targets,listTargets,listMailbox,listRecords,readRecordMeta,request,refresh}={}){
@@ -37,16 +37,16 @@ test('probe worker: absent and partial health never claim healthy',async()=>{
 });
 
 test('probe worker: Reconnect and Restore access carry the exact account reference',async()=>{
- for(const [health,kind,name]of [[{...healthy,connection:'reauth_required'},'reconnect','health_reconnect_primary'],[{...healthy,capture:{state:'grant_ended',account_grant_active:false}},'restore_access','health_restore_primary']]){
+ for(const [health,kind,name]of [[{...healthy,connection:'disconnected'},'reconnect','health_reconnect_primary'],[{...healthy,background:{state:'ended',since:'2026-10-13T10:00:00Z',reason:'revoked'}},'restore_access','health_restore_primary']]){
   const ui=await start({accounts:[{...targets[0],health}]});await ui.click('email_settings');noHealthy(ui);
-  const action=node(ui,name);assert.ok(action);assert.deepEqual(JSON.parse(JSON.stringify(action.connection_action)),{kind,installation_id:id,target_key:'primary'});
+  const action=node(ui,name);assert.ok(action);assert.deepEqual(JSON.parse(JSON.stringify(action.connection_action)),{kind,target_key:'primary'});
   if(process.env.PROBE_WRITE_HEALTH_VIEW)await writeFile(process.env.PROBE_WRITE_HEALTH_VIEW,JSON.stringify(ui.views.at(-1)));
   await ui.click(name);assert.equal(ui.calls.filter(call=>call[0]==='request').length,0,'worker click only emits navigation copy; Host must own connection action');
  }
 });
 
 test('probe worker: paused background retains a specific paused copy',async()=>{
- const ui=await start({accounts:[{...targets[0],health:{...healthy,background_refresh:{state:'paused',paused_since:'2026-10-13T10:00:00Z'}}}]});await ui.click('email_settings');noHealthy(ui);assert.match(node(ui,'health_summary').text,/^Background sync paused since /u);
+ const ui=await start({accounts:[{...targets[0],health:{...healthy,background:{state:'paused',since:'2026-10-13T10:00:00Z',reason:'lapsed'}}}]});await ui.click('email_settings');noHealthy(ui);assert.match(node(ui,'health_summary').text,/^Background sync paused since /u);
 });
 
 test('probe worker: live-shaped account catalog yields a renderable settings snapshot',async()=>{

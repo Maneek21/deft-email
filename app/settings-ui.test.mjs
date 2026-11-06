@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {connectionHealthLabel} from './account-registry.mjs';
-import {CONNECTION_ACTION_KINDS,connectionStatusNode,reconnectActionNode,restoreAccessReviewNode,connectionSettingsNodes,restoreAccessCalls,reconnectCall} from './settings-ui.mjs';
+import {CONNECTION_ACTION_KINDS,connectionStatusNode,reconnectActionNode,restoreAccessReviewNode,connectionSettingsNodes,reconnectCall} from './settings-ui.mjs';
 
 const installationId='11111111-1111-4111-8111-111111111111';
 const targetKey='personal_mailbox';
@@ -38,14 +38,9 @@ test('the Reconnect action dispatches the Host reattach review',()=>{
   assert.deepEqual(reconnectCall({installation_id:installationId,target_key:targetKey}),{method:'POST',path:'/api/app-connection-sessions/reattach/review'});
 });
 
-test('the Restore access action dispatches restore-context, restore/review and restore/activate',()=>{
+test('the Restore access action carries its connection action',()=>{
   const node=restoreAccessReviewNode({installation_id:installationId,target_key:targetKey});
   assert.deepEqual(node.connection_action,{kind:'restore_access',installation_id:installationId,target_key:targetKey});
-  assert.deepEqual(restoreAccessCalls({installation_id:installationId,target_key:targetKey}),[
-    {method:'GET',path:`/api/app-connection-sessions/installations/${installationId}/restore-context`},
-    {method:'POST',path:'/api/app-connection-sessions/restore/review'},
-    {method:'POST',path:'/api/app-connection-sessions/restore/activate'},
-  ]);
 });
 
 test('recovery actions accept the Host optional ids and closed action kinds',()=>{
@@ -61,5 +56,4 @@ test('recovery actions reject malformed ids and free text when present',()=>{
   assert.throws(()=>reconnectActionNode({installation_id:installationId,target_key:'Bad Target Key!'}),/EMAIL_CONNECTION_ACTION_INVALID/);
   assert.throws(()=>reconnectActionNode({installation_id:installationId,target_key:targetKey,consent_id:'not-a-uuid'}),/EMAIL_CONNECTION_ACTION_INVALID/);
   assert.throws(()=>restoreAccessReviewNode({installation_id:installationId,target_key:'Bad Target Key!'}),/EMAIL_CONNECTION_ACTION_INVALID/);
-  assert.throws(()=>restoreAccessCalls({installation_id:installationId,target_key:'Bad Target Key!'}),/EMAIL_CONNECTION_ACTION_INVALID/);
 });
