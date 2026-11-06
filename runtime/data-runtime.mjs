@@ -59,7 +59,7 @@ export function createDataRuntime({registrations,getRegistrations,client,provide
   async function executeRequest(raw,signal,uploadedBytes,recipientRead){
     const change=raw?.schema_version==='deft.app_data_runtime.v2',request=change?validateChangeRequest(raw):validateDataRequest(raw),registration=(getRegistrations?getRegistrations().map(({connection_protocol,...r})=>validateRegistration(r)):registrations).find(value=>value.org_id===request.scope.org_id&&value.runtime_registration_id===request.scope.runtime_registration_id);
     if(!registration||Object.keys(registration).some(field=>registration[field]!==request.scope[field]))fail('EMAIL_RUNTIME_REGISTRATION_DENIED');
-    const trace=createForegroundDiagnostics({request_id:request.request_id,operation:request.operation,onDiagnostic});let requestError;
+    const trace=createForegroundDiagnostics({request_id:request.request_id,operation:request.operation,onDiagnostic});let requestError,opening;
     const compoundOpening=!formMode&&!change&&request.operation==='connection_metadata'&&request.input.store_key==='drafts'&&request.input.seed?.operation_key==='record_seed_snapshot',openingAbort=compoundOpening?new AbortController():null;
     const guard=(change?createChangeChecker:createDataChecker)({request,assertCurrent,signal:openingAbort?AbortSignal.any([signal,openingAbort.signal].filter(Boolean)):signal,now}),hostCheck=()=>trace.span('authority',guard.check);let openingSession;
     const sessionLock=async work=>{const queued=trace.start('session_queue');try{return await store.withLock({key:'email.runtime.session.'+request.connection.session_id},tx=>{queued();return trace.span('session_hold',()=>work(tx));});}catch(error){queued(error);throw error;}};
@@ -78,7 +78,29 @@ export function createDataRuntime({registrations,getRegistrations,client,provide
       try{await visibility();openingSession=await createReadSessionSnapshot({withLock:sessionLock,check:guard.checkLocal});const admission=fresh();await Promise.all([entry,admission]);await openingSession.assertCurrent();}
       catch(error){openingAbort.abort(error);await Promise.allSettled(started);throw error;}
      }else{
-      await hostCheck();
+      // A foreground Refresh may prepare only its local session and adoption
+      // journal snapshot while admission is in flight. Its entry check still
+      // gates every custody, source, record and provider read, and joins this
+      // exact in-flight dispatch instead of paying a second round trip. Other
+      // optimistic reads keep the opening barrier settled before entry so a
+      // later authority decision is never answered by an earlier dispatch.
+      const detachedOpening=optimistic&&request.operation==='resource_refresh';
+      opening=hostCheck();opening.catch(()=>{});if(!detachedOpening)await opening;
+      // A foreground Refresh must not queue behind a running observation that
+      // already holds the account session lock. The probe is read-only; return
+      // only the local cache stamp (never rows) after the opening Host admission
+      // and the identical credential-repair fence. Visibility is skipped because
+      // reading it acquires the very session lock we are avoiding; a no-row
+      // answer cannot disclose adopted mail.
+      if(!formMode&&request.operation==='resource_refresh'&&store.isHeld?.('email.runtime.session.'+request.connection.session_id)){
+       await opening;
+       await assertNoCredentialRepair({store,scope:request.scope});
+       const cacheScope={org_id:request.scope.org_id,owner_user_id:request.scope.owner_user_id,account_id:request.connection.account_ref};
+       const snapshot=await mailbox.cacheSnapshot(cacheScope,[],guard.checkLocal);
+       const result={schema_version:'deft.app_data_result.v1',request_id:request.request_id,operation:request.operation,input_digest:dataInputDigest(request),outcome:'completed',freshness:{observed_at:null,complete:false,provider_observed:false,checkpoint_generation:snapshot.stamp.checkpoint_generation,coverage_generation:snapshot.stamp.coverage_generation}};
+       validateDataResult(result,request);
+       return result;
+      }
       // Read the adoption journal before holding a session lock; publication
       // locks journal then session. Visibility only advances after both commits.
       if(!formMode)await visibility();
@@ -89,7 +111,11 @@ export function createDataRuntime({registrations,getRegistrations,client,provide
       let changeGeneration=null,changeIdentityPins=null;
       const identityPins=account=>canonical([account.primary_address,account.verified_sender_identities.map(address=>address.trim().toLocaleLowerCase('en-US')).sort()]);
       const currentChangeAccount=async()=>{if(formMode){checkLocal();const row=await sessionTx.currentAccount();const account={primary_address:row.profile.primary_address,display_label:row.profile.display_label,verified_sender_identities:[row.profile.primary_address],capabilities:row.capabilities};if(!account.capabilities.includes('read')||!Number.isSafeInteger(row.custody_generation)||row.custody_generation<1||changeGeneration!==null&&changeGeneration!==row.custody_generation||changeIdentityPins!==null&&changeIdentityPins!==identityPins(account))fail('EMAIL_DATA_CONNECTION_DENIED');checkLocal();return {account,generation:row.custody_generation};}return custody.withAccount(session.binding,async tx=>{checkLocal();const row=tx.read(),account=accountFromRecord(session.binding,row);if(account?.health!=='connected'||!account?.capabilities.includes('read')||canonical(row.binding)!==canonical(session.binding)||row.secret.client_fingerprint!==fingerprint||!Number.isSafeInteger(row.setup_generation)||row.setup_generation<1||changeGeneration!==null&&changeGeneration!==row.setup_generation||changeIdentityPins!==null&&changeIdentityPins!==identityPins(account))fail('EMAIL_DATA_CONNECTION_DENIED');checkLocal();return {account,generation:row.setup_generation};});};
-      const check=async()=>{await hostCheck();if(optimistic)await sessionTx.assertCurrent();checkLocal();if(change&&changeGeneration!==null)await currentChangeAccount();};
+      // The read-only session fence is independent of the online authority
+      // decision, so overlap it with that round trip instead of adding its
+      // lock/row work to the critical path. The opening admission is still
+      // awaited here, so a failed opening barrier always fails the request.
+      const check=async()=>{await Promise.all([opening??null,hostCheck(),optimistic?sessionTx.assertCurrent():null]);checkLocal();if(change&&changeGeneration!==null)await currentChangeAccount();};
       // Record changes recheck online under their journal lock. Local checks
       // retain the request deadline, session and current custody at every read.
       const checkChangeLocal=async()=>{checkLocal();if(changeGeneration!==null)await currentChangeAccount();};
@@ -117,7 +143,7 @@ export function createDataRuntime({registrations,getRegistrations,client,provide
       const heldForms=formMode?{currentAccount:async()=>{checkLocal();return sessionTx.currentAccount();}}:null;
       const sourceFor=formMode?record=>currentImapOwnedSource({forms:heldForms,session_id:request.connection.session_id,scope:request.scope,record,check,store}):createOwnedSourceResolver({store,session,scope,check:checkLocal});
       const fetchCurrent=async(url,options={})=>{await trace.span('pre_provider',async()=>{await check();if(allowNativeReauth)fail('EMAIL_NATIVE_PROVIDER_RECONNECT_REQUIRED');await assertNoCredentialRepair({store,scope:request.scope});});return trace.span('provider_http',()=>fetchImpl(url,{...options,signal:AbortSignal.any([guard.signal,options.signal].filter(Boolean))}));};
-      const bridge=formMode?createImapReadPorts({forms:heldForms,connector:imapConnector,session_id:request.connection.session_id,scope:request.scope,check,imageDependencies,now}).bridge:createNativeEmailBridge({store,identityScopeFor:createNativeIdentityScopeResolver({store,scope,session,binding:session.binding,check:checkLocal}),selected:session.binding,clients:{[provider]:client},custody,accountFromRecord:(binding,row)=>accountFromRecord(binding,row,{allowNativeReauth}),now,imageDependencies,fetch:fetchCurrent,oauthFetch:optimistic?async(url,options={})=>{await hostCheck();checkLocal();if(allowNativeReauth)fail('EMAIL_NATIVE_PROVIDER_RECONNECT_REQUIRED');await assertNoCredentialRepair({store,scope:request.scope});return trace.span('provider_http',()=>fetchImpl(url,{...options,signal:AbortSignal.any([guard.signal,options.signal].filter(Boolean))}));}:fetchCurrent});
+      const bridge=formMode?createImapReadPorts({forms:heldForms,connector:imapConnector,session_id:request.connection.session_id,scope:request.scope,check,imageDependencies,now}).bridge:createNativeEmailBridge({store,identityScopeFor:createNativeIdentityScopeResolver({store,scope,session,binding:session.binding,check:checkLocal}),selected:session.binding,clients:{[provider]:client},custody,accountFromRecord:(binding,row)=>accountFromRecord(binding,row,{allowNativeReauth}),now,imageDependencies,fetch:fetchCurrent,oauthFetch:optimistic?async(url,options={})=>{await hostCheck();checkLocal();if(allowNativeReauth)fail('EMAIL_NATIVE_PROVIDER_RECONNECT_REQUIRED');await assertNoCredentialRepair({store,scope:request.scope});return trace.span('provider_http',()=>fetchImpl(url,{...options,signal:AbortSignal.any([guard.signal,options.signal].filter(Boolean))}));}:fetchCurrent,nativePageHydrationLimit:10});
       const readCheck=localReadPaths.has(request.operation)||sourceSeedRead?checkLocal:check;
       // OAuth/native custody reads stay local under this held session. Every
       // provider HTTP call still uses fetchCurrent, and disclosure rechecks online.
@@ -297,7 +323,7 @@ export function createDataRuntime({registrations,getRegistrations,client,provide
         if(['prepare_resource_action','read_prepared_resource_action'].includes(request.operation))return {...base,prepared_resource:await (request.operation==='prepare_resource_action'?prepareResourceAction:readPreparedResourceAction)({request,scope,input,session,client,custody,plans:resourcePlans,mailbox,sourceFor,check,checkLocal,signal:guard.signal,fetch:fetchCurrent,now,forms:heldForms,connector:imapConnector,store,catalog,folderRead:id=>bridge.nativeEmailFolderRead({id},nativeContext())})};
         if(input.store_key!=='drafts'||input.resource_key!==request.scope.resource_key)fail('EMAIL_DATA_INPUT_INVALID');
         if(request.operation==='resource_refresh'){
-          inputObject(input,['store_key','resource_key']);memo.invalidate(scope);const checkpoint=(await mailbox.cacheSnapshot(scope,[],checkLocal)).stamp.checkpoint_generation;const context=nativeContext();context.provider_state=await mailbox.providerState(scope,checkLocal);const page=await bridge.nativeEmailPage({cursor:await mailbox.cursor(scope,checkLocal),limit:25},context);const freshness=await withPinnedSession(async()=>{if((await mailbox.cacheSnapshot(scope,[],checkLocal)).stamp.checkpoint_generation!==checkpoint)fail('EMAIL_DATA_SOURCE_CHANGED');return commitMailbox(scope,page,check,{localCheck:checkLocal,sync_producer:{scope:request.scope,session_id:request.connection.session_id,runtime_session_ref:request.connection.runtime_session_ref,custody_generation:generation,client_fingerprint:formMode?digest({connection_protocol:fingerprint}):fingerprint}});});return {...base,freshness};
+          inputObject(input,['store_key','resource_key']);memo.invalidate(scope);const checkpoint=(await mailbox.cacheSnapshot(scope,[],checkLocal)).stamp.checkpoint_generation;const context=nativeContext();context.provider_state=await mailbox.providerState(scope,checkLocal);const page=await bridge.nativeEmailPage({cursor:await mailbox.cursor(scope,checkLocal),limit:25},context);const freshness=await withPinnedSession(async()=>{if((await mailbox.cacheSnapshot(scope,[],checkLocal)).stamp.checkpoint_generation!==checkpoint)fail('EMAIL_DATA_SOURCE_CHANGED');return commitMailbox(scope,page,check,{localCheck:checkLocal,sync_producer:{scope:request.scope,session_id:request.connection.session_id,runtime_session_ref:request.connection.runtime_session_ref,custody_generation:generation,client_fingerprint:formMode?digest({connection_protocol:fingerprint}):fingerprint}});});const committed=await mailbox.list(scope,{store_key:'drafts',resource_key:request.scope.resource_key,cursor:null,limit:25},checkLocal);return {...base,...committed,freshness};
         }
         if(request.operation==='resource_list'){
           inputObject(input,['store_key','resource_key','cursor','limit',...(Object.hasOwn(input,'query')?['query']:[]),...(Object.hasOwn(input,'anchor_record_id')?['anchor_record_id']:[])]);

@@ -43,3 +43,15 @@ export class EmailAccountRegistry {
  }
  exportState(scope){this.#check(scope);return {schema_version:'deft.email_accounts.v1',scope:{...this.#scope},accounts:[...this.#accounts.values()].map(account=>structuredClone(account))};}
 }
+
+// Honest UI-facing connection status wording. A runtime can observe provider
+// reauth (EMAIL_PROVIDER_REAUTH_REQUIRED) or a custody outage while the Host
+// connection record still reads `connected`; Email never shows a stale
+// `Connected` for those accounts.
+export const CONNECTION_HEALTH_LABELS=Object.freeze({
+ connected:'Connected',
+ reauth_required:'Needs reconnect',
+ revoked:'Access revoked',
+ unavailable:'Unavailable',
+});
+export function connectionHealthLabel(health){return Object.hasOwn(CONNECTION_HEALTH_LABELS,health)?CONNECTION_HEALTH_LABELS[health]:null;}

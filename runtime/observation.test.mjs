@@ -42,7 +42,7 @@ test('cached source publication crosses the packed v3 result client contract',as
   return status===429?Response.json({code:'APP_RESOURCE_SYNC_FAILURE',error:'Resource sync request failed'},{status}):Response.json({schema_version:f.claim.schema_version,audience:'app_resource_sync',work_kind:'sync_page',run_id:request.run_id,attempt_id:request.attempt_id,sequence:request.sequence,accepted:true});
  }});
  const execute=()=>f.runner({onDiagnostic:event=>diagnostics.push(event)}).executeClaim(f.claim,f.started,undefined,(value,signal)=>sdk.result(f.claim,f.started,value,{signal}));
- if(status===200){const result=await execute();assert.equal(result.status,'returned');assert.equal(result.page.upserts.length,25);assert.equal(diagnostics.some(event=>event.event==='email_observation_failure'),false);}
+ if(status===200){const result=await execute();assert.equal(result.status,'returned');assert.equal(result.page.upserts.length,10,'publishes the one ten-message page the foreground refresh hydrated');assert.equal(diagnostics.some(event=>event.event==='email_observation_failure'),false);}
  else {await assert.rejects(execute(),error=>error.code==='APP_RESOURCE_SYNC_FAILURE'&&error.status===429);assert.equal(diagnostics.length,1);assert.equal(diagnostics[0].phase,'host_result');assert.equal(diagnostics[0].code,'APP_RESOURCE_SYNC_FAILURE');assert.equal(diagnostics[0].http_status,429);assert.ok(!JSON.stringify(diagnostics).includes('session_token'));}
  assert.equal(submitted,1,'uncertain result is never automatically retried');assert.equal(f.providerCalls,before);
  assert.equal((await f.store.withLock({key:f.journalKey},tx=>tx.read())).value.state,'completed','the durable original page survives a rejected callback');

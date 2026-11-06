@@ -34,3 +34,23 @@ export function verifiedSettingIdentities(result){
 
 /** Readable declared support, not current consent or live provider certification. */
 export function providerSettingsNodes(){return [{kind:'text',id:'provider_setup_help',text:EMAIL_PROVIDER_SETUP_NOTE,tone:'caption'},...['gmail','microsoft','imap_smtp'].map(provider=>{const support=emailProviderSupport(provider);return {kind:'text',id:'provider_support_'+provider,text:support.label+': '+support.notice,tone:'caption'};})];}
+
+/** Connection status and recovery actions. Email owns the wording; the Host maps
+ * each action kind to its app-connection-sessions endpoints. ids are pinned
+ * (UUID installation, key-shaped target) — never free text. This module is
+ * bundled into the Worker, so it keeps its own browser-safe copy of the health
+ * wording rather than importing the server-side account registry. */
+const CONNECTION_HEALTH_LABELS={connected:'Connected',reauth_required:'Needs reconnect',revoked:'Access revoked',unavailable:'Unavailable'};
+const connectionKey=value=>typeof value==='string'&&/^[a-z][a-z0-9_]{0,47}$/u.test(value);
+export const CONNECTION_ACTION_KINDS=Object.freeze(['reconnect','restore_access','review_consent']);
+export function connectionStatusNode(health){const label=Object.hasOwn(CONNECTION_HEALTH_LABELS,health)?CONNECTION_HEALTH_LABELS[health]:'Status unavailable';return {kind:'text',id:'connection_status',text:label,tone:'caption'};}
+function connectionAction(kind,connection={}){if(!CONNECTION_ACTION_KINDS.includes(kind))throw Error('EMAIL_CONNECTION_ACTION_INVALID');const action={kind};
+ if(connection.installation_id!==undefined){if(!uuid(connection.installation_id))throw Error('EMAIL_CONNECTION_ACTION_INVALID');action.installation_id=connection.installation_id;}
+ if(connection.target_key!==undefined){if(!connectionKey(connection.target_key))throw Error('EMAIL_CONNECTION_ACTION_INVALID');action.target_key=connection.target_key;}
+ if(connection.consent_id!==undefined){if(!uuid(connection.consent_id))throw Error('EMAIL_CONNECTION_ACTION_INVALID');action.consent_id=connection.consent_id;}
+ return action;}
+export function reconnectActionNode(connection={}){return {kind:'button',id:'reconnect',label:'Reconnect',connection_action:connectionAction('reconnect',connection)};}
+export function restoreAccessReviewNode(connection={}){return {kind:'button',id:'restore_access',label:'Restore access',connection_action:connectionAction('restore_access',connection)};}
+export function connectionSettingsNodes(connection){return [connectionStatusNode(connection.health),reconnectActionNode(connection),restoreAccessReviewNode(connection)];}
+/** The Host reattach review a Reconnect action dispatches. */
+export function reconnectCall(connection){connectionAction('reconnect',connection);return {method:'POST',path:'/api/app-connection-sessions/reattach/review'};}

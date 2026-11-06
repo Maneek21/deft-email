@@ -5,6 +5,7 @@ import {readFile} from 'node:fs/promises';
 import {webcrypto} from 'node:crypto';
 import {DeftExperienceRecordFormV3NodeSchema,parseDeftExperienceMenuNode} from '@deft/app-kit/core';
 import {senderDisplay} from './mail-presentation.mjs';
+import {sentReceiptNotice} from './sent-status.mjs';
 
 const id='11111111-1111-4111-8111-111111111111',digest='sha256:'+'a'.repeat(64);
 const mail={record_id:id,content_digest:digest,label:'Preview message',data:{provider:'gmail',subject:'Preview message',sender:'Sender <sender@example.test>',date:'2026-10-13T10:00:00Z',preview:'A controlled preview message.'}};
@@ -58,7 +59,7 @@ test('Refresh follows the displayed account without refreshing the compose accou
  const refreshed=[];
  const ui=await start({targets:[{key:'primary',label:'Sender'},{key:'secondary',label:'Recipient'}],refresh:async(_store,_resource,target)=>{refreshed.push(target);if(target!=='secondary')throw Error('Unrelated compose account unavailable');return {outcome:'completed'};}});
  await ui.click('account_pick_1');await ui.click('refresh');
- assert.deepEqual(refreshed,['secondary']);assert.equal(node(ui,'status'),undefined);assert.equal(node(ui,'account_pick_1').selected,true);
+ assert.deepEqual(refreshed,['secondary']);assert.equal(node(ui,'status').text,'\u00a0');assert.equal(node(ui,'account_pick_1').selected,true);
 });
 
 test('All accounts refreshes each displayed target once with bounded concurrency and keeps unavailable rows',async()=>{
@@ -121,6 +122,16 @@ test('inbox sender summaries show display names or a single address and keep ful
   assert.equal(node(ui,'mail_'+id.replaceAll('-','')).eyebrow,display);
   await ui.click('mail_'+id.replaceAll('-',''));assert.equal(node(ui,'mail_sender').text,'From: '+sender);
  }
+});
+
+test('unread message rows show a bullet on the eyebrow while read and legacy rows do not',async()=>{
+ const unread={...mail,record_id:'22222222-2222-4222-8222-222222222222',data:{...mail.data,seen:false,sender:'Unread Sender <unread@example.test>'}};
+ const read={...mail,data:{...mail.data,seen:true}};
+ const ui=await start({messages:[unread,read]});
+ assert.equal(node(ui,'mail_'+unread.record_id.replaceAll('-','')).eyebrow,'● Unread Sender');
+ assert.equal(node(ui,'mail_'+id.replaceAll('-','')).eyebrow,'Sender');
+ await ui.click('mail_'+unread.record_id.replaceAll('-',''));
+ assert.equal(node(ui,'mail_sender').text,'From: '+unread.data.sender);
 });
 
 test('reader addresses have their full row before the date and Reply controls on narrow screens',async()=>{
@@ -198,6 +209,25 @@ test('a read filter different from the compose account explains the existing acc
  assert.equal(node(ui,'compose').disabled,true);assert.match(node(ui,'compose_account_notice').text,/Sender/);
  assert.match(node(ui,'compose_account_notice').text,/Email settings.*Accounts/);
 });
+
+test('switch_to_compose_account switches from a secondary account to the compose account',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Sender'},{key:'secondary',label:'Recipient'}]});
+ await ui.click('account_pick_1');
+ assert.equal(node(ui,'compose').disabled,true);assert.ok(node(ui,'switch_to_compose_account'));
+ assert.equal(node(ui,'switch_to_compose_account').label,'Switch to Sender');assert.equal(node(ui,'switch_to_compose_account').disabled,false);
+ await ui.click('switch_to_compose_account');
+ assert.equal(node(ui,'account_pick_0').selected,true);assert.equal(node(ui,'compose').disabled,false);assert.equal(node(ui,'compose_account_notice'),undefined);
+ await ui.click('compose');assert.ok(node(ui,'draft_form'));
+});
+
+test('switch_to_compose_account switches from all accounts to the compose account',async()=>{
+ const primaryMail={...mail},secondaryMail={...mail,record_id:'22222222-2222-4222-8222-222222222222'};
+ const ui=await start({targets:[{key:'primary',label:'Sender'},{key:'secondary',label:'Recipient'}],listMailbox:target=>({outcome:'completed',items:[target==='primary'?primaryMail:secondaryMail],next_cursor:null,freshness:{complete:true}})});
+ await ui.click('account_all');
+ assert.equal(node(ui,'compose').disabled,true);assert.ok(node(ui,'switch_to_compose_account'));
+ await ui.click('switch_to_compose_account');
+ assert.equal(node(ui,'account_pick_0').selected,true);assert.equal(node(ui,'compose').disabled,false);assert.equal(node(ui,'compose_account_notice'),undefined);
+});
 test('clicking the selected account filter performs no duplicate mailbox read',async()=>{
  const ui=await start();await ui.click('account_pick_0');assert.deepEqual(ui.listedTargets,['primary']);
 });
@@ -255,8 +285,9 @@ test('compose and draft list have one contextual header without disabled mailbox
 
 test('a slow foreground refresh shows one progress notice while keeping the original reader and clears it after completion',async()=>{
  let finish,entered;const started=new Promise(resolve=>entered=resolve);const ui=await start({refresh:()=>new Promise(resolve=>{finish=resolve;entered();})});await ui.click('mail_'+id.replaceAll('-',''));const pending=ui.click('refresh');await started;
- assert.equal(node(ui,'mail_progress').text,'Refreshing…');assert.equal(node(ui,'refresh').disabled,true);assert.equal(node(ui,'mail_subject').text,mail.data.subject);
- finish({outcome:'completed'});await pending;assert.equal(node(ui,'mail_progress'),undefined);assert.equal(node(ui,'refresh').disabled,false);assert.equal(node(ui,'mail_subject').text,mail.data.subject);
+ assert.equal(node(ui,'status').text,'Refreshing…');assert.equal(node(ui,'refresh').disabled,true);assert.equal(node(ui,'mail_subject').text,mail.data.subject);
+ assert.equal(ui.nodes().filter(item=>item.kind==='text'&&/^(Refreshing|Syncing)…$/u.test(item.text??'')).length,1);
+ finish({outcome:'completed'});await pending;assert.equal(node(ui,'status').text,'\u00a0');assert.equal(node(ui,'refresh').disabled,false);assert.equal(node(ui,'mail_subject').text,mail.data.subject);
 });
 
 test('selection replaces the mailbox header and uses menus instead of an inline action grid',async()=>{
@@ -286,10 +317,27 @@ test('contextual folder choices do not offer restoring or unspamming an Inbox me
  await ui.click('folder_spam');await ui.click('mail_'+id.replaceAll('-',''));assert.ok(node(ui,'organize_not_spam'));assert.equal(node(ui,'organize_spam'),undefined);
 });
 
-test('compact actions still submit exact current sources for human review and block a second unknown dispatch',async()=>{
+test('compact actions still submit exact current sources for human review and allow retry when no run was created',async()=>{
  const calls=[];const ui=await start({request:async(...args)=>{calls.push(args);throw Error('lost review response');}});await ui.click('mail_'+id.replaceAll('-',''));
  await ui.click('organize_archive');assert.equal(calls.length,1);assert.equal(calls[0][0],'dialog');assert.equal(calls[0][1],'review_resource_action');assert.equal(calls[0][2].operation_key,'archive');assert.deepEqual(JSON.parse(JSON.stringify(calls[0][2].sources)),[{resource_key:'inbox',record_id:id,content_digest:digest}]);
- assert.equal(node(ui,'organize_archive').disabled,true);assert.match(node(ui,'status').text,/could not be confirmed/);await ui.click('organize_archive');assert.equal(calls.length,1);
+ assert.equal(node(ui,'organize_archive').disabled,false);assert.match(node(ui,'status').text,/could not start/);assert.doesNotMatch(node(ui,'status').text,/Activity/);assert.equal(node(ui,'check_mailbox_action'),undefined);
+ await ui.click('organize_archive');assert.equal(calls.length,2);
+});
+
+test('a failed batch organize dialog before run creation does not lock selection actions',async()=>{
+ const messages=Array.from({length:26},(_,index)=>({...mail,record_id:`11111111-1111-4111-8111-${String(index+1).padStart(12,'0')}`}));
+ const calls=[];const ui=await start({messages,request:async(...args)=>{calls.push(args);throw Error('lost batch review response');}});
+ await ui.click('toggle_selection');await ui.click('select_loaded');await ui.click('organize_archive');
+ assert.equal(calls.length,1);assert.equal(calls[0][1],'review_resource_action_batch');
+ assert.equal(node(ui,'organize_archive').disabled,false);assert.match(node(ui,'status').text,/could not start/);assert.doesNotMatch(node(ui,'status').text,/Activity/);assert.equal(node(ui,'check_mailbox_action'),undefined);
+});
+
+test('an unknown organize outcome locks actions only until Refresh clears the no-run recovery lock',async()=>{
+ const calls=[];const ui=await start({request:async(...args)=>{calls.push(args);return {unknown:true};}});
+ await ui.click('mail_'+id.replaceAll('-',''));await ui.click('organize_archive');
+ assert.equal(calls.length,1);assert.equal(node(ui,'organize_archive').disabled,true);assert.equal(node(ui,'check_mailbox_action'),undefined);assert.doesNotMatch(node(ui,'status').text,/Activity/);
+ await ui.click('refresh');
+ assert.equal(node(ui,'organize_archive').disabled,false);assert.equal(node(ui,'check_mailbox_action'),undefined);
 });
 
 test('Reply, Reply all and Forward open local source-pinned seeds without a draft write or compose lock',async()=>{
@@ -298,7 +346,7 @@ test('Reply, Reply all and Forward open local source-pinned seeds without a draf
   await ui.click('mail_'+id.replaceAll('-',''));await ui.click(action);
   const form=node(ui,'draft_form');assert.ok(form);assert.equal(form.expected_revision,0);assert.equal(form.seed.value.schema_version,'deft.record_seed_snapshot_seed.v1');assert.equal(form.seed.value.value.mode,action);const admitted=DeftExperienceRecordFormV3NodeSchema.safeParse(JSON.parse(JSON.stringify(form)));assert.equal(admitted.success,true,admitted.success?'':JSON.stringify(admitted.error.issues));assert.equal(form.initial_change,undefined);
   assert.deepEqual(JSON.parse(JSON.stringify(form.seed.value.value.record_seed.source)),{resource_key:'inbox',record_id:id,content_digest:digest});
-  assert.equal(creates.length,0);assert.equal(requests.length,0);assert.equal(node(ui,'status'),undefined);
+  assert.equal(creates.length,0);assert.equal(requests.length,0);assert.equal(node(ui,'status').text,'\u00a0');
   await ui.click('close_draft');assert.equal(node(ui,'compose').disabled,false);await ui.click('compose');assert.ok(node(ui,'draft_form'));assert.equal(creates.length,0);
  }
 });
@@ -362,12 +410,227 @@ test('creating reading preferences starts with Ask and never rewrites an existin
  await other.click('email_settings');await other.click('saved_content');await other.click('settings_preferences');assert.equal(node(other,'new_setting').disabled,true);assert.ok(other.nodes().some(item=>item.description==='Ask before loading'));
 });
 
-test('empty mailbox and search states say what is missing and whether older mail is still syncing',async()=>{
- const syncing=await start({listMailbox:async()=>({outcome:'completed',items:[],next_cursor:null,freshness:{complete:false,observed_at:'2026-10-13T10:00:00Z'}})});
- assert.equal(node(syncing,'mail_empty').text,'No messages in Inbox. Older mail is still syncing.');
- assert.match(node(syncing,'mail_freshness').text,/^Older mail is still syncing · updated \w{3}, Oct 1[23], \d{1,2}:\d{2} [AP]M$/);
+const backfillTimers={setTimeout:(work,ms)=>{return 1;},clearTimeout:()=>{}};
+test('empty mailbox and search states say what is missing while older mail loads',async()=>{
+ const syncing=await start({timers:backfillTimers,listMailbox:async()=>({outcome:'completed',items:[],next_cursor:null,freshness:{complete:false,observed_at:'2026-10-13T10:00:00Z'}})});
+ assert.equal(node(syncing,'mail_empty').text,'No messages in Inbox. Loading older mail…');
+ assert.match(node(syncing,'mail_freshness').text,/^Loading older mail… · updated \w{3}, Oct 1[23], \d{1,2}:\d{2} [AP]M$/);
  assert.equal(node(syncing,'reader_empty').text,'Select a message to read it here.');
  const synced=await start({messages:[]});
  assert.equal(node(synced,'mail_empty').text,'No messages in Inbox.');
  assert.match(node(synced,'mail_freshness').text,/^Synced · updated /);
+});
+
+test('submitted notice points to Drafts submitted messages instead of Activity',async()=>{
+ const ui=await start();await ui.click('compose');
+ const form=node(ui,'draft_form');
+ await ui.input({node_id:'draft_form',record_id:form.record_id,record_revision:1,content_digest:digest,record_state:'submitted',dirty:false,valid:true});
+ assert.match(node(ui,'submitted_notice').text,/Open Drafts → Submitted messages/);
+ assert.doesNotMatch(node(ui,'submitted_notice').text,/Activity/);
+});
+
+test('sent receipt notices use delivery status wording not Activity',async()=>{
+ const runId='22222222-2222-4222-8222-222222222222';
+ assert.doesNotMatch(sentReceiptNotice({id:runId,state:'cancelled'},runId),/Activity/);
+ assert.match(sentReceiptNotice({id:runId,state:'cancelled'},runId),/Check delivery status again/);
+ assert.doesNotMatch(sentReceiptNotice({id:runId,state:'succeeded',output:{operation_id:'wrong-id',primary_outcome:'accepted'}},runId),/Activity/);
+});
+
+const healthInstallation='11111111-1111-4111-8111-111111111111';
+const endedOtherCopy='Knowledge capture is paused — background sync ended. Resume background sync to continue.';
+
+const hostHealth=(connection,background)=>({connection,...(background?{background}:{})});
+const background=(state,reason='live',since='2026-11-04T09:30:00.000Z')=>({state,reason,since});
+
+test('the Host catalog health shape reports healthy from background.state',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('healthy'))}]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,'Everything is healthy.');
+ assert.equal(node(ui,'health_reconnect_primary'),undefined);
+ assert.equal(node(ui,'health_restore_primary'),undefined);
+});
+
+test('the Host catalog paused background shows the reported since instant',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('paused','lapsed','2026-11-03T10:00:00.000Z'))}]});
+ await ui.click('email_settings');
+ assert.match(node(ui,'health_summary').text,/^Background sync paused since /);
+ assert.equal(node(ui,'health_reconnect_primary').label,'Resume background sync');
+ assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_reconnect_primary').connection_action)),{kind:'reconnect',target_key:'primary'});
+ assert.equal(ui.nodes().some(item=>item.text==='Connected'),false);
+});
+
+test('the Host catalog ended background with revoked reason offers Resume background sync',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('ended','revoked'))}]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,endedOtherCopy);
+ assert.equal(node(ui,'health_reconnect_primary').label,'Resume background sync');
+ assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_reconnect_primary').connection_action)),{kind:'reconnect',target_key:'primary'});
+ assert.equal(node(ui,'health_restore_primary'),undefined);
+});
+
+test('the Host catalog ended background with another reason offers Resume background sync',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('ended','expired'))}]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,endedOtherCopy);
+ assert.equal(node(ui,'health_reconnect_primary').label,'Resume background sync');
+ assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_reconnect_primary').connection_action)),{kind:'reconnect',target_key:'primary'});
+ assert.equal(node(ui,'health_restore_primary'),undefined);
+});
+
+test('the Host catalog disconnected account is never healthy and offers Reconnect',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('disconnected',background('healthy'))}]});
+ await ui.click('email_settings');
+ assert.match(node(ui,'health_summary').text,/Reconnect this account/u);
+ assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_reconnect_primary').connection_action)),{kind:'reconnect',target_key:'primary'});
+ assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
+ assert.equal(ui.nodes().some(item=>item.text==='Connected'),false);
+});
+
+test('the Host catalog health without a background lease is off, never healthy',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected')}]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,'Background sync is off.');
+ assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
+ assert.equal(node(ui,'health_reconnect_primary'),undefined);
+});
+
+test('malformed Host health is unavailable, never healthy',async()=>{
+ for(const health of [null,undefined,{}, {connection:'connected',background:null}, {connection:'connected',background:{state:'unknown',since:'2026-11-04T09:30:00.000Z',reason:'live'}}, {connection:'connected',background:{state:'healthy',since:'2026-11-04T09:30:00.000Z',reason:'unknown'}}, {connection:'connected',background:{state:'ended',since:'not-a-date',reason:'expired'}}, {connection:'foo',background:background('healthy')}, {connection:'connected',background:'x'}, {connection:'connected',background:{state:'healthy'}}]){
+  const ui=await start({targets:[{key:'primary',label:'Primary account',health}]});
+  await ui.click('email_settings');
+  assert.equal(node(ui,'health_summary').text,'Health status unavailable.');
+  assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
+  assert.equal(node(ui,'health_reconnect_primary'),undefined);
+  assert.equal(node(ui,'health_restore_primary'),undefined);
+ }
+});
+
+test('health without connection evidence is unavailable even with a healthy lease',async()=>{
+ for(const health of [{background:background('healthy')},{}]){
+  const ui=await start({targets:[{key:'primary',label:'Primary account',health}]});
+  await ui.click('email_settings');
+  assert.equal(node(ui,'health_summary').text,'Health status unavailable.');
+  assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
+ }
+});
+
+test('health reasons are attributed to the specific account when several are connected',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('healthy'))},
+  {key:'second',label:'Second account',health:hostHealth('connected',background('ended','revoked'))}]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,'Second account: '+endedOtherCopy);
+ assert.ok(node(ui,'health_reconnect_second'));
+ assert.equal(node(ui,'health_reconnect_primary'),undefined);
+ assert.equal(node(ui,'health_restore_second'),undefined);
+ assert.equal(node(ui,'health_restore_primary'),undefined);
+});
+
+test('a missing health payload on any account blocks the everything-is-healthy summary',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('healthy'))},
+  {key:'second',label:'Second account'}]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,'Health status unavailable.');
+ assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
+});
+
+test('settings reports everything healthy without a paused or ended notice when Host health is healthy',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('healthy'))}]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,'Everything is healthy.');
+ assert.equal(ui.nodes().some(item=>/paused|ended|Reconnect|Restore access/i.test(item.text??'')),false);
+ assert.equal(node(ui,'health_reconnect_primary'),undefined);
+ assert.equal(node(ui,'health_restore_primary'),undefined);
+});
+
+test('an absent Host health payload is never reported as healthy',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account'}]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,'Health status unavailable.');
+ assert.equal(ui.nodes().some(item=>/Everything is healthy/i.test(item.text??'')),false);
+ assert.equal(node(ui,'health_reconnect_primary'),undefined);
+ assert.equal(node(ui,'health_restore_primary'),undefined);
+});
+
+test('a disconnected account with ended background offers Reconnect, never Restore access',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('disconnected',background('ended','revoked'))}]});
+ await ui.click('email_settings');
+ assert.match(node(ui,'health_summary').text,/Reconnect this account/u);
+ assert.equal(node(ui,'health_reconnect_primary').label,'Reconnect');
+ assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_reconnect_primary').connection_action)),{kind:'reconnect',target_key:'primary'});
+ assert.equal(node(ui,'health_restore_primary'),undefined);
+ assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
+});
+
+test('two accounts with one ended and one healthy attributes the ended account with the button only there',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('healthy'))},
+  {key:'second',label:'Second account',health:hostHealth('connected',background('ended','expired'))}]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,'Second account: '+endedOtherCopy);
+ assert.ok(node(ui,'health_reconnect_second'));
+ assert.equal(node(ui,'health_reconnect_primary'),undefined);
+ assert.equal(node(ui,'health_restore_second'),undefined);
+ assert.equal(node(ui,'health_restore_primary'),undefined);
+});
+
+test('folder catalog keeps one compact heading and one overflow menu of folder actions',async()=>{
+ const catalog={record_id:id,revision:1,content_digest:digest,status:'submitted',summary:{kind:'catalog',name:'Folders'}};
+ const ui=await start({listSaved:async store=>({outcome:'completed',items:store==='folders'?[catalog]:[],next_cursor:null})});
+ await ui.click('email_settings');await ui.click('folder_catalog');
+ const heading=node(ui,'folder_catalog_heading'),panel=node(ui,'folder_catalog_panel'),menuNode=node(ui,'folder_catalog_menu');
+ assert.deepEqual(Array.from(heading.children,item=>item.id),['folder_catalog_title','folder_catalog_back','folder_catalog_menu']);
+ assert.equal(menuNode.kind,'menu');
+ assert.deepEqual(Array.from(menuNode.items,item=>item.id),['folder_catalog_refresh','folder_favorites_only']);
+ assert.deepEqual(parseDeftExperienceMenuNode(JSON.parse(JSON.stringify(menuNode))),JSON.parse(JSON.stringify(menuNode)));
+ const input=panel.children.findIndex(item=>item.id==='folder_name'),create=panel.children.findIndex(item=>item.id==='folder_create');
+ assert.ok(input>=0&&create>input,'the create action follows its name field');
+});
+
+test('empty favorites explain the state and offer Show all folders',async()=>{
+ const folder={record_id:'22222222-2222-4222-8222-222222222222',revision:1,content_digest:digest,status:'submitted',summary:{kind:'folder',name:'Receipts',move_allowed:true}};
+ const ui=await start({listSaved:async store=>({outcome:'completed',items:store==='folders'?[folder]:[],next_cursor:null})});
+ await ui.click('email_settings');await ui.click('folder_catalog');await ui.click('folder_favorites_only');
+ assert.equal(node(ui,'folders_empty').text,'No favorite folders yet.');
+ assert.ok(node(ui,'folder_show_all'));
+ await ui.click('folder_show_all');
+ assert.equal(node(ui,'folders_empty'),undefined);
+ assert.ok(node(ui,'catalog_'+folder.record_id.replaceAll('-','')));
+});
+
+test('folder favorites distinguish loading from an empty result',async()=>{
+ const folder={record_id:'22222222-2222-4222-8222-222222222222',revision:1,content_digest:digest,status:'submitted',summary:{kind:'folder',name:'Receipts',move_allowed:true}};
+ let release,folderCalls=0;
+ const ui=await start({listSaved:async store=>{
+  if(store==='folders'){folderCalls++;if(folderCalls===2)return new Promise(resolve=>{release=()=>resolve({outcome:'completed',items:[folder],next_cursor:null});});return {outcome:'completed',items:[folder],next_cursor:null};}
+  return {outcome:'completed',items:[],next_cursor:null};
+ }});
+ await ui.click('email_settings');await ui.click('folder_catalog');await ui.click('folder_favorites_only');
+ const pending=ui.click('folder_catalog_refresh');await new Promise(resolve=>setTimeout(resolve,0));
+ assert.equal(node(ui,'folders_empty').text,'Loading folders…');
+ release();await pending;
+ assert.equal(node(ui,'folders_empty').text,'No favorite folders yet.');
+});
+
+test('empty rules explain the state and offer the single New rule action',async()=>{
+ const order={record_id:id,revision:1,content_digest:digest,status:'draft',summary:{order_digest:digest}};
+ const ui=await start({listSaved:async store=>({outcome:'completed',items:store==='rules_order'?[{record_id:order.record_id}]:[],next_cursor:null}),readRecordMeta:async()=>order});
+ await ui.click('email_settings');await ui.click('manual_rules');
+ assert.equal(node(ui,'rules_empty').text,'No rules yet.');
+ assert.equal(ui.nodes().filter(item=>item.id==='rules_new').length,1);
+ assert.equal(node(ui,'rules_new').disabled,false);
+});
+
+test('rules distinguish loading from an empty catalog',async()=>{
+ const order={record_id:id,revision:1,content_digest:digest,status:'draft',summary:{order_digest:digest}};
+ let release,rulesCalls=0;
+ const ui=await start({listSaved:async store=>{
+  if(store==='rules'){rulesCalls++;if(rulesCalls===2)return new Promise(resolve=>{release=()=>resolve({outcome:'completed',items:[],next_cursor:null});});return {outcome:'completed',items:[],next_cursor:null};}
+  return {outcome:'completed',items:store==='rules_order'?[{record_id:order.record_id}]:[],next_cursor:null};
+ },readRecordMeta:async()=>order});
+ await ui.click('email_settings');await ui.click('manual_rules');
+ const pending=ui.click('rules_refresh');await new Promise(resolve=>setTimeout(resolve,0));
+ assert.equal(node(ui,'rules_empty').text,'Loading rules…');
+ assert.equal(node(ui,'rules_new'),undefined);
+ release();await pending;
+ assert.equal(node(ui,'rules_empty').text,'No rules yet.');
+ assert.ok(node(ui,'rules_new'));
 });

@@ -17,7 +17,7 @@ export function validateDataRequest(raw){
   if(Buffer.byteLength(JSON.stringify(raw))>DATA_JSON_BYTES)fail('EMAIL_DATA_INPUT_INVALID');return structuredClone(raw);
 }
 export const dataInputDigest=request=>'sha256:'+createHash('sha256').update(canonicalAppDataJson({operation:request.operation,input:request.input})).digest('hex');
-const resultFields={connection_metadata:['identities'],record_list:['items','next_cursor'],record_read:['record','identities'],record_create:['record','identities'],record_save:['record','identities'],record_archive:['record','identities'],file_upload:['record','identities'],file_copy:['record','identities'],file_detach:['record','identities'],resource_list:['items','next_cursor','freshness'],resource_read_metadata:['resource'],resource_read_presentation:['resource','files','presentation'],resource_list_files:['files'],resource_refresh:['freshness'],request_status:['request_status'],prepare_action:['prepared'],read_prepared:['prepared'],prepare_resource_action:['prepared_resource'],read_prepared_resource_action:['prepared_resource'],prepared_action_commit:['prepared_action_receipt'],prepared_action_restore:['prepared_action_receipt']};
+const resultFields={connection_metadata:['identities'],record_list:['items','next_cursor'],record_read:['record','identities'],record_create:['record','identities'],record_save:['record','identities'],record_archive:['record','identities'],file_upload:['record','identities'],file_copy:['record','identities'],file_detach:['record','identities'],resource_list:['items','next_cursor','freshness'],resource_read_metadata:['resource'],resource_read_presentation:['resource','files','presentation'],resource_list_files:['files'],resource_refresh:['freshness','items','next_cursor'],request_status:['request_status'],prepare_action:['prepared'],read_prepared:['prepared'],prepare_resource_action:['prepared_resource'],read_prepared_resource_action:['prepared_resource'],prepared_action_commit:['prepared_action_receipt'],prepared_action_restore:['prepared_action_receipt']};
 export function validateDataResult(result,request){
   if(result.request_id!==request.request_id||result.operation!==request.operation||result.input_digest!==dataInputDigest(request))fail('EMAIL_DATA_RESULT_INVALID');
   if(result.bytes){const {bytes,...header}=result;if(!AppDataBinaryMetadataSchema.safeParse(header).success||!(bytes instanceof Uint8Array)||bytes.length!==header.size_bytes||'sha256:'+createHash('sha256').update(bytes).digest('hex')!==header.sha256)fail('EMAIL_DATA_RESULT_INVALID');return result;}
@@ -31,7 +31,11 @@ export function validateDataResult(result,request){
   if(Object.hasOwn(result,'record_seed_value')){if(request.operation!=='connection_metadata'||!request.input.seed)fail('EMAIL_DATA_RESULT_INVALID');allowed.push('record_seed_value');}if(Object.hasOwn(result,'primary_identity'))allowed.push('primary_identity');if(Object.hasOwn(result,'document_policy'))allowed.push('document_policy');
   const search=Object.hasOwn(result,'search');if(search&&request.operation==='resource_list'&&result.outcome==='completed')allowed.push('search');
   for(const field of Object.keys(result))if(!['schema_version','request_id','operation','input_digest','outcome',...allowed].includes(field))fail('EMAIL_DATA_RESULT_INVALID');
-  if(result.outcome==='completed'&&allowed.some(field=>!Object.hasOwn(result,field)&&!(field==='freshness'&&search&&result.search.status==='unsupported')))fail('EMAIL_DATA_RESULT_INVALID');
+  // A busy refresh answers only "still syncing": no page is disclosed, so the
+  // page fields stay absent while every other result shape remains exact.
+  const syncingRefresh=request.operation==='resource_refresh'&&result.outcome==='completed'&&result.freshness?.provider_observed===false;
+  if(result.outcome==='completed'&&allowed.some(field=>!Object.hasOwn(result,field)&&!syncingRefresh&&!(field==='freshness'&&search&&result.search.status==='unsupported')))fail('EMAIL_DATA_RESULT_INVALID');
+  if(request.operation==='resource_refresh'&&result.outcome==='completed'&&Object.hasOwn(result,'items')&&result.next_cursor!==null&&!uuid(result.next_cursor))fail('EMAIL_DATA_RESULT_INVALID');
   return result;
 }
 export function dataAuthorityRequest(request,expires_at){return {schema_version:'deft.app_data_authority.v1',request_id:request.request_id,scope:request.scope,connection:request.connection,authority:request.authority,operation:request.operation,input_digest:dataInputDigest(request),expires_at};}
@@ -48,7 +52,16 @@ export function createDataChecker({request,assertCurrent,signal,now=Date.now}){
     if(!entry||entry.key!==key){
       entry={key};if(!fresh)pending=entry;
       entry.work=(async()=>{try{
-        const response=await assertCurrent(expected,combined);exact(response,[...Object.keys(expected),'allowed']);const {expires_at,allowed,...pins}=response,{expires_at:ignored,...expectedPins}=expected;
+        // A Host transport failure (for example HTTP 503 with no usable JSON)
+        // decided nothing. Repeat that exact dispatch once so a single
+        // transient outage cannot fail an otherwise-authorized request. An
+        // explicit denial, abort or expired deadline is final: never retried
+        // and never downgraded.
+        let retried=false;
+        const attempt=async()=>{try{return await assertCurrent(expected,combined);}
+          catch(error){if(retried||error?.code!=='EMAIL_RUNTIME_TRANSPORT_DENIED'||combined.aborted||deadline<=now())throw error;
+            retried=true;combined.throwIfAborted();return attempt();}};
+        const response=await attempt();exact(response,[...Object.keys(expected),'allowed']);const {expires_at,allowed,...pins}=response,{expires_at:ignored,...expectedPins}=expected;
         if(allowed!==true||canonical(pins)!==canonical(expectedPins)||!isoTime(expires_at)||Date.parse(expires_at)<=now()||Date.parse(expires_at)>dispatchDeadline)fail('EMAIL_DATA_AUTHORITY_DENIED');
         deadline=Math.min(deadline,Date.parse(expires_at));arm();
       }finally{if(pending===entry)pending=undefined;}})();
