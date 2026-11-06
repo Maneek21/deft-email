@@ -437,7 +437,8 @@ test('sent receipt notices use delivery status wording not Activity',async()=>{
 });
 
 const healthInstallation='11111111-1111-4111-8111-111111111111';
-const endedCopy='Knowledge capture is paused — access to this account ended. Reconnect to resume.';
+const endedRevokedCopy='Knowledge capture is paused — access to this account ended. Restore access to resume.';
+const endedOtherCopy='Knowledge capture is paused — background sync ended. Resume background sync to continue.';
 
 const hostHealth=(connection,background)=>({connection,...(background?{background}:{})});
 const background=(state,reason='live',since='2026-11-04T09:30:00.000Z')=>({state,reason,since});
@@ -462,7 +463,7 @@ test('the Host catalog paused background shows the reported since instant',async
 test('the Host catalog ended background with revoked reason offers Restore access',async()=>{
  const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('ended','revoked'))}]});
  await ui.click('email_settings');
- assert.equal(node(ui,'health_summary').text,endedCopy);
+ assert.equal(node(ui,'health_summary').text,endedRevokedCopy);
  assert.equal(node(ui,'health_restore_primary').label,'Restore access');
  assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_restore_primary').connection_action)),{kind:'restore_access',target_key:'primary'});
  assert.equal(node(ui,'health_reconnect_primary'),undefined);
@@ -471,7 +472,7 @@ test('the Host catalog ended background with revoked reason offers Restore acces
 test('the Host catalog ended background with another reason offers Resume background sync',async()=>{
  const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('ended','expired'))}]});
  await ui.click('email_settings');
- assert.equal(node(ui,'health_summary').text,endedCopy);
+ assert.equal(node(ui,'health_summary').text,endedOtherCopy);
  assert.equal(node(ui,'health_reconnect_primary').label,'Resume background sync');
  assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_reconnect_primary').connection_action)),{kind:'reconnect',target_key:'primary'});
  assert.equal(node(ui,'health_restore_primary'),undefined);
@@ -495,11 +496,13 @@ test('the Host catalog health without a background lease is off, never healthy',
 });
 
 test('malformed Host health is unavailable, never healthy',async()=>{
- for(const health of [null,undefined,{}, {connection:'connected',background:{state:'healthy'}}, {connection:'foo'}, {connection:'connected',background:'x'}, {connection:'connected',background:{state:'ended',since:'not-a-date',reason:'expired'}}]){
+ for(const health of [null,undefined,{}, {connection:'connected',background:null}, {connection:'connected',background:{state:'unknown',since:'2026-11-04T09:30:00.000Z',reason:'live'}}, {connection:'connected',background:{state:'healthy',since:'2026-11-04T09:30:00.000Z',reason:'unknown'}}, {connection:'connected',background:{state:'ended',since:'not-a-date',reason:'expired'}}, {connection:'foo',background:background('healthy')}, {connection:'connected',background:'x'}, {connection:'connected',background:{state:'healthy'}}]){
   const ui=await start({targets:[{key:'primary',label:'Primary account',health}]});
   await ui.click('email_settings');
   assert.equal(node(ui,'health_summary').text,'Health status unavailable.');
   assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
+  assert.equal(node(ui,'health_reconnect_primary'),undefined);
+  assert.equal(node(ui,'health_restore_primary'),undefined);
  }
 });
 
@@ -516,7 +519,7 @@ test('health reasons are attributed to the specific account when several are con
  const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('healthy'))},
   {key:'second',label:'Second account',health:hostHealth('connected',background('ended','revoked'))}]});
  await ui.click('email_settings');
- assert.equal(node(ui,'health_summary').text,'Second account: '+endedCopy);
+ assert.equal(node(ui,'health_summary').text,'Second account: '+endedRevokedCopy);
  assert.ok(node(ui,'health_restore_second'));
  assert.equal(node(ui,'health_restore_primary'),undefined);
 });
@@ -527,6 +530,45 @@ test('a missing health payload on any account blocks the everything-is-healthy s
  await ui.click('email_settings');
  assert.equal(node(ui,'health_summary').text,'Health status unavailable.');
  assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
+});
+
+test('settings reports everything healthy without a paused or ended notice when Host health is healthy',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('healthy'))}]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,'Everything is healthy.');
+ assert.equal(ui.nodes().some(item=>/paused|ended|Reconnect|Restore access/i.test(item.text??'')),false);
+ assert.equal(node(ui,'health_reconnect_primary'),undefined);
+ assert.equal(node(ui,'health_restore_primary'),undefined);
+});
+
+test('an absent Host health payload is never reported as healthy',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account'}]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,'Health status unavailable.');
+ assert.equal(ui.nodes().some(item=>/Everything is healthy/i.test(item.text??'')),false);
+ assert.equal(node(ui,'health_reconnect_primary'),undefined);
+ assert.equal(node(ui,'health_restore_primary'),undefined);
+});
+
+test('a disconnected account with ended background offers Reconnect, never Restore access',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('disconnected',background('ended','revoked'))}]});
+ await ui.click('email_settings');
+ assert.match(node(ui,'health_summary').text,/Reconnect this account/u);
+ assert.equal(node(ui,'health_reconnect_primary').label,'Reconnect');
+ assert.deepEqual(JSON.parse(JSON.stringify(node(ui,'health_reconnect_primary').connection_action)),{kind:'reconnect',target_key:'primary'});
+ assert.equal(node(ui,'health_restore_primary'),undefined);
+ assert.equal(ui.nodes().some(item=>item.text==='Everything is healthy.'),false);
+});
+
+test('two accounts with one ended and one healthy attributes the ended account with the button only there',async()=>{
+ const ui=await start({targets:[{key:'primary',label:'Primary account',health:hostHealth('connected',background('healthy'))},
+  {key:'second',label:'Second account',health:hostHealth('connected',background('ended','expired'))}]});
+ await ui.click('email_settings');
+ assert.equal(node(ui,'health_summary').text,'Second account: '+endedOtherCopy);
+ assert.ok(node(ui,'health_reconnect_second'));
+ assert.equal(node(ui,'health_reconnect_primary'),undefined);
+ assert.equal(node(ui,'health_restore_second'),undefined);
+ assert.equal(node(ui,'health_restore_primary'),undefined);
 });
 
 test('folder catalog keeps one compact heading and one overflow menu of folder actions',async()=>{

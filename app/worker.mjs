@@ -55,7 +55,7 @@ const RETRY_HINT='Use Check action status or Refresh before trying again.',PERMI
  const fullDate=value=>{const date=new Date(value);if(!value||!Number.isFinite(date.getTime()))return '';return new Intl.DateTimeFormat('en',{weekday:'short',month:'short',day:'numeric',...(date.getFullYear()!==new Date().getFullYear()?{year:'numeric'}:{}),hour:'numeric',minute:'2-digit'}).format(date);};
  // Host background health. Email owns this wording; unknown is never healthy.
  // The catalog contract is health:{connection,background:{state,since,reason}}.
- const BACKGROUND_OFF='Background sync is off.',HEALTH_REAUTH='Reconnect this account to resume background jobs.',HEALTH_ENDED='Knowledge capture is paused — access to this account ended. Reconnect to resume.';
+ const BACKGROUND_OFF='Background sync is off.',HEALTH_REAUTH='Reconnect this account to resume background jobs.';
  const healthKey=value=>typeof value==='string'&&/^[a-z][a-z0-9_]{0,47}$/u.test(value);
  const healthObject=value=>value&&typeof value==='object'?value:null;
  const healthPaused=(prefix,value)=>fullDate(value)?prefix+' since '+fullDate(value):prefix+'.';
@@ -69,7 +69,7 @@ const RETRY_HINT='Use Check action status or Refresh before trying again.',PERMI
   if(background===undefined)return BACKGROUND_OFF;
   if(!healthBackgroundValid(background))return HEALTH_UNKNOWN;
   if(background.state==='paused')return healthPaused('Background sync paused',background.since);
-  if(background.state==='ended')return HEALTH_ENDED;
+  if(background.state==='ended')return 'Knowledge capture is paused — '+(background.reason==='revoked'?'access to this account ended. Restore access to resume.':'background sync ended. Resume background sync to continue.');
   if(background.state==='healthy')return null;
   return HEALTH_UNKNOWN;
  }
