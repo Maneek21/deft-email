@@ -4,8 +4,8 @@ import {createHash} from 'node:crypto';
 import {verifyReleasedKit} from './verify-kit-release.mjs';
 
 test('publication gate accepts only exact released bytes and immutable Host/source pins',()=>{
-  const archive=Buffer.from('release-fixture'),metadata={schema:'deft.author_kit_release.v1',version:'0.1.0-alpha.42',
-    filename:'deft-app-kit-0.1.0-alpha.42.tgz',source_repository:'Maneek21/Deft',source_commit:'a'.repeat(40),
+  const archive=Buffer.from('release-fixture'),metadata={schema:'deft.author_kit_release.v1',version:'0.1.0-alpha.43',
+    filename:'deft-app-kit-0.1.0-alpha.43.tgz',source_repository:'Maneek21/Deft',source_commit:'a'.repeat(40),
     host_release:'0.3.0-preview.133',sha256:createHash('sha256').update(archive).digest('hex'),
     integrity:'sha512-'+createHash('sha512').update(archive).digest('base64')};
   const certificate={...metadata,artifact_origin:'Host release-flow artifact',expected_release_flow:{host_release:metadata.host_release}};

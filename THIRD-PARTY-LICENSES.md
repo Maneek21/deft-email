@@ -12,6 +12,7 @@ Kit30 and Kit32 source offers accompany the release; the npm lockfiles retain ex
 | `@deft/app-kit` | `0.1.0-alpha.36` | AGPL-3.0-only |
 | `@deft/app-kit` | `0.1.0-alpha.38` | AGPL-3.0-only |
 | `@deft/app-kit` | `0.1.0-alpha.42` | AGPL-3.0-only |
+| `@deft/app-kit` | `0.1.0-alpha.43` | AGPL-3.0-only |
 | `@esbuild/win32-x64` | `0.28.2` | MIT |
 | `@pinojs/redact` | `0.4.0` | MIT |
 | `@selderee/plugin-htmlparser2` | `0.12.0` | MIT |
