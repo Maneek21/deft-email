@@ -19,7 +19,7 @@ The Runtime's bundled domain helpers and frozen dependency provenance belong to 
 ## One external-author path
 
 1. Obtain the exact compatible public Host image and deployment assets; verify schema, compiled Apps gates and signing/provenance.
-2. Extract Email corresponding source or check out its exact public commit into a separate directory. Use the exact released Kit42 for both App and Runtime on Host134 or newer, then build `app/app.deft.json` with the [README commands](../README.md#build-independently).
+2. Extract Email corresponding source or check out its exact public commit into a separate directory. Use the exact released Kit43 for both App and Runtime on Host141 or newer, then build `app/app.deft.json` with the [README commands](../README.md#build-independently).
 3. Follow [setup](setup.md): public protocol7 stage/review/activate, operator Runtime admission, HTTPS/OAuth, owner resource/action consent and private draft-store consent. Each installation uses newly issued IDs and its own custody.
 4. Use Email in the trusted Deft surface. Task/Knowledge interactions use generic source nomination and destination review; they require separately configured observation/publication and destination policy.
 5. Make an Email-owned change and follow [the existing private-note upgrade example](independence-upgrade.md). Keep Host source/image/schema fixed and preserve retained draft/Run state. A package upgrade may require current reviewed registrations and same-account reattachment; that is lifecycle configuration, not a Host patch.
