@@ -32,6 +32,8 @@ Download and checksum-verify the Email corresponding-source archive named in the
 
 Use Node >=22.13.0, npm 11.9.0 and pnpm 10.33.0. Linux/POSIX is required to operate the Runtime; Windows can build the App, while some Runtime fixtures require Linux and OpenSSL.
 
+The TLS certificates and key in `runtime/test-fixtures/` are synthetic, test-only fixtures loaded only by the loopback test servers; they are not operating credentials. Regenerate them (10-year validity, same names and extensions) with `sh runtime/test-fixtures/generate.sh`.
+
 ```sh
 npm --prefix app ci --no-audit --no-fund
 pnpm --dir runtime install --frozen-lockfile --ignore-scripts
