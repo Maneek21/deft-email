@@ -1,6 +1,6 @@
 # Kit alpha.43 released artifact adoption
 
-This candidate moves App and Runtime from Kit alpha.42 to the exact Kit alpha.43 archive published by Host141, with minimum Host141/schema `0.3.0-preview.135`. The bundle, App and Runtime version numbers are not yet assigned. Historical Kit archives, including alpha.42, stay vendored and pinned unchanged.
+This candidate moves App and Runtime from Kit alpha.42 to the exact Kit alpha.43 archive published by Host141, with minimum Host141/schema `0.3.0-preview.135`. It is assigned bundle `1.9.0-preview.32`, App `1.9.1-preview.13` and Runtime `0.4.0-preview.29`. Historical Kit archives, including alpha.42, stay vendored and pinned unchanged.
 
 - Host release: `v0.3.0-preview.141`
 - Released source commit: `0b0c3bb194e6b166253d75e34e80d719ca8d5db8`

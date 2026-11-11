@@ -1,8 +1,8 @@
 {
   "schema": "deft.email.preview.compatibility.v1",
   "publication_state": "source-template",
-  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.31/compatibility.json",
-  "resolution": "Candidate on top of Email31 that adopts the exact published Host141 Kit alpha.43 (released source 0b0c3bb194e6b166253d75e34e80d719ca8d5db8) for both App and Runtime and requires Host141 (schema 0.3.0-preview.135). App and Runtime sources changed after Email31, so Runtime28 is no longer byte-identical; the bundle, App and Runtime version numbers for this candidate are not yet assigned. The detached release manifest must resolve final source and public artifacts; this template does not claim CI, publication or live upgrade acceptance.",
+  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.32/compatibility.json",
+  "resolution": "Candidate on top of Email31 that adopts the exact published Host141 Kit alpha.43 (released source 0b0c3bb194e6b166253d75e34e80d719ca8d5db8) for both App and Runtime and requires Host141 (schema 0.3.0-preview.135). App and Runtime sources changed after Email31, so Runtime28 is no longer byte-identical; this candidate is Email32 with App13 (1.9.1-preview.13) and Runtime29 (0.4.0-preview.29). The detached release manifest must resolve final source and public artifacts; this template does not claim CI, publication or live upgrade acceptance.",
   "host": {
     "version": "0.3.0-preview.141",
     "minimum_version": "0.3.0-preview.141",
@@ -19,10 +19,10 @@
     }
   },
   "email": {
-    "tag": "v1.9.0-preview.31",
+    "tag": "v1.9.0-preview.32",
     "repository": "https://github.com/Maneek21/deft-email",
-    "app_version": "1.9.1-preview.12",
-    "runtime_version": "0.4.0-preview.28",
+    "app_version": "1.9.1-preview.13",
+    "runtime_version": "0.4.0-preview.29",
     "app_kit_version": "0.1.0-alpha.43",
     "runtime_kit_version": "0.1.0-alpha.43",
     "kit_compatibility": "Host141 must be deployed before this App. Both consumers use the exact Host141 Kit alpha.43 release-flow bytes with app-owned domain modules. Kit43 raises the Experience worker source limit from 96 KiB to 112 KiB. Send keeps exact-message review; timing diagnostics never supply authority."

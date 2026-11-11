@@ -4,7 +4,7 @@
 
 ## Pending Kit43 candidate
 
-The source on this branch adopts the exact Kit `0.1.0-alpha.43` archive published by Host141 (`v0.3.0-preview.141`, source `0b0c3bb194e6b166253d75e34e80d719ca8d5db8`) for both App and Runtime and requires Host141 or newer (schema `0.3.0-preview.135`). The generic contracts below are unchanged from Host138. Kit43 raises the Experience worker source limit from 96 KiB to 112 KiB. App and Runtime sources have changed since preview.31; the bundle, App and Runtime version numbers for this candidate are not yet assigned, so the version rows below still name preview.31. [Release provenance](kit43-preparation.md).
+The source on this branch adopts the exact Kit `0.1.0-alpha.43` archive published by Host141 (`v0.3.0-preview.141`, source `0b0c3bb194e6b166253d75e34e80d719ca8d5db8`) for both App and Runtime and requires Host141 or newer (schema `0.3.0-preview.135`). The generic contracts below are unchanged from Host138. Kit43 raises the Experience worker source limit from 96 KiB to 112 KiB. App and Runtime sources have changed since preview.31; this candidate is assigned bundle `1.9.0-preview.32`, App `1.9.1-preview.13` and Runtime `0.4.0-preview.29` (not yet published), and the version rows below name them. [Release provenance](kit43-preparation.md).
 
 ## Release preview.31 contract
 
@@ -12,9 +12,9 @@ Bundle preview.31 is an App-only no-diff upgrade candidate requiring Host138 or 
 
 | Component | Version/contract |
 |---|---|
-| Email App | `1.9.1-preview.12` |
+| Email App | `1.9.1-preview.13` |
 | App Author Kit | `0.1.0-alpha.43` |
-| Email Runtime | `0.4.0-preview.28` |
+| Email Runtime | `0.4.0-preview.29` |
 | Runtime Author Kit | `0.1.0-alpha.43` |
 | Deft Host | Minimum `0.3.0-preview.141`, Apps-enabled developer-preview image; schema `0.3.0-preview.135` plus the listed generic contracts |
 | App protocol | Manifest protocol 7; experience bundle v4; bridge v1; trusted renderer v2 |
