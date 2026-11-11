@@ -7,7 +7,7 @@ export const EMAIL_PROVIDER_CONNECTIONS=Object.freeze([
 ]);
 const supported=Object.freeze({
  gmail:Object.freeze({label:'Gmail / Google Workspace',organize:true,archiveQuery:true,notice:'Read, drafts and reviewed Send and Organize use your current account grants.'}),
- microsoft:Object.freeze({label:'Microsoft Outlook',organize:true,archiveQuery:true,notice:'Reviewed Send supports up to 25 MiB of attachments and 35 MiB of MIME. Preparation may create temporary provider drafts. Provider acceptance does not confirm a Sent copy.'}),
+ microsoft:Object.freeze({label:'Microsoft Outlook',organize:true,archiveQuery:true,notice:'Reviewed Send supports up to 8 MiB of attachments and 35 MiB of MIME. Preparation may create temporary provider drafts. Provider acceptance does not confirm a Sent copy.'}),
  imap_smtp:Object.freeze({label:'IMAP / SMTP',organize:true,archiveQuery:false,notice:'Read and star changes require conditional flags. Archive and Trash require MOVE and matching server folders. Archive search is unavailable. Background refresh uses your reviewed schedule. SMTP Send and Sent-copy behavior follow the reviewed server configuration.'}),
 });
 export function emailProviderSupport(provider){return typeof provider==='string'&&Object.hasOwn(supported,provider)?supported[provider]:null;}

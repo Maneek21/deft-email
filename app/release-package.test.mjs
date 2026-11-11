@@ -21,12 +21,12 @@ test('packed public Kit keeps the displayed target on a mailbox refresh', async 
   assert.equal((await pending).outcome,'completed');sdk.close();
 });
 
-test('fresh package authenticates its manifest and worker artifact against public Kit42', () => {
-  assert.equal(DEFT_APP_KIT_VERSION, '0.1.0-alpha.42');
-  assert.equal(metadata.version, '1.9.1-preview.12');
+test('fresh package authenticates its manifest and worker artifact against public Kit43', () => {
+  assert.equal(DEFT_APP_KIT_VERSION, '0.1.0-alpha.43');
+  assert.equal(metadata.version, '1.9.1-preview.13');
   assert.equal(compatibility.email.tag, 'v' + rootMetadata.version);
   assert.equal(compatibility.email.app_version, metadata.version);
-  assert.equal(compatibility.host.minimum_version, '0.3.0-preview.138');
+  assert.equal(compatibility.host.minimum_version, '0.3.0-preview.141');
   assert.equal(compatibility.host.version, compatibility.host.minimum_version);
   const artifact = JSON.parse(readFileSync(new URL('./artifact.json', import.meta.url)));
   assert.equal(JSON.parse(artifact.content).background_refresh_description, "Keep mailbox metadata current while Email is closed. Background refresh makes new messages available for Tasks and Knowledge; each action keeps its own review.");
@@ -62,6 +62,23 @@ test('package rejects a changed account declaration without a rebuilt digest', a
   changed.manifest.private_capabilities.find(v => v.key === 'send_message').input_schema.properties.account_ref.maxLength = 513;
   await assert.rejects(() => verifyDeftAppPackageJson(JSON.stringify(changed)));
 });
+test('delegated read tools are read-only and mirror policy covers create/update', () => {
+  const tools = manifest.integration_tools;
+  for (const key of ['email_list', 'email_read', 'email_thread', 'email_search']) {
+    const tool = tools.find(row => row.key === key);
+    assert.ok(tool, key);
+    assert.equal(tool.operation, 'read', key + ' operation');
+    assert.equal(tool.mode, 'data', key + ' mode');
+    assert.equal(tool.visibility, 'delegated_tools', key + ' visibility');
+    assert.equal(tool.action_key, undefined, key + ' action_key');
+    for (const op of tool.data_operations)
+      assert.ok(['resource_list', 'resource_read_presentation'].includes(op), key + ' data_operations read-only');
+  }
+  const mirror = manifest.record_stores.find(store => store.key === 'drafts').record_mirrors.find(row => row.action_key === 'mirror_drafts');
+  assert.ok(mirror);
+  for (const op of ['create', 'update', 'inspect', 'delete']) assert.ok(mirror.operations.includes(op), 'mirror policy covers ' + op);
+});
+
 
 
 test('packed Worker opens Reply immediately with every further network request held and no create or Send',async()=>{

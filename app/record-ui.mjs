@@ -10,7 +10,7 @@ export const EMAIL_RECORD_FORM_PROFILE=Object.freeze({schema_version:'deft.recor
  labels:{save:'Save draft',review:'Review & send',submitted:'Message submitted',readonly:'Draft is read-only',scheduled:'Manage scheduled Send',initial_change_unavailable:'Default signature unavailable'},
  review:{title:'Review message',confirm_label:'Send message',description:'Check the exact saved sender, recipients, message and files before sending.',supplemental_effect:{label:'Sent copy',fields:[{field:'mode',label:'Copy policy'},{field:'mailbox',label:'Destination'},{field:'message_id',label:'Message ID'},{field:'uidvalidity',label:'Sent folder version'}]}},
  richtext:{html_field:'body_html',plain_field:'body',label:'Message',max_characters:262144,links:'host_validated',inline_images:'host_files'},
- files:{field:'attachments',archive_name_field:'subject',max_files:32,max_file_bytes:25*1024*1024,max_total_bytes:25*1024*1024}});
+ files:{field:'attachments',archive_name_field:'subject',max_files:32,max_file_bytes:8*1024*1024,max_total_bytes:8*1024*1024}});
 export const EMAIL_DRAFT_NOTE_PROFILE=Object.freeze({...EMAIL_RECORD_FORM_PROFILE,fields:[...EMAIL_RECORD_FORM_PROFILE.fields,{kind:'text',field:'author_note',label:'Private draft note (not sent)',max_characters:1000,required:false,optional:true}]});
 const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu.test(value);
 const digest=value=>typeof value==='string'&&/^sha256:[a-f0-9]{64}$/u.test(value);
@@ -27,7 +27,7 @@ export function emailRecordDocument(record,{id='mail_body',printControl='print_m
 }
 export function emptyEmailRecord(mode='compose',parent=null){
  if(!['compose','reply','reply_all','forward'].includes(mode)||mode!=='compose'&&!uuid(parent?.record_id))throw Error('EMAIL_COMPOSE_INTENT_INVALID');
- return {mode,to:'',cc:'',bcc:'',subject:'',body:'',body_html:'',reply_record_id:'',attachments:[],author_note:''};
+ return {mode,to:'',cc:'',bcc:'',subject:'',body:'',body_html:'',reply_record_id:'',attachments:[],from_identity:null,author_note:''};
 }
 export function emailRecordEvent(previous,event){
  if(event?.record_seed===true){if(!previous?.seed||previous.revision!==0||event.node_id!=='draft_form'||event.expected_seed_record_id!==previous.record_id||event.record_revision!==0||!uuid(event.record_id)||event.content_digest!=='sha256:'+'0'.repeat(64)||event.dirty!==false||event.record_state!=='saved')throw Error('EMAIL_SEED_IDENTITY_INVALID');return {...previous,record_id:event.record_id};}

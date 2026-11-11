@@ -16,9 +16,11 @@ Email builds without a Deft source checkout or private Deft imports. Operators u
 
 ## Supported compatibility set
 
-The [published compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.31/compatibility.json) is the authoritative detached public release record. The repository [`release/compatibility.json`](release/compatibility.json) is its source template and also records that URL. The published record identifies the Host version/commit/image/schema, App and Runtime versions, each component's Kit, public assets, checksums and corresponding source. Use its verified publication state and release assets; a candidate record or open PR does not establish that downloads are available.
+The [published compatibility manifest](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.32/compatibility.json) is the authoritative detached public release record. The repository [`release/compatibility.json`](release/compatibility.json) is its source template and also records that URL. The published record identifies the Host version/commit/image/schema, App and Runtime versions, each component's Kit, public assets, checksums and corresponding source. Use its verified publication state and release assets; a candidate record or open PR does not establish that downloads are available.
 
 Release bundle **1.9.0-preview.31** builds App **1.9.1-preview.12** and Runtime **0.4.0-preview.28**, both with the exact published Kit **0.1.0-alpha.42** from Host134. Email owns its author/runtime domain modules and uses clean Kit entry points. The supported Host requires schema **131** and the exact generic contracts in the manifest. An older stable Host or a matching schema number alone is insufficient.
+
+The unreleased source on this branch adopts the exact published Kit **0.1.0-alpha.43** from Host141 for both App and Runtime and requires Host **0.3.0-preview.141 or newer** (schema **0.3.0-preview.135**). It is assigned release bundle **1.9.0-preview.32**, App **1.9.1-preview.13** and Runtime **0.4.0-preview.29**, not yet published; see [compatibility](docs/compatibility.md).
 
 This release requires Host **0.3.0-preview.138 or newer**. It adds an opted-in read-only Reply snapshot combining saved-draft existence and exact original hydration under fresh final checks, alongside clearer mailbox states and action notices, early technical renewal, scoped service reacquisition after expired leases, durable Gmail refresh reconciliation and a process-lifetime writer lock. A Host-authorized, receipt-backed registration transition lets a trusted compatible App upgrade continue without operator-file or token edits. Host installation trust is explicitly off by default; current account, private-storage, metadata and effect permissions remain independent. No renewal or recovery path sends a message or retries a provider effect. [Recovery and rollout details](runtime/UNATTENDED-RECOVERY.md).
 
@@ -29,6 +31,8 @@ Previous release bundle **1.9.0-preview.18** selects Host **0.3.0-preview.125**.
 Download and checksum-verify the Email corresponding-source archive named in the compatibility record, extract it into an empty directory, and run the commands below there. The archive includes sealed Kit tarballs and frozen lockfiles. Alternatively, check out the record's exact public Email source commit.
 
 Use Node >=22.13.0, npm 11.9.0 and pnpm 10.33.0. Linux/POSIX is required to operate the Runtime; Windows can build the App, while some Runtime fixtures require Linux and OpenSSL.
+
+The TLS certificates and key in `runtime/test-fixtures/` are synthetic, test-only fixtures loaded only by the loopback test servers; they are not operating credentials. Regenerate them (10-year validity, same names and extensions) with `sh runtime/test-fixtures/generate.sh`.
 
 ```sh
 npm --prefix app ci --no-audit --no-fund

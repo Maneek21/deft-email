@@ -54,7 +54,9 @@ export function createNativeEmailSendBridge({runtime,now=Date.now}){
     const adapter=(account.provider==='gmail'?createGmailAdapter:createMicrosoftAdapter)({...value.adapterOptions,reserveSend,outgoingMimeLimit:NATIVE_SEND_LIMITS.mime_bytes,nativeMimeUpload:true});
     const result=await adapter.send({account_id:account.account_id,operation_id:input.operation_id,mime_bytes:bytes,mime_digest:input.mime_digest,from_address:input.from_address,
      transport_kind:account.provider==='gmail'?'gmail_raw':'graph_raw',...(input.thread_id?{thread_id:input.thread_id}:{})});
-    await value.check();
+    // The provider has already accepted the immutable packet; a later deadline
+    // or custody re-read must not turn a definitive acceptance into an unknown
+    // outcome. Validate the result shape only, and let the caller record it.
     if(!reserved||result.account_id!==account.account_id||result.operation_id!==input.operation_id||result.transport_outcome!=='provider_accepted'
       ||result.sent_copy_outcome!=='pending'||result.delivery_status!=='unknown'||account.provider==='gmail'&&(typeof result.provider_message_id!=='string'||!result.provider_message_id)
       ||account.provider==='microsoft'&&result.provider_message_id!==null)fail('EMAIL_NATIVE_SEND_RESULT_UNKNOWN',{outcome:'uncertain'});
