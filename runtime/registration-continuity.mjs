@@ -23,15 +23,24 @@ export async function createRegistrationContinuity({registrations,store}){
    if(request.source.scope[k]!==request.scope[k])denied();
   return {...pins(request.scope),connection_protocol:'v2'};
  };
- async function readSession(id){return (await store.withLock({key:'email.runtime.session.'+id},tx=>tx.read()))?.value;}
+ const readSessionRow=id=>store.withLock({key:'email.runtime.session.'+id},tx=>tx.read());
+ async function readSession(id){return (await readSessionRow(id))?.value;}
+ /** The receipted successor as activated, or exactly that session after the
+  * Runtime's own disconnect: revision 1 is the activation write and disconnect
+  * always persists disconnect_started before disconnected, so the disconnected
+  * value exists only from revision 3. Every other field must remain identical. */
+ const receiptedSession=(journal,row)=>{const session=row?.value;
+  if(session?.state==='connected')return canonical(journal.new_session)===canonical(session);
+  return journal.new_session?.state==='connected'&&session?.state==='disconnected'&&Number.isSafeInteger(row.revision)&&row.revision>=3
+   &&canonical(session)===canonical({...journal.new_session,state:'disconnected',provider_state:null,account:null});};
  async function checked(entry){
   exact(entry,['session_id','source_registration','registration']);
   const journal=(await store.withLock({key:'email.runtime.reattach.'+entry.session_id},tx=>tx.read()))?.value;
   if(journal?.state!=='connected')return null;
-  const request=journal.pins,target=sourceFor(request),source=await readSession(request.source.session_id),session=await readSession(entry.session_id);
+  const request=journal.pins,target=sourceFor(request),source=await readSession(request.source.session_id),sessionRow=await readSessionRow(entry.session_id),session=sessionRow?.value;
   if(canonical(pins(request.source.scope))!==canonical(entry.source_registration)||canonical(pins(target))!==canonical(entry.registration)
    ||source?.state!=='connected'||canonical(source.scope)!==canonical(request.source.scope)||source.runtime_session_ref!==request.source.runtime_session_ref||source.account?.account_ref!==request.source.account_ref
-   ||session?.state!=='connected'||canonical(session.scope)!==canonical(request.scope)||canonical(journal.new_session)!==canonical(session)
+   ||!receiptedSession(journal,sessionRow)||canonical(session.scope)!==canonical(request.scope)
    ||!journal.review||journal.receipt_digest!==receiptDigest(request,journal.review,session.runtime_session_ref))denied();
   return target;
  }
