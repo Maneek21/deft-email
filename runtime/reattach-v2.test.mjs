@@ -191,3 +191,109 @@ test('v2 absent review status never uses own, live, activated, ended, foreign-sc
   assert.equal(f.calls,calls);
  });
 });
+
+test('automatic enrollment survives restart after the receipted successor session is disconnected',async t=>{
+ const f=await fixture(t,{automatic:true}),request=await f.next(false,false),activated=await f.activate(await f.prepare(request));
+ assert.equal(activated.state,'connected');
+ const disconnect={schema_version:'deft.app_connection_runtime.v2',session_id:request.session_id,scope:request.scope,expires_at:new Date(Date.now()+29000).toISOString(),operation:'disconnect',runtime_session_ref:activated.runtime_session_ref,expected_account_ref:activated.account.account_ref,action_consents:request.action_consents};
+ assert.equal((await f.runtime.request(disconnect)).state,'disconnected');
+ const before=f.enrollment.all().map(r=>r.runtime_registration_id),current=f.enrollment.current().map(r=>r.runtime_registration_id);
+ const session=await f.store.withLock({key:'email.runtime.session.'+request.session_id},tx=>tx.read());
+ assert.equal(session.value.state,'disconnected');assert.equal(session.revision,3);
+ await f.restart();
+ assert.deepEqual(f.enrollment.all().map(r=>r.runtime_registration_id),before,'restart reconstructs the enrollment the running process held');
+ assert.deepEqual(f.enrollment.current().map(r=>r.runtime_registration_id),current);
+});
+
+const sessionKey=id=>'email.runtime.session.'+id,journalKey=id=>'email.runtime.reattach.'+id,indexKey='email.runtime.registration_continuity.v1';
+const readRow=(f,key)=>f.store.withLock({key},tx=>tx.read());
+const writeRow=(f,key,value)=>f.store.withLock({key},async tx=>{const row=await tx.read();assert.equal(await tx.compareAndSwap({expected_revision:row?.revision??null,value}),true);});
+const disconnectFor=(request,activated,expected_account_ref=activated.account.account_ref)=>({schema_version:'deft.app_connection_runtime.v2',session_id:request.session_id,scope:request.scope,expires_at:new Date(Date.now()+29000).toISOString(),operation:'disconnect',runtime_session_ref:activated.runtime_session_ref,expected_account_ref,action_consents:request.action_consents});
+async function disconnectedSuccessor(t,options={}){
+ const f=await fixture(t,{automatic:true,...options}),request=await f.next(false,false),activated=await f.activate(await f.prepare(request));
+ assert.equal((await f.runtime.request(disconnectFor(request,activated))).state,'disconnected');return {f,request,activated};
+}
+const enrollment=f=>({all:f.enrollment.all().map(r=>r.runtime_registration_id),current:f.enrollment.current().map(r=>r.runtime_registration_id)});
+const denied={code:'EMAIL_RUNTIME_REGISTRATION_DENIED'};
+
+test('restart still denies a disconnected successor that differs from its receipted session in any other way',async t=>{
+ const {f,request,activated}=await disconnectedSuccessor(t),key=sessionKey(request.session_id),journal=journalKey(request.session_id),source=sessionKey(request.source.session_id);
+ const originals=new Map(await Promise.all([key,journal,source,indexKey].map(async k=>[k,(await readRow(f,k)).value])));
+ const cases=[
+  [key,v=>{v.runtime_session_ref='B'.repeat(43);}],[key,v=>{v.account=activated.account;}],[key,v=>{v.provider_state='pending';}],
+  [key,v=>{v.session_id=randomUUID();}],[key,v=>{v.scope.grant_epoch+=1;}],[key,v=>{v.binding.account_id=randomUUID();}],
+  [key,v=>{v.binding.authority_epoch+=1;}],[key,v=>{v.client_fingerprint='sha256:'+'0'.repeat(64);}],[key,v=>{v.action_consents.pop();}],
+  [key,v=>{v.purpose_set={...v.purpose_set,custody_generation:v.purpose_set.custody_generation+1};}],[key,v=>{v.extra=null;}],
+  [key,v=>{delete v.callback_expires_at;}],[key,v=>{v.state='indeterminate';}],[key,v=>{v.state='disconnect_started';}],[key,v=>{v.state='not_connected';}],
+  [journal,v=>{v.new_session.state='disconnected';}],[journal,v=>{v.receipt_digest='sha256:'+'0'.repeat(64);}],[journal,v=>{v.review=null;}],
+  [source,v=>{v.state='disconnected';v.account=null;}],[source,v=>{v.runtime_session_ref='C'.repeat(43);}],[source,v=>{v.account={...v.account,account_ref:randomUUID()};}],
+  [indexKey,v=>{v.entries[0].registration.profile_digest='sha256:'+'9'.repeat(64);}]];
+ for(const [k,mutate] of cases){
+  const value=structuredClone(originals.get(k));mutate(value);await writeRow(f,k,value);
+  await assert.rejects(f.restart(),denied,k+' '+mutate);
+  await writeRow(f,k,originals.get(k));await f.restart();
+ }
+ assert.ok((await readRow(f,key)).revision>3);
+});
+
+test('restart denies the disconnected projection below revision 3 and a changed connected session',async t=>{
+ const f=await fixture(t,{automatic:true}),request=await f.next(false,false);await f.activate(await f.prepare(request));
+ const key=sessionKey(request.session_id),row=await readRow(f,key);assert.equal(row.revision,1);
+ await writeRow(f,key,{...row.value,state:'disconnected',provider_state:null,account:null});
+ await assert.rejects(f.restart(),denied);
+ await writeRow(f,key,{...row.value,account:{...row.value.account,label:'changed@example.test'}});
+ await assert.rejects(f.restart(),denied,'a connected session must still equal its receipted session');
+});
+
+test('demo-shaped history starts twice without changing state: eligible, chained and disconnected successors',async t=>{
+ const f=await fixture(t,{automatic:true});
+ for(let i=0;i<2;i++)await f.prepare(await f.next(false,false));
+ let request,activated;for(let i=0;i<7;i++){request=await f.next(false,false);activated=await f.activate(await f.prepare(request));}
+ assert.equal((await f.runtime.request(disconnectFor(request,activated))).state,'disconnected');
+ const index=(await readRow(f,indexKey)).value.entries;assert.equal(index.length,9);
+ const keys=[indexKey,...index.flatMap(e=>[journalKey(e.session_id),sessionKey(e.session_id)])],snapshot=async()=>Promise.all(keys.map(k=>readRow(f,k)));
+ const before=enrollment(f),rows=await snapshot();
+ assert.equal(before.all.length,8);assert.deepEqual(before.current,[request.scope.runtime_registration_id]);
+ await f.restart();assert.deepEqual(enrollment(f),before);
+ await f.restart();assert.deepEqual(enrollment(f),before);assert.deepEqual(await snapshot(),rows);
+});
+
+test('a disconnected successor stays closed after restart while its registration accepts a fresh connection and reattachment',async t=>{
+ const {f,request}=await disconnectedSuccessor(t),calls=f.calls;await f.restart();
+ const session=(await readRow(f,sessionKey(request.session_id))).value;
+ assert.equal((await f.data.custody.withAccount(session.binding,tx=>tx.read())).health,'revoked');
+ await assert.rejects(f.data.request(f.dataRequest('record_create',{store_key:'drafts',record_id:randomUUID(),value:empty})),{code:'EMAIL_DATA_CONNECTION_DENIED'});
+ await assert.rejects(f.prepare(await f.next(false,false)),'a disconnected session is never a reattachment source');
+ assert.equal(f.calls,calls);
+ const begin={...beginFor(request.scope),schema_version:'deft.app_connection_runtime.v2',action_consents:actions(request.scope)},begun=await f.runtime.request(begin);
+ const callback={...begin,operation:'callback',runtime_session_ref:begun.runtime_session_ref,callback:{outcome:'authorized',code:'fixture-first-account-both'}};delete callback.callback_state;
+ const fresh=await f.runtime.request(callback);assert.equal(fresh.state,'connected');
+ await f.restart();
+ const connection={session_id:begin.session_id,session_revision:5,runtime_session_ref:begun.runtime_session_ref,account_ref:fresh.account.account_ref};
+ const created=await f.data.request({...f.dataRequest('record_create',{store_key:'drafts',record_id:randomUUID(),value:empty}),connection});assert.equal(created.outcome,'completed');
+ const next=await f.next(false,false);next.source={...next.source,session_id:begin.session_id,runtime_session_ref:begun.runtime_session_ref,account_ref:fresh.account.account_ref};
+ assert.equal((await f.activate(await f.prepare(next))).state,'connected');
+ await f.restart();assert.deepEqual(f.enrollment.current().map(r=>r.runtime_registration_id),[next.scope.runtime_registration_id]);
+ assert.equal(f.enrollment.all().length,3);
+});
+
+test('a repeated disconnect of a read-only successor still restarts',async t=>{
+ const {f,request,activated}=await disconnectedSuccessor(t,{readOnly:true});
+ assert.equal((await f.runtime.request(disconnectFor(request,activated,null))).state,'disconnected');
+ assert.equal((await readRow(f,sessionKey(request.session_id))).revision,5);
+ const before=enrollment(f);await f.restart();assert.deepEqual(enrollment(f),before);
+});
+
+test('disconnect interruptions: only a completed final disconnect write restarts',async t=>{
+ const f=await fixture(t,{automatic:true}),request=await f.next(false,false),activated=await f.activate(await f.prepare(request)),key=sessionKey(request.session_id),target='email.runtime.target.'+digest(request.scope);
+ f.failWrite((options,input)=>options.key===key&&input.value.state==='disconnected');
+ await assert.rejects(f.runtime.request(disconnectFor(request,activated)));
+ assert.equal((await readRow(f,key)).value.state,'disconnected');assert.notEqual((await readRow(f,target)).value.state,'ended');
+ await f.restart();
+ assert.equal((await f.runtime.request(disconnectFor(request,activated,null))).state,'disconnected');assert.equal((await readRow(f,target)).value.state,'ended');
+ for(const [phase,predicate] of [['disconnect_started',(options,input)=>options.key.startsWith('email.runtime.session.')&&input.value.state==='disconnect_started'],['indeterminate',options=>options.key.startsWith('email.oauth.account.')]]){
+  const g=await fixture(t,{automatic:true}),r=await g.next(false,false),a=await g.activate(await g.prepare(r));
+  g.failWrite(predicate);await assert.rejects(g.runtime.request(disconnectFor(r,a)));
+  assert.equal((await readRow(g,sessionKey(r.session_id))).value.state,phase);await assert.rejects(g.restart(),denied);
+ }
+});
