@@ -191,3 +191,16 @@ test('v2 absent review status never uses own, live, activated, ended, foreign-sc
   assert.equal(f.calls,calls);
  });
 });
+
+test('automatic enrollment survives restart after the receipted successor session is disconnected',async t=>{
+ const f=await fixture(t,{automatic:true}),request=await f.next(false,false),activated=await f.activate(await f.prepare(request));
+ assert.equal(activated.state,'connected');
+ const disconnect={schema_version:'deft.app_connection_runtime.v2',session_id:request.session_id,scope:request.scope,expires_at:new Date(Date.now()+29000).toISOString(),operation:'disconnect',runtime_session_ref:activated.runtime_session_ref,expected_account_ref:activated.account.account_ref,action_consents:request.action_consents};
+ assert.equal((await f.runtime.request(disconnect)).state,'disconnected');
+ const before=f.enrollment.all().map(r=>r.runtime_registration_id),current=f.enrollment.current().map(r=>r.runtime_registration_id);
+ const session=await f.store.withLock({key:'email.runtime.session.'+request.session_id},tx=>tx.read());
+ assert.equal(session.value.state,'disconnected');assert.equal(session.revision,3);
+ await f.restart();
+ assert.deepEqual(f.enrollment.all().map(r=>r.runtime_registration_id),before,'restart reconstructs the enrollment the running process held');
+ assert.deepEqual(f.enrollment.current().map(r=>r.runtime_registration_id),current);
+});
