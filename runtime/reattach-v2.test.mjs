@@ -236,7 +236,7 @@ test('restart still denies a disconnected successor that differs from its receip
  assert.ok((await readRow(f,key)).revision>3);
 });
 
-test('restart denies the disconnected projection unless the Runtime disconnect path produced it',async t=>{
+test('restart denies the disconnected projection below revision 3 and a changed connected session',async t=>{
  const f=await fixture(t,{automatic:true}),request=await f.next(false,false);await f.activate(await f.prepare(request));
  const key=sessionKey(request.session_id),row=await readRow(f,key);assert.equal(row.revision,1);
  await writeRow(f,key,{...row.value,state:'disconnected',provider_state:null,account:null});
@@ -262,8 +262,7 @@ test('a disconnected successor stays closed after restart while its registration
  const {f,request}=await disconnectedSuccessor(t),calls=f.calls;await f.restart();
  const session=(await readRow(f,sessionKey(request.session_id))).value;
  assert.equal((await f.data.custody.withAccount(session.binding,tx=>tx.read())).health,'revoked');
- const draft=await f.data.request(f.dataRequest('record_create',{store_key:'drafts',record_id:randomUUID(),value:empty})).catch(error=>({error:error.code}));
- assert.notEqual(draft.outcome,'completed');
+ await assert.rejects(f.data.request(f.dataRequest('record_create',{store_key:'drafts',record_id:randomUUID(),value:empty})),{code:'EMAIL_DATA_CONNECTION_DENIED'});
  await assert.rejects(f.prepare(await f.next(false,false)),'a disconnected session is never a reattachment source');
  assert.equal(f.calls,calls);
  const begin={...beginFor(request.scope),schema_version:'deft.app_connection_runtime.v2',action_consents:actions(request.scope)},begun=await f.runtime.request(begin);
