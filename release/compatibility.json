@@ -1,8 +1,8 @@
 {
   "schema": "deft.email.preview.compatibility.v1",
   "publication_state": "source-template",
-  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.31/compatibility.json",
-  "resolution": "Email31 is an App12 metadata-only no-diff upgrade candidate from Email30/App11. Runtime28 source, version and archive remain byte-identical; no Runtime redeployment is required. App12 preserves the exact Experience artifact and every authority declaration after normalizing only its App version. Both Kit42 consumers retain the exact published Host134 bytes, producer metadata and corresponding source. The detached Email31 manifest must resolve final source and public artifacts; this template does not claim CI, publication or live upgrade acceptance.",
+  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.32/compatibility.json",
+  "resolution": "Email32 is a Runtime-only repair from Email31. Runtime29 starts when a reattached session was later disconnected by the Runtime itself; registration continuity accepts that receipted successor only when it differs from the receipted session exactly by the disconnect fields, with unchanged enrollment. App12 is unchanged from Email31. Both Kit42 consumers retain the exact published Host134 bytes, producer metadata and corresponding source. The detached Email32 manifest must resolve final source and public artifacts; this template does not claim CI, publication or live deployment acceptance.",
   "host": {
     "version": "0.3.0-preview.138",
     "minimum_version": "0.3.0-preview.138",
@@ -19,14 +19,14 @@
     }
   },
   "email": {
-    "tag": "v1.9.0-preview.31",
+    "tag": "v1.9.0-preview.32",
     "repository": "https://github.com/Maneek21/deft-email",
     "app_version": "1.9.1-preview.12",
-    "runtime_version": "0.4.0-preview.28",
-    "runtime_unchanged_from": "v1.9.0-preview.30",
+    "runtime_version": "0.4.0-preview.29",
+    "app_unchanged_from": "v1.9.0-preview.31",
     "app_kit_version": "0.1.0-alpha.42",
     "runtime_kit_version": "0.1.0-alpha.42",
-    "kit_compatibility": "Host138 must be deployed before this App. Both consumers retain exact Host134 Kit alpha.42 with app-owned domain modules. Runtime28 preserves all fresh provider, OAuth, external-image, commit and disclosure guards and Send exact-message review; timing diagnostics never supply authority. App12 retains App11 permissions, declarations and exact Experience artifact; only the App version changes."
+    "kit_compatibility": "Host138 must be deployed before this App. Both consumers retain exact Host134 Kit alpha.42 with app-owned domain modules. Runtime29 preserves all fresh provider, OAuth, external-image, commit and disclosure guards and Send exact-message review; timing diagnostics never supply authority. App12 is unchanged from Email31."
   },
   "kits": [
     {
