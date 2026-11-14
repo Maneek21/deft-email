@@ -2,6 +2,10 @@
 
 [`release/compatibility.json`](../release/compatibility.json) is the source template and entry point. Follow its `authoritative_release_manifest` URL for the single authoritative detached cross-component release record. Use that resolved record for exact Host and Email commits, versions, image digests, schema/contracts, Kit artifacts, download locations, checksums and corresponding source. The publication state in that record distinguishes a prepared candidate from a verified public release. Do not replace its pins with a branch tip, a similarly named preview or a demo image.
 
+## Release preview.32 contract
+
+Bundle preview.32 is a Runtime-only repair requiring Host138 or newer and pairing the unchanged App1.9.1-preview.12 from preview.31 with Runtime0.4.0-preview.29. Runtime29 starts when a reattached session was later disconnected by the Runtime itself: registration continuity accepts that receipted successor only when it differs from the receipted session exactly by the disconnect fields, and keeps the same enrollment. App bytes, Kit pins and every Host contract are unchanged.
+
 ## Release preview.31 contract
 
 Bundle preview.31 is an App-only no-diff upgrade candidate requiring Host138 or newer and pairing App1.9.1-preview.12 with the exact unchanged Runtime0.4.0-preview.28 from preview.30. No Runtime redeployment is required. Read-only Reply hydration uses current-source presentation data while repeating fresh authority checks; first-save revalidation is unchanged. Both use the exact Kit42 archive published by Host134. Historical Kits and their original source offers remain immutable. Rollback requires matched Host/App/Runtime and data snapshots.
@@ -10,7 +14,7 @@ Bundle preview.31 is an App-only no-diff upgrade candidate requiring Host138 or 
 |---|---|
 | Email App | `1.9.1-preview.12` |
 | App Author Kit | `0.1.0-alpha.42` |
-| Email Runtime | `0.4.0-preview.28` |
+| Email Runtime | `0.4.0-preview.29` |
 | Runtime Author Kit | `0.1.0-alpha.42` |
 | Deft Host | Minimum `0.3.0-preview.138`, Apps-enabled developer-preview image; schema `131` plus the listed generic contracts |
 | App protocol | Manifest protocol 7; experience bundle v4; bridge v1; trusted renderer v2 |

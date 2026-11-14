@@ -1,6 +1,10 @@
 # Verification and acceptance
 
-Use [the authoritative compatibility record](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.31/compatibility.json) for the exact release source, artifacts, checksums and publication state. A prepared candidate is not published merely because its files build. The final public prerelease must link its acceptance results and disclose unverified behavior.
+Use [the authoritative compatibility record](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.32/compatibility.json) for the exact release source, artifacts, checksums and publication state. A prepared candidate is not published merely because its files build. The final public prerelease must link its acceptance results and disclose unverified behavior.
+
+## Runtime29 repair: local evidence
+
+Email32 changes only the Runtime: `runtime/registration-continuity.mjs`, its tests in `runtime/reattach-v2.test.mjs` and renewed synthetic TLS test fixtures. App12 is unchanged. The repair is covered by the focused CI checks of the merged change; these are local and CI results, not a live deployment claim.
 
 ## App12 no-diff candidate: local evidence
 
