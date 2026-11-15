@@ -18,14 +18,20 @@ const result=(request,state,additional={})=>({schema_version:FORM_VERSION,sessio
 /** Passwords enter only submit(), called by the runtime's own trusted origin.
  * Host/operator requests can never contain credentials. All persistent rows use
  * the existing independently operated encrypted durable store, not host keys. */
-export function createConnectionFormRuntime({registrations,store,setup_origin,assertCurrent,connector,endpointPolicy,policy_digest,now=Date.now,onPhase=async()=>{}}){
+export function createConnectionFormRuntime({registrations,registrationBook,store,setup_origin,assertCurrent,connector,endpointPolicy,policy_digest,now=Date.now,onPhase=async()=>{}}){
  const origin=new URL(setup_origin);if(origin.protocol!=='https:'||origin.username||origin.password||origin.port||origin.pathname!=='/'||origin.search||origin.hash||!/^sha256:[a-f0-9]{64}$/u.test(policy_digest)||typeof endpointPolicy!=='function')fail('EMAIL_FORM_CONFIG_INVALID');
- const admitted=registrations.map(formRegistration);if(!admitted.length||admitted.length>32||new Set(admitted.map(value=>canonical([value.org_id,value.runtime_registration_id]))).size!==admitted.length)fail('EMAIL_FORM_CONFIG_INVALID');
+ const admitted=registrations.map(formRegistration);if(!admitted.length&&!registrationBook||admitted.length>32||new Set(admitted.map(value=>canonical([value.org_id,value.runtime_registration_id]))).size!==admitted.length)fail('EMAIL_FORM_CONFIG_INVALID');
  async function current(request,operation,signal,deadline=Date.parse(request.expires_at)){
   signal?.throwIfAborted();if(!Number.isFinite(deadline)||deadline<=now()||deadline>consentDeadline(request.scope,'consent_expires_at')||deadline>now()+(operation==='submit'?60000:30000))fail('EMAIL_FORM_AUTHORITY_DENIED');
-  const pins=admitted.find(value=>value.org_id===request.scope.org_id&&value.runtime_registration_id===request.scope.runtime_registration_id);if(!pins||Object.keys(pins).some(key=>pins[key]!==request.scope[key]))fail('EMAIL_FORM_REGISTRATION_DENIED');
+  const pins=admitted.find(value=>value.org_id===request.scope.org_id&&value.runtime_registration_id===request.scope.runtime_registration_id);
+  // A registration outside the configured pins is served only through an
+  // explicitly configured registration book, and a new one only after this
+  // very call has had the Host confirm it (see registration-book.mjs).
+  const decision=pins?(Object.keys(pins).some(key=>pins[key]!==request.scope[key])?'denied':'known'):registrationBook?registrationBook.decide(request.scope):'denied';
+  if(decision!=='known'&&!(decision==='ask_host'&&['begin','status'].includes(operation)))fail('EMAIL_FORM_REGISTRATION_DENIED');
   const call={...request,schema_version:'deft.app_connection_form_authority.v1',operation,expires_at:new Date(deadline).toISOString()};const response=await assertCurrent(call,signal);
-  exact(response,[...Object.keys(call),'allowed']);if(response.allowed!==true||canonical({...response,allowed:undefined})!==canonical({...call,allowed:undefined})||deadline<=now())fail('EMAIL_FORM_AUTHORITY_DENIED');signal?.throwIfAborted();return deadline;
+  exact(response,[...Object.keys(call),'allowed']);if(response.allowed!==true||canonical({...response,allowed:undefined})!==canonical({...call,allowed:undefined})||deadline<=now())fail('EMAIL_FORM_AUTHORITY_DENIED');signal?.throwIfAborted();
+  if(decision==='ask_host')await registrationBook.confirm(request.scope);return deadline;
  }
  const readSession=id=>store.withLock({key:sessionKey(id)},tx=>tx.read());
  async function checkedSession(request,signal){await current(request,request.operation,signal);const row=await readSession(request.session_id);if(!row||row.value.policy_digest!==policy_digest||!sameFormPins(row.value.request,request)||request.runtime_session_ref!==null&&row.value.runtime_session_ref!==request.runtime_session_ref)fail('EMAIL_FORM_SESSION_DENIED');return row;}
