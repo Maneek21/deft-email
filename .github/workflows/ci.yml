@@ -62,7 +62,7 @@ jobs:
           node --test runtime/authority-denial.test.mjs runtime/http-authority-concurrency.test.mjs runtime/authority-diagnostics.test.mjs runtime/http-authority-timing.test.mjs
           node --test runtime/prepared-effect.test.mjs runtime/email-domain-boundary.test.mjs runtime/integration-source.test.mjs runtime/capture-transport.test.mjs
           node --test runtime/smtp-send-runner.test.mjs runtime/run-inspection-runtime.test.mjs
-          node --test --test-concurrency=1 runtime/connection-form.test.mjs runtime/connection-form-retry.test.mjs runtime/endpoint-policy.test.mjs runtime/registration-book.test.mjs
+          node --test --test-concurrency=1 runtime/connection-form.test.mjs runtime/connection-form-page.test.mjs runtime/connection-form-retry.test.mjs runtime/endpoint-policy.test.mjs runtime/registration-book.test.mjs
           node --test runtime/installed-channels.test.mjs runtime/runtime-channel-install-process.test.mjs runtime/reattach-v2.test.mjs runtime/registration-continuity-process.test.mjs
           node --test --test-concurrency=1 runtime/http.test.mjs runtime/reattach.test.mjs
       - name: Start the standalone exported Runtime artifact
