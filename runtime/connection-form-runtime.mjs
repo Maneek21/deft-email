@@ -2,8 +2,15 @@ import {uuid} from './draft-store.mjs';
 import {randomBytes,randomUUID} from 'node:crypto';
 import {consentDeadline,canonical,digest,fail,exact} from './contract.mjs';
 import {FORM_VERSION,FORM_LIMITS,validateFormRequest,formRegistration,formIdentity,sameFormPins,validateCredentialInput,credentialPrincipal,formReceiptDigest} from './connection-form-contract.mjs';
+import {PROBE_REJECTIONS} from './imap-connector.mjs';
 
 const sessionKey=id=>'email.imap.form.session.'+id;
+const reservationKey=scope=>'email.imap.form.reservation.'+digest(scope);
+// A refused or unreachable login check stores nothing, so the owner may correct
+// the details. Retries are bounded per setup page and per connection per hour so
+// the form cannot be used to guess a mailbox password.
+export const FORM_RETRY=Object.freeze({tries_per_session:3,failures_per_window:5,window_ms:3600000});
+const rejected=new Set(PROBE_REJECTIONS),retryable=code=>{throw Object.assign(new Error(code),{code,retry:true});};
 const custodyKey=(scope,id)=>'email.imap.custody.'+digest([scope.org_id,scope.owner_user_id,id]);
 const scopeDomain=scope=>digest(scope);
 const publicAccount=row=>({account_ref:row.account_id,address:row.profile.primary_address,label:row.profile.display_label,capabilities:row.capabilities,identity_assurance:'owner_declared_authenticated'});
@@ -28,6 +35,8 @@ export function createConnectionFormRuntime({registrations,store,setup_origin,as
   if(row.state==='awaiting_input'&&!row.input_consumed&&Date.parse(row.input_expires_at)>now())return result(request,'awaiting_input',{runtime_session_ref:row.runtime_session_ref,input_consumed:false,receipt:null,setup_expires_at:row.input_expires_at});
   return result(request,row.state==='not_connected'?'not_connected':'indeterminate',{runtime_session_ref:row.runtime_session_ref,input_consumed:row.input_consumed,account:null,receipt:null});
  }
+ const recentFailures=async scope=>((await store.withLock({key:reservationKey(scope)},tx=>tx.read()))?.value.failures??[]).filter(at=>at>now()-FORM_RETRY.window_ms);
+ const noteFailure=scope=>store.withLock({key:reservationKey(scope)},async tx=>{const held=await tx.read(),failures=[...(held?.value.failures??[]).filter(at=>at>now()-FORM_RETRY.window_ms),now()].slice(-FORM_RETRY.failures_per_window);await tx.compareAndSwap({expected_revision:held?.revision??null,value:{...(held?.value??{}),failures}});});
  async function begin(request,signal){if(Date.parse(request.setup_expires_at)<=now()||Date.parse(request.setup_expires_at)>now()+300000)fail('EMAIL_FORM_INPUT_INVALID');await current(request,'begin',signal);return store.withLock({key:'email.imap.form.domain.'+scopeDomain(request.scope)},async()=>store.withLock({key:sessionKey(request.session_id)},async tx=>{
   const existing=await tx.read();if(existing){if(!sameFormPins(existing.value.request,request))fail('EMAIL_FORM_SESSION_DENIED');return view(request,existing.value);}
   // The domain reservation does not expire after any input was consumed.
@@ -40,7 +49,7 @@ export function createConnectionFormRuntime({registrations,store,setup_origin,as
   // pending SMTP/APPEND/Organize journal cannot acquire a second authority.
   if(source)await store.withLock({key:custodyKey(request.scope,account_id)},async accountTx=>{const account=await accountTx.read();if(!account||account.value.state!=='connected'||account.value.pending_transition||account.value.pending_effect)fail('EMAIL_FORM_SOURCE_BUSY');if(!await accountTx.compareAndSwap({expected_revision:account.revision,value:{...account.value,pending_transition:request.session_id}}))fail('EMAIL_FORM_CONFLICT');});
   await current(request,'begin',signal);if(!await tx.compareAndSwap({expected_revision:null,value:row}))fail('EMAIL_FORM_CONFLICT');
-  await store.withLock({key:domainKey},async t=>{const held=await t.read();if(!await t.compareAndSwap({expected_revision:held?.revision??null,value:{session_id:request.session_id}}))fail('EMAIL_FORM_CONFLICT');});await current(request,'begin',signal);
+  await store.withLock({key:domainKey},async t=>{const held=await t.read();if(!await t.compareAndSwap({expected_revision:held?.revision??null,value:{...(held?.value??{}),session_id:request.session_id}}))fail('EMAIL_FORM_CONFLICT');});await current(request,'begin',signal);
   return {...view(request,row),setup_url:origin.origin+'/setup#'+ticket};
  }));}
  async function exchange(ticket,signal){if(typeof ticket!=='string'||!/^[A-Za-z0-9_-]{43}$/u.test(ticket))fail('EMAIL_FORM_TICKET_DENIED');
@@ -53,11 +62,19 @@ export function createConnectionFormRuntime({registrations,store,setup_origin,as
  async function submit({session_id,browser,csrf,value},signal){const profile=validateCredentialInput(value);try{return await store.withLock({key:sessionKey(session_id)},async tx=>{const row=await tx.read(),session=row?.value;
   if(!session||session.policy_digest!==policy_digest||session.state!=='awaiting_input'||session.input_consumed||Date.parse(session.input_expires_at)<=now()||session.browser?.cookie_digest!==digest(browser)||session.browser?.csrf_digest!==digest(csrf))fail('EMAIL_FORM_SUBMIT_DENIED');
   const deadline=Math.min(now()+60000,Date.parse(session.input_expires_at),consentDeadline(session.request.scope,'consent_expires_at'),...session.request.action_consents.map(consent=>consentDeadline(consent))),request={...session.request,runtime_session_ref:session.runtime_session_ref};
-  const check=()=>current(request,'submit',signal,deadline);await check();const hasSend=session.request.action_consents.some(consent=>consent.action_key==='send_message');if(profile.smtp&&!hasSend)fail('EMAIL_FORM_SMTP_NOT_GRANTED');
-  if(!endpointPolicy(profile))fail('EMAIL_IMAP_ENDPOINT_DENIED');const principal=credentialPrincipal(request.scope,profile);
+  const check=()=>current(request,'submit',signal,deadline);await check();const hasSend=session.request.action_consents.some(consent=>consent.action_key==='send_message');if(profile.smtp&&!hasSend)retryable('EMAIL_FORM_SMTP_NOT_GRANTED');
+  if(!endpointPolicy(profile))retryable('EMAIL_IMAP_ENDPOINT_DENIED');const principal=credentialPrincipal(request.scope,profile);
   const before=await store.withLock({key:custodyKey(request.scope,session.account_id)},t=>t.read());if(request.source&&(!before||before.value.pending_transition!==session_id||before.value.principal_digest!==principal||before.value.pending_effect))fail('EMAIL_FORM_SOURCE_DENIED');
+  if((await recentFailures(request.scope)).length>=FORM_RETRY.failures_per_window)fail('EMAIL_FORM_ATTEMPTS_EXCEEDED');
   if(!await tx.compareAndSwap({expected_revision:row.revision,value:{...session,input_consumed:true,state:'submit_started'}}))fail('EMAIL_FORM_CONFLICT');await onPhase('submit_started');
-  try{await connector.probe(profile,{signal,expires_at:deadline,check});await check();}catch(error){const currentRow=await tx.read();await tx.compareAndSwap({expected_revision:currentRow.revision,value:{...currentRow.value,state:'indeterminate'}});throw error;}
+  try{await connector.probe(profile,{signal,expires_at:deadline,check});await check();}catch(error){
+   // Nothing has been written to custody yet. A first-time connection whose
+   // login the server refused reopens this same page; every other failure keeps
+   // the unknown mark until status() can prove that nothing was stored.
+   const currentRow=await tx.read(),tries=(currentRow.value.failed_tries??0)+1,known=rejected.has(error?.code);await noteFailure(request.scope);
+   const reopen=known&&!request.source&&tries<FORM_RETRY.tries_per_session&&Date.parse(session.input_expires_at)>now();
+   await tx.compareAndSwap({expected_revision:currentRow.revision,value:{...currentRow.value,failed_tries:tries,...(reopen?{state:'awaiting_input',input_consumed:false}:{state:'indeterminate'})}});
+   throw known?Object.assign(new Error(error.code),{code:error.code,retry:reopen}):error;}
   const generation=(before?.value.custody_generation??0)+1;if(generation>2147483646)fail('EMAIL_FORM_CONFLICT');const capabilities=['read','search','thread',...(hasSend&&profile.smtp?['send']:[]),...(request.action_consents.some(consent=>consent.action_key==='organize_messages')?['modify']:[])];
   // Do not publish a password-derived digest (offline dictionary oracle). A
   // random credential-instance nonce binds the encrypted custody commit.
@@ -68,7 +85,12 @@ export function createConnectionFormRuntime({registrations,store,setup_origin,as
   await store.withLock({key:custodyKey(request.scope,session.account_id)},async accountTx=>{const currentRow=await accountTx.read();if((currentRow?.revision??null)!==(before?.revision??null))fail('EMAIL_FORM_CONFLICT');await check();if(!await accountTx.compareAndSwap({expected_revision:currentRow?.revision??null,value:account}))fail('EMAIL_FORM_CONFLICT');});await onPhase('custody_committed');await check();
   const currentRow=await tx.read(),complete={...currentRow.value,state:'connected',account:publicAccount(account),receipt};if(!await tx.compareAndSwap({expected_revision:currentRow.revision,value:complete}))fail('EMAIL_FORM_CONFLICT');await onPhase('session_committed');await check();return view(request,complete);
  });}finally{profile.imap.password='';if(profile.smtp)profile.smtp.password='';if(value?.imap)value.imap.password='';if(value?.smtp)value.smtp.password='';}}
- async function status(request,signal){let row=await checkedSession(request,signal);if(row.value.state==='awaiting_input'&&!row.value.input_consumed&&Date.parse(row.value.input_expires_at)<=now()&&!request.source){row=await store.withLock({key:sessionKey(request.session_id)},async tx=>{const found=await tx.read();if(found.value.state==='awaiting_input'&&!found.value.input_consumed){await tx.compareAndSwap({expected_revision:found.revision,value:{...found.value,state:'not_connected'}});return tx.read();}return found;});}await current(request,'status',signal);return view(request,row.value);}
+ async function status(request,signal){let row=await checkedSession(request,signal);if(row.value.state==='awaiting_input'&&!row.value.input_consumed&&Date.parse(row.value.input_expires_at)<=now()&&!request.source){row=await store.withLock({key:sessionKey(request.session_id)},async tx=>{const found=await tx.read();if(found.value.state==='awaiting_input'&&!found.value.input_consumed){await tx.compareAndSwap({expected_revision:found.revision,value:{...found.value,state:'not_connected'}});return tx.read();}return found;});}
+  // An unknown outcome whose attempt left no stored account is known after all:
+  // nothing was saved. The check runs under the attempt's own lock, which a
+  // running submit holds until it has finished. A stored account stays unknown.
+  else if(['indeterminate','submit_started'].includes(row.value.state)&&!row.value.request.source){row=await store.withLock({key:sessionKey(request.session_id)},async tx=>{const found=await tx.read();if(!['indeterminate','submit_started'].includes(found.value.state)||await store.withLock({key:custodyKey(found.value.request.scope,found.value.account_id)},t=>t.read()))return found;await tx.compareAndSwap({expected_revision:found.revision,value:{...found.value,state:'not_connected'}});return tx.read();});}
+  await current(request,'status',signal);return view(request,row.value);}
  async function disconnect(request,signal){await checkedSession(request,signal);return store.withLock({key:sessionKey(request.session_id)},async tx=>{const row=await tx.read();if(row.value.state!=='connected')return view(request,row.value);await store.withLock({key:custodyKey(request.scope,row.value.account_id)},async accountTx=>{const account=await accountTx.read();if(!account||account.value.pending_transition||account.value.pending_effect)fail('EMAIL_FORM_SOURCE_BUSY');await current(request,'disconnect',signal);await accountTx.compareAndSwap({expected_revision:account.revision,value:{...account.value,state:'revoked',custody_generation:account.value.custody_generation+1}});});const next={...row.value,state:'disconnected'};if(!await tx.compareAndSwap({expected_revision:row.revision,value:next}))fail('EMAIL_FORM_CONFLICT');return view(request,next);});}
  async function checkedAccount(session,scope,check,operation_id=null){await check();if(!session||session.policy_digest!==policy_digest||session.state!=='connected'||canonical(session.request.scope)!==canonical(scope))fail('EMAIL_IMAP_ACCESS_DENIED');const row=await store.withLock({key:custodyKey(scope,session.account_id)},tx=>tx.read());if(!row||row.value.state!=='connected'||row.value.pending_transition||row.value.pending_effect&&row.value.pending_effect.operation_id!==operation_id||canonical(row.value.scope)!==canonical(scope)||row.value.receipt.digest!==session.receipt.digest)fail('EMAIL_IMAP_ACCESS_DENIED');await check();return structuredClone(row.value);}
  return Object.freeze({async request(raw,signal){const request=validateFormRequest(raw);if(request.operation==='begin'){const answer=await begin(request,signal);if(answer.setup_url){const ticket=new URL(answer.setup_url).hash.slice(1);await store.withLock({key:'email.imap.form.ticket.'+digest(ticket)},async tx=>{if(!await tx.compareAndSwap({expected_revision:null,value:{session_id:request.session_id}}))fail('EMAIL_FORM_CONFLICT');});}return answer;}return request.operation==='status'?status(request,signal):disconnect(request,signal);},exchange,submit,

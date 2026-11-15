@@ -23,10 +23,10 @@ test('direct runtime form authenticates owner-declared primary; encrypted custod
  await f.close();const store=await createDurableStore({root:f.root,encryption_key:f.encryption_key,key_id:'fixture',allow_windows_fixture:true});try{const restarted=createConnectionFormRuntime({...f.config,store});assert.deepEqual(await restarted.request(status(f,connected)),connected);assert.equal(f.probes,1);}finally{await store.close();}
  }finally{if(f.probes===0)await f.close();}});
 
-test('submit intent/probe failure or custody-CAS crash remain indeterminate; original submission and status never repeat AUTH',async()=>{
+test('an unclassified probe failure settles to not connected only at status; a custody-CAS crash remains indeterminate; original submission and status never repeat AUTH',async()=>{
  for(const mode of ['probe','custody_committed']){let interrupt=true;const f=await fixture({probe:mode==='probe'?async()=>{throw Error('fixture interrupted');}:undefined,onPhase:async phase=>{if(phase===mode&&interrupt){interrupt=false;throw Error('fixture interrupted');}}});try{
   const begun=await f.forms.request(f.request),browser=await f.forms.exchange(new URL(begun.setup_url).hash.slice(1));await assert.rejects(f.forms.submit({...browser,value:profile()}));
-  await assert.rejects(f.forms.submit({...browser,value:profile()}),{code:'EMAIL_FORM_SUBMIT_DENIED'});assert.equal((await f.forms.request(status(f,begun))).state,'indeterminate');assert.equal(f.probes,1);
+  await assert.rejects(f.forms.submit({...browser,value:profile()}),{code:'EMAIL_FORM_SUBMIT_DENIED'});assert.equal((await f.forms.request(status(f,begun))).state,mode==='probe'?'not_connected':'indeterminate');assert.equal(f.probes,1);
  }finally{await f.close();}}
 });
 
