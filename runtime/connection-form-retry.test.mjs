@@ -139,3 +139,19 @@ test('status of an attempt the runtime never received is not connected, but only
  await assert.rejects(h.forms.request({...h.fresh(),operation:'status',runtime_session_ref:null,scope:{...h.scope,profile_digest:'sha256:'+'e'.repeat(64)}}),{code:'EMAIL_FORM_REGISTRATION_DENIED'});
  }finally{await h.close();}
 });
+
+test('every answer on the retry paths is one the published Host contract accepts',async()=>{
+ const {AppConnectionFormRuntimeResultSchema}=await import('@deft/app-kit/core'),accepted=value=>AppConnectionFormRuntimeResultSchema.parse(value);
+ const f=await fixture({probe:strict});try{
+  const begun=accepted(await f.forms.request(f.request));assert.equal(begun.state,'awaiting_input');const browser=await f.forms.exchange(new URL(begun.setup_url).hash.slice(1));
+  await assert.rejects(f.forms.submit({...browser,value:wrong()}));
+  // Reopened page: still awaiting input, not consumed, and no second setup link is issued.
+  const reopened=accepted(await f.forms.request(status(f,begun)));assert.equal(reopened.state,'awaiting_input');assert.equal(reopened.input_consumed,false);assert(!Object.hasOwn(reopened,'setup_url'));
+  for(let attempt=2;attempt<=FORM_RETRY.tries_per_session;attempt++)await assert.rejects(f.forms.submit({...browser,value:wrong()}));
+  const settled=accepted(await f.forms.request(status(f,begun)));assert.equal(settled.state,'not_connected');assert.equal(settled.input_consumed,true);
+  const lostInput={...another(f),operation:'status',runtime_session_ref:null},lost=accepted(await f.forms.request(lostInput));assert.equal(lost.state,'not_connected');
+  const again=another(f),next=accepted(await f.forms.request(again)),page=await f.forms.exchange(new URL(next.setup_url).hash.slice(1));
+  const connected=accepted(await f.forms.submit({...page,value:profile()}));assert.equal(connected.state,'connected');
+  assert.deepEqual(accepted(await f.forms.request(status(f,connected,again))),connected);
+ }finally{await f.close();}
+});
