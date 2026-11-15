@@ -116,3 +116,26 @@ test('the genuine mail libraries produce the named outcomes for a refused login 
   finally{await imap.close();if(smtp!==imap)await smtp.close();}
  }
 });
+
+test('status of an attempt the runtime never received is not connected, but only once the Host confirms it',async()=>{const f=await fixture();try{
+ // The Host created its record and asked to begin; the request never arrived.
+ const lost={...f.fresh(),operation:'status',runtime_session_ref:null},answer=await f.forms.request(lost);
+ assert.equal(answer.state,'not_connected');assert.equal(answer.input_consumed,false);assert.equal(answer.account,null);assert.equal(answer.receipt,null);assert.match(answer.runtime_session_ref,/^[A-Za-z0-9_-]{43}$/u);
+ assert.deepEqual(await f.forms.request({...f.fresh(),operation:'status',runtime_session_ref:null}),answer);
+ assert.deepEqual(await f.forms.request({...f.fresh(),operation:'status',runtime_session_ref:answer.runtime_session_ref}),answer);
+ assert(f.calls.every(call=>call.operation==='status'));
+ // The delayed begin for that same attempt cannot open a setup page afterwards.
+ const late=await f.forms.request(f.fresh());assert.equal(late.state,'not_connected');assert(!Object.hasOwn(late,'setup_url'));
+ // The connection itself is free: a new attempt connects.
+ const again=await open(f,another(f));assert.equal((await f.forms.submit({...again.browser,value:profile()})).state,'connected');
+ }finally{await f.close();}
+ const g=await fixture();try{g.revoke();
+ await assert.rejects(g.forms.request({...g.fresh(),operation:'status',runtime_session_ref:null}),{code:'EMAIL_FORM_AUTHORITY_DENIED'});
+ for(const file of await readdir(g.root))assert(!file.endsWith('.json'),'a refused status must not record an attempt');
+ }finally{await g.close();}
+ const h=await fixture();try{
+ // An unknown attempt named with a session reference is still refused.
+ await assert.rejects(h.forms.request({...h.fresh(),operation:'status',runtime_session_ref:randomBytes(32).toString('base64url')}),{code:'EMAIL_FORM_SESSION_DENIED'});
+ await assert.rejects(h.forms.request({...h.fresh(),operation:'status',runtime_session_ref:null,scope:{...h.scope,profile_digest:'sha256:'+'e'.repeat(64)}}),{code:'EMAIL_FORM_REGISTRATION_DENIED'});
+ }finally{await h.close();}
+});

@@ -85,7 +85,16 @@ export function createConnectionFormRuntime({registrations,store,setup_origin,as
   await store.withLock({key:custodyKey(request.scope,session.account_id)},async accountTx=>{const currentRow=await accountTx.read();if((currentRow?.revision??null)!==(before?.revision??null))fail('EMAIL_FORM_CONFLICT');await check();if(!await accountTx.compareAndSwap({expected_revision:currentRow?.revision??null,value:account}))fail('EMAIL_FORM_CONFLICT');});await onPhase('custody_committed');await check();
   const currentRow=await tx.read(),complete={...currentRow.value,state:'connected',account:publicAccount(account),receipt};if(!await tx.compareAndSwap({expected_revision:currentRow.revision,value:complete}))fail('EMAIL_FORM_CONFLICT');await onPhase('session_committed');await check();return view(request,complete);
  });}finally{profile.imap.password='';if(profile.smtp)profile.smtp.password='';if(value?.imap)value.imap.password='';if(value?.smtp)value.smtp.password='';}}
- async function status(request,signal){let row=await checkedSession(request,signal);if(row.value.state==='awaiting_input'&&!row.value.input_consumed&&Date.parse(row.value.input_expires_at)<=now()&&!request.source){row=await store.withLock({key:sessionKey(request.session_id)},async tx=>{const found=await tx.read();if(found.value.state==='awaiting_input'&&!found.value.input_consumed){await tx.compareAndSwap({expected_revision:found.revision,value:{...found.value,state:'not_connected'}});return tx.read();}return found;});}
+ async function status(request,signal){
+  // The Host can hold an attempt this runtime never received: its begin was lost
+  // or refused in transit. Once the Host proves that attempt is its own current
+  // record, the truthful answer is that nothing is connected. Recording it lets
+  // the Host release the attempt instead of holding it as unknown for good, and
+  // a begin that arrives late finds this row and stays not connected.
+  if(request.runtime_session_ref===null&&!await readSession(request.session_id)){await current(request,'status',signal);
+   await store.withLock({key:sessionKey(request.session_id)},async tx=>{if(await tx.read())return;const {operation,runtime_session_ref,...begun}=request;
+    if(!await tx.compareAndSwap({expected_revision:null,value:{schema_version:'email.imap.form_session.v1',request:{...begun,operation:'begin'},identity:formIdentity(request),runtime_session_ref:randomBytes(32).toString('base64url'),account_id:randomUUID(),state:'not_connected',input_consumed:false,input_expires_at:request.setup_expires_at,ticket_digest:digest(randomBytes(32).toString('base64url')),browser:null,account:null,receipt:null,policy_digest}}))fail('EMAIL_FORM_CONFLICT');});}
+  let row=await checkedSession(request,signal);if(row.value.state==='awaiting_input'&&!row.value.input_consumed&&Date.parse(row.value.input_expires_at)<=now()&&!request.source){row=await store.withLock({key:sessionKey(request.session_id)},async tx=>{const found=await tx.read();if(found.value.state==='awaiting_input'&&!found.value.input_consumed){await tx.compareAndSwap({expected_revision:found.revision,value:{...found.value,state:'not_connected'}});return tx.read();}return found;});}
   // An unknown outcome whose attempt left no stored account is known after all:
   // nothing was saved. The check runs under the attempt's own lock, which a
   // running submit holds until it has finished. A stored account stays unknown.
