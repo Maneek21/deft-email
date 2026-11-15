@@ -43,6 +43,14 @@ export function createConnectionFormRuntime({registrations,registrationBook,stor
  }
  const recentFailures=async scope=>((await store.withLock({key:reservationKey(scope)},tx=>tx.read()))?.value.failures??[]).filter(at=>at>now()-FORM_RETRY.window_ms);
  const noteFailure=scope=>store.withLock({key:reservationKey(scope)},async tx=>{const held=await tx.read(),failures=[...(held?.value.failures??[]).filter(at=>at>now()-FORM_RETRY.window_ms),now()].slice(-FORM_RETRY.failures_per_window);await tx.compareAndSwap({expected_revision:held?.revision??null,value:{...(held?.value??{}),failures}});});
+ /** A replacement attempt reserves the stored account (pending_transition) from
+  * begin until it commits. If the attempt can no longer commit and the account's
+  * generation is still the one it started from, nothing was replaced: release the
+  * reservation so the account works again and may be replaced later. Returns
+  * false when the account moved on or is reserved by a different attempt. */
+ const releaseReplacement=(scope,account_id,session_id,generation)=>store.withLock({key:custodyKey(scope,account_id)},async tx=>{const account=await tx.read();
+  if(!account||!Number.isInteger(generation)||account.value.custody_generation!==generation||account.value.pending_effect||![session_id,null].includes(account.value.pending_transition))return false;
+  if(account.value.pending_transition===session_id&&!await tx.compareAndSwap({expected_revision:account.revision,value:{...account.value,pending_transition:null}}))fail('EMAIL_FORM_CONFLICT');return true;});
  async function begin(request,signal){if(Date.parse(request.setup_expires_at)<=now()||Date.parse(request.setup_expires_at)>now()+300000)fail('EMAIL_FORM_INPUT_INVALID');await current(request,'begin',signal);return store.withLock({key:'email.imap.form.domain.'+scopeDomain(request.scope)},async()=>store.withLock({key:sessionKey(request.session_id)},async tx=>{
   const existing=await tx.read();if(existing){if(!sameFormPins(existing.value.request,request))fail('EMAIL_FORM_SESSION_DENIED');return view(request,existing.value);}
   // The domain reservation does not expire after any input was consumed.
@@ -53,7 +61,9 @@ export function createConnectionFormRuntime({registrations,registrationBook,stor
   const row={schema_version:'email.imap.form_session.v1',request,identity:formIdentity(request),runtime_session_ref,account_id,state:'awaiting_input',input_consumed:false,input_expires_at,ticket_digest:digest(ticket),browser:null,account:null,receipt:null,policy_digest};
   // Reserve the current account before the form is disclosed; an uncertain or
   // pending SMTP/APPEND/Organize journal cannot acquire a second authority.
-  if(source)await store.withLock({key:custodyKey(request.scope,account_id)},async accountTx=>{const account=await accountTx.read();if(!account||account.value.state!=='connected'||account.value.pending_transition||account.value.pending_effect)fail('EMAIL_FORM_SOURCE_BUSY');if(!await accountTx.compareAndSwap({expected_revision:account.revision,value:{...account.value,pending_transition:request.session_id}}))fail('EMAIL_FORM_CONFLICT');});
+  // The generation seen here lets status() later prove whether this attempt ever
+  // replaced the stored account, and so whether its reservation may be released.
+  if(source)row.source_custody_generation=await store.withLock({key:custodyKey(request.scope,account_id)},async accountTx=>{const account=await accountTx.read();if(!account||account.value.state!=='connected'||account.value.pending_transition||account.value.pending_effect)fail('EMAIL_FORM_SOURCE_BUSY');if(!await accountTx.compareAndSwap({expected_revision:account.revision,value:{...account.value,pending_transition:request.session_id}}))fail('EMAIL_FORM_CONFLICT');return account.value.custody_generation;});
   await current(request,'begin',signal);if(!await tx.compareAndSwap({expected_revision:null,value:row}))fail('EMAIL_FORM_CONFLICT');
   await store.withLock({key:domainKey},async t=>{const held=await t.read();if(!await t.compareAndSwap({expected_revision:held?.revision??null,value:{...(held?.value??{}),session_id:request.session_id}}))fail('EMAIL_FORM_CONFLICT');});await current(request,'begin',signal);
   return {...view(request,row),setup_url:origin.origin+'/setup#'+ticket};
@@ -74,11 +84,12 @@ export function createConnectionFormRuntime({registrations,registrationBook,stor
   if((await recentFailures(request.scope)).length>=FORM_RETRY.failures_per_window)fail('EMAIL_FORM_ATTEMPTS_EXCEEDED');
   if(!await tx.compareAndSwap({expected_revision:row.revision,value:{...session,input_consumed:true,state:'submit_started'}}))fail('EMAIL_FORM_CONFLICT');await onPhase('submit_started');
   try{await connector.probe(profile,{signal,expires_at:deadline,check});await check();}catch(error){
-   // Nothing has been written to custody yet. A first-time connection whose
-   // login the server refused reopens this same page; every other failure keeps
-   // the unknown mark until status() can prove that nothing was stored.
+   // Nothing has been written to custody yet. An attempt whose login the server
+   // refused reopens this same page; every other failure keeps the unknown mark
+   // until status() can prove that nothing was stored. While a replacement is
+   // open the stored account stays reserved for it.
    const currentRow=await tx.read(),tries=(currentRow.value.failed_tries??0)+1,known=rejected.has(error?.code);await noteFailure(request.scope);
-   const reopen=known&&!request.source&&tries<FORM_RETRY.tries_per_session&&Date.parse(session.input_expires_at)>now();
+   const reopen=known&&tries<FORM_RETRY.tries_per_session&&Date.parse(session.input_expires_at)>now();
    await tx.compareAndSwap({expected_revision:currentRow.revision,value:{...currentRow.value,failed_tries:tries,...(reopen?{state:'awaiting_input',input_consumed:false}:{state:'indeterminate'})}});
    throw known?Object.assign(new Error(error.code),{code:error.code,retry:reopen}):error;}
   const generation=(before?.value.custody_generation??0)+1;if(generation>2147483646)fail('EMAIL_FORM_CONFLICT');const capabilities=['read','search','thread',...(hasSend&&profile.smtp?['send']:[]),...(request.action_consents.some(consent=>consent.action_key==='organize_messages')?['modify']:[])];
@@ -99,12 +110,23 @@ export function createConnectionFormRuntime({registrations,registrationBook,stor
   // a begin that arrives late finds this row and stays not connected.
   if(request.runtime_session_ref===null&&!await readSession(request.session_id)){await current(request,'status',signal);
    await store.withLock({key:sessionKey(request.session_id)},async tx=>{if(await tx.read())return;const {operation,runtime_session_ref,...begun}=request;
+    // A begin that reserved a stored account and then stopped before recording
+    // its attempt left a reservation naming this attempt, which can never proceed.
+    if(request.source)await store.withLock({key:custodyKey(request.scope,request.source.account_ref)},async accountTx=>{const account=await accountTx.read();if(account?.value.pending_transition===request.session_id&&!account.value.pending_effect&&!await accountTx.compareAndSwap({expected_revision:account.revision,value:{...account.value,pending_transition:null}}))fail('EMAIL_FORM_CONFLICT');});
     if(!await tx.compareAndSwap({expected_revision:null,value:{schema_version:'email.imap.form_session.v1',request:{...begun,operation:'begin'},identity:formIdentity(request),runtime_session_ref:randomBytes(32).toString('base64url'),account_id:randomUUID(),state:'not_connected',input_consumed:false,input_expires_at:request.setup_expires_at,ticket_digest:digest(randomBytes(32).toString('base64url')),browser:null,account:null,receipt:null,policy_digest}}))fail('EMAIL_FORM_CONFLICT');});}
-  let row=await checkedSession(request,signal);if(row.value.state==='awaiting_input'&&!row.value.input_consumed&&Date.parse(row.value.input_expires_at)<=now()&&!request.source){row=await store.withLock({key:sessionKey(request.session_id)},async tx=>{const found=await tx.read();if(found.value.state==='awaiting_input'&&!found.value.input_consumed){await tx.compareAndSwap({expected_revision:found.revision,value:{...found.value,state:'not_connected'}});return tx.read();}return found;});}
-  // An unknown outcome whose attempt left no stored account is known after all:
-  // nothing was saved. The check runs under the attempt's own lock, which a
-  // running submit holds until it has finished. A stored account stays unknown.
-  else if(['indeterminate','submit_started'].includes(row.value.state)&&!row.value.request.source){row=await store.withLock({key:sessionKey(request.session_id)},async tx=>{const found=await tx.read();if(!['indeterminate','submit_started'].includes(found.value.state)||await store.withLock({key:custodyKey(found.value.request.scope,found.value.account_id)},t=>t.read()))return found;await tx.compareAndSwap({expected_revision:found.revision,value:{...found.value,state:'not_connected'}});return tx.read();});}
+  let row=await checkedSession(request,signal);
+  // Settling an attempt that can no longer commit. All checks run under the
+  // attempt's own lock, which a running submit holds until it has finished.
+  // - Lapsed without input: not connected.
+  // - Unknown outcome of a first-time attempt: not connected only when no account
+  //   was stored for it. A stored account stays unknown.
+  // - A replacement, lapsed or unknown: not connected only when the stored
+  //   account is provably untouched, and its reservation is released first.
+  const lapsed=value=>value.state==='awaiting_input'&&!value.input_consumed&&Date.parse(value.input_expires_at)<=now(),unknown=value=>['indeterminate','submit_started'].includes(value.state);
+  if(lapsed(row.value)||unknown(row.value))row=await store.withLock({key:sessionKey(request.session_id)},async tx=>{const found=await tx.read(),value=found.value;if(!lapsed(value)&&!unknown(value))return found;
+   if(value.request.source){if(!await releaseReplacement(value.request.scope,value.account_id,value.request.session_id,value.source_custody_generation))return found;}
+   else if(unknown(value)&&await store.withLock({key:custodyKey(value.request.scope,value.account_id)},t=>t.read()))return found;
+   await tx.compareAndSwap({expected_revision:found.revision,value:{...value,state:'not_connected'}});return tx.read();});
   await current(request,'status',signal);return view(request,row.value);}
  async function disconnect(request,signal){await checkedSession(request,signal);return store.withLock({key:sessionKey(request.session_id)},async tx=>{const row=await tx.read();if(row.value.state!=='connected')return view(request,row.value);await store.withLock({key:custodyKey(request.scope,row.value.account_id)},async accountTx=>{const account=await accountTx.read();if(!account||account.value.pending_transition||account.value.pending_effect)fail('EMAIL_FORM_SOURCE_BUSY');await current(request,'disconnect',signal);await accountTx.compareAndSwap({expected_revision:account.revision,value:{...account.value,state:'revoked',custody_generation:account.value.custody_generation+1}});});const next={...row.value,state:'disconnected'};if(!await tx.compareAndSwap({expected_revision:row.revision,value:next}))fail('EMAIL_FORM_CONFLICT');return view(request,next);});}
  async function checkedAccount(session,scope,check,operation_id=null){await check();if(!session||session.policy_digest!==policy_digest||session.state!=='connected'||canonical(session.request.scope)!==canonical(scope))fail('EMAIL_IMAP_ACCESS_DENIED');const row=await store.withLock({key:custodyKey(scope,session.account_id)},tx=>tx.read());if(!row||row.value.state!=='connected'||row.value.pending_transition||row.value.pending_effect&&row.value.pending_effect.operation_id!==operation_id||canonical(row.value.scope)!==canonical(scope)||row.value.receipt.digest!==session.receipt.digest)fail('EMAIL_IMAP_ACCESS_DENIED');await check();return structuredClone(row.value);}

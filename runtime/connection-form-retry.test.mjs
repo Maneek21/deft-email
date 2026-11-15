@@ -7,6 +7,7 @@ import {createServer} from 'node:http';
 import {createConnectionFormHttpHandler} from './connection-form-http.mjs';
 import {FORM_RETRY} from './connection-form-runtime.mjs';
 import {createImapConnector,probeFailure,PROBE_REJECTIONS} from './imap-connector.mjs';
+import {digest} from './contract.mjs';
 import {fixture,profile} from './connection-form-test-support.mjs';
 
 const WRONG='FIXTURE_ONLY_WRONG_PASSWORD';
@@ -64,12 +65,60 @@ test('failed checks are capped per connection per hour; a capped try contacts no
  const later=await open(f,another(f));assert.equal((await f.forms.submit({...later.browser,value:profile()})).state,'connected');
  }finally{await f.close();}});
 
-test('replacing the password of a connected account keeps the one-shot rule',async()=>{let reject=false;const f=await fixture({probe:async()=>{if(reject)throw coded('EMAIL_IMAP_LOGIN_REJECTED');}});try{
- const first=await f.connect(),source={session_id:f.request.session_id,session_revision:1,scope:f.scope,runtime_session_ref:first.connected.runtime_session_ref,account_ref:first.connected.account.account_ref};
- const input={...another(f),source},{begun,browser}=await open(f,input);reject=true;
- await assert.rejects(f.forms.submit({...browser,value:profile()}),error=>error.code==='EMAIL_IMAP_LOGIN_REJECTED'&&error.retry===false);
- await assert.rejects(f.forms.submit({...browser,value:profile()}),{code:'EMAIL_FORM_SUBMIT_DENIED'});
- assert.equal((await f.forms.request(status(f,begun,input))).state,'indeterminate');assert.equal(f.probes,2);
+// Replacing the stored password of a connected account ("Reconnect existing account").
+const NEW='FIXTURE_ONLY_NEW_PASSWORD';
+const renewed=()=>{const value=profile();value.imap.password=NEW;return value;};
+const acceptsNew=async value=>{if(![profile().imap.password,NEW].includes(value.imap.password))throw coded('EMAIL_IMAP_LOGIN_REJECTED');};
+async function connectedAccount(options={}){const f=await fixture({probe:acceptsNew,...options}),first=await f.connect();
+ return {f,first,source:{session_id:f.request.session_id,session_revision:1,scope:f.scope,runtime_session_ref:first.connected.runtime_session_ref,account_ref:first.connected.account.account_ref},
+  usable:()=>f.forms.currentAccount(f.request.session_id,f.scope,async()=>{})};}
+
+test('a replacement with a mistyped password can be corrected on the same page; the account stays reserved meanwhile',async()=>{const {f,first,source,usable}=await connectedAccount();try{
+ const input={...another(f),source},{begun,browser}=await open(f,input);
+ await assert.rejects(usable(),{code:'EMAIL_IMAP_ACCESS_DENIED'});
+ await assert.rejects(f.forms.submit({...browser,value:wrong()}),error=>error.code==='EMAIL_IMAP_LOGIN_REJECTED'&&error.retry===true);
+ // Still reserved: the old credentials are not usable while the page is open.
+ await assert.rejects(usable(),{code:'EMAIL_IMAP_ACCESS_DENIED'});assert.equal((await f.forms.request(status(f,begun,input))).state,'awaiting_input');
+ const connected=await f.forms.submit({...browser,value:renewed()});assert.equal(connected.state,'connected');assert.equal(connected.receipt.custody_generation,2);assert.equal(connected.account.account_ref,first.connected.account.account_ref);
+ assert.equal((await f.forms.currentAccount(input.session_id,f.scope,async()=>{})).profile.imap.password,NEW);await assert.rejects(usable(),{code:'EMAIL_IMAP_ACCESS_DENIED'});
+ }finally{await f.close();}});
+
+test('a replacement that fails for good releases the account: the old connection works again and a new replacement may begin',async()=>{const {f,source,usable}=await connectedAccount();try{
+ const input={...another(f),source},{begun,browser}=await open(f,input);
+ for(let attempt=1;attempt<=FORM_RETRY.tries_per_session;attempt++)await assert.rejects(f.forms.submit({...browser,value:wrong()}),error=>error.retry===(attempt<FORM_RETRY.tries_per_session));
+ // Until the Host asks, the outcome is held and the account stays reserved.
+ await assert.rejects(usable(),{code:'EMAIL_IMAP_ACCESS_DENIED'});await assert.rejects(f.forms.request({...another(f),source}),{code:'EMAIL_FORM_DOMAIN_RESERVED'});
+ assert.equal((await f.forms.request(status(f,begun,input))).state,'not_connected');
+ assert.equal((await usable()).custody_generation,1);assert.equal((await usable()).profile.imap.password,profile().imap.password);
+ const again={...another(f),source},second=await open(f,again),connected=await f.forms.submit({...second.browser,value:renewed()});assert.equal(connected.receipt.custody_generation,2);
+ }finally{await f.close();}});
+
+test('an abandoned replacement page releases the account once its lease has lapsed',async()=>{const {f,source,usable}=await connectedAccount({scope:longConsent});try{
+ const input={...another(f),source},begun=await f.forms.request(input);
+ await assert.rejects(usable(),{code:'EMAIL_IMAP_ACCESS_DENIED'});assert.equal((await f.forms.request(status(f,begun,input))).state,'awaiting_input');await assert.rejects(usable(),{code:'EMAIL_IMAP_ACCESS_DENIED'});
+ f.advance(300001);assert.equal((await f.forms.request(status(f,begun,input))).state,'not_connected');assert.equal((await usable()).custody_generation,1);
+ const second=await open(f,{...another(f),source});assert.equal((await f.forms.submit({...second.browser,value:renewed()})).receipt.custody_generation,2);assert.equal(f.probes,2);
+ }finally{await f.close();}});
+
+test('a replacement that stored new credentials is never undone, and one begun before this rule is left alone',async()=>{
+ let interrupt=false;const committed=await connectedAccount({onPhase:async phase=>{if(phase==='custody_committed'&&interrupt){interrupt=false;throw Error('fixture interrupted');}}});try{const {f,source,usable}=committed;
+  interrupt=true;const input={...another(f),source},{begun,browser}=await open(f,input);await assert.rejects(f.forms.submit({...browser,value:renewed()}));
+  assert.equal((await f.forms.request(status(f,begun,input))).state,'indeterminate');await assert.rejects(usable(),{code:'EMAIL_IMAP_ACCESS_DENIED'});
+  const key='email.imap.custody.'+digest([f.scope.org_id,f.scope.owner_user_id,source.account_ref]),stored=(await f.store.withLock({key},tx=>tx.read())).value;
+  assert.equal(stored.custody_generation,2);assert.equal(stored.profile.imap.password,NEW);assert.equal(stored.pending_transition,null);
+ }finally{await committed.f.close();}
+ const legacy=await connectedAccount({scope:longConsent});try{const {f,source,usable}=legacy,input={...another(f),source},begun=await f.forms.request(input);
+  await f.store.withLock({key:'email.imap.form.session.'+input.session_id},async tx=>{const row=await tx.read(),{source_custody_generation,...before}=row.value;assert.equal(source_custody_generation,1);assert(await tx.compareAndSwap({expected_revision:row.revision,value:before}));});
+  f.advance(300001);assert.equal((await f.forms.request(status(f,begun,input))).state,'indeterminate');await assert.rejects(usable(),{code:'EMAIL_IMAP_ACCESS_DENIED'});
+ }finally{await legacy.f.close();}});
+
+test('a replacement whose begin never recorded its attempt cannot leave the account reserved',async()=>{const {f,source,usable}=await connectedAccount();try{
+ const key='email.imap.custody.'+digest([f.scope.org_id,f.scope.owner_user_id,source.account_ref]),reserve=id=>f.store.withLock({key},async tx=>{const row=await tx.read();assert(await tx.compareAndSwap({expected_revision:row.revision,value:{...row.value,pending_transition:id}}));});
+ // The reservation was written, then the process stopped before the attempt row.
+ const lost={...another(f),source};await reserve(lost.session_id);await assert.rejects(usable(),{code:'EMAIL_IMAP_ACCESS_DENIED'});
+ assert.equal((await f.forms.request({...lost,operation:'status',runtime_session_ref:null})).state,'not_connected');assert.equal((await usable()).custody_generation,1);
+ // A status for some other unknown attempt never releases a reservation it does not own.
+ await reserve(randomUUID());assert.equal((await f.forms.request({...another(f),source,operation:'status',runtime_session_ref:null})).state,'not_connected');await assert.rejects(usable(),{code:'EMAIL_IMAP_ACCESS_DENIED'});
  }finally{await f.close();}});
 
 test('the connector names only certain login-check outcomes and never carries provider text outward',async()=>{
