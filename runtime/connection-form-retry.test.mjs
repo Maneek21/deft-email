@@ -208,7 +208,7 @@ test('every answer on the retry paths is one the published Host contract accepts
  }finally{await f.close();}
 });
 
-test('the hourly failure budget follows the owner and the mailbox, not the Host scope that a renewed consent changes',async()=>{const f=await fixture({probe:strict,scope:longConsent});try{
+test('the hourly failure budget follows the owner and connection target, not the typed mailbox or the Host scope a renewed consent changes',async()=>{const f=await fixture({probe:strict,scope:longConsent});try{
  let current={...await open(f),input:f.request},failures=0;
  while(failures<FORM_RETRY.failures_per_window){
   await assert.rejects(f.forms.submit({...current.browser,value:wrong()}),{code:'EMAIL_IMAP_LOGIN_REJECTED'});failures++;
@@ -218,8 +218,30 @@ test('the hourly failure budget follows the owner and the mailbox, not the Host 
  const renewedScope={...f.scope,consent_expires_at:new Date(Date.parse(f.scope.consent_expires_at)+60000).toISOString()};
  const input={...another(f),scope:renewedScope},later=await open(f,input);
  await assert.rejects(f.forms.submit({...later.browser,value:wrong()}),{code:'EMAIL_FORM_ATTEMPTS_EXCEEDED'});assert.equal(f.probes,FORM_RETRY.failures_per_window);
- // Another mailbox of the same owner is not held back by it.
- const other=wrong();other.imap.username='someone-else';await assert.rejects(f.forms.submit({...later.browser,value:other}),{code:'EMAIL_IMAP_LOGIN_REJECTED'});
+ // Typing another username, or another spelling of it, does not buy a fresh budget.
+ for(const username of ['someone-else','OWNER']){const other=wrong();other.imap.username=username;await assert.rejects(f.forms.submit({...later.browser,value:other}),{code:'EMAIL_FORM_ATTEMPTS_EXCEEDED'});}
+ assert.equal(f.probes,FORM_RETRY.failures_per_window);
+ }finally{await f.close();}});
+
+test('pages opened at once under different scopes cannot overshoot the hourly budget',async()=>{
+ const slow=async value=>{await new Promise(done=>setTimeout(done,25));await strict(value);};
+ const f=await fixture({probe:slow,scope:longConsent});try{
+ let current={...await open(f),input:f.request},failures=0;
+ while(failures<FORM_RETRY.failures_per_window-1){
+  await assert.rejects(f.forms.submit({...current.browser,value:wrong()}),{code:'EMAIL_IMAP_LOGIN_REJECTED'});failures++;
+  if(failures%FORM_RETRY.tries_per_session===0&&failures<FORM_RETRY.failures_per_window-1){assert.equal((await f.forms.request(status(f,current.begun,current.input))).state,'not_connected');const input=another(f);current={...await open(f,input),input};}
+ }
+ const first={...another(f),scope:{...f.scope,grant_epoch:f.scope.grant_epoch+1}},second={...another(f),scope:{...f.scope,consent_expires_at:new Date(Date.parse(f.scope.consent_expires_at)+60000).toISOString()}};
+ const pages=[await open(f,first),await open(f,second)];
+ const settled=await Promise.allSettled(pages.map(page=>f.forms.submit({...page.browser,value:wrong()})));
+ assert.deepEqual(settled.map(row=>row.reason?.code).sort(),['EMAIL_FORM_ATTEMPTS_EXCEEDED','EMAIL_IMAP_LOGIN_REJECTED']);assert.equal(f.probes,FORM_RETRY.failures_per_window);
+ }finally{await f.close();}});
+
+test('a successful login check costs no budget',async()=>{const f=await fixture({probe:strict,scope:longConsent});try{
+ for(let round=0;round<FORM_RETRY.failures_per_window+2;round++){const input=round?another(f):f.request,page=await open(f,input);assert.equal((await f.forms.submit({...page.browser,value:profile()})).state,'connected');
+  // Each connects the one slot, so disconnect it to start another.
+  const connected=await f.forms.request({...f.fresh(input),operation:'disconnect',runtime_session_ref:page.begun.runtime_session_ref});assert.equal(connected.state,'disconnected');}
+ assert.equal(f.probes,FORM_RETRY.failures_per_window+2);
  }finally{await f.close();}});
 
 test('the real library\'s connect timeout, absent STARTTLS and the connector\'s own connect deadline reopen the page; a cancelled setup does not',async()=>{

@@ -7,10 +7,12 @@ import {PROBE_REJECTIONS} from './imap-connector.mjs';
 const sessionKey=id=>'email.imap.form.session.'+id;
 const reservationKey=scope=>'email.imap.form.reservation.'+digest(scope);
 // A refused or unreachable login check stores nothing, so the owner may correct
-// the details. Retries are bounded per setup page and per owner and mailbox per
-// hour so the form cannot be used to guess a mailbox password. The hourly budget
-// is keyed on credentialPrincipal, not on the Host's authority scope, which
-// changes with every consent renewal and app upgrade and would reset it.
+// the details. Retries are bounded per setup page and per owner and connection
+// target per hour (IMAP and SMTP checks alike) so the form cannot be used to
+// guess a mailbox password. The hourly budget is keyed on org, owner and target,
+// not on the mailbox typed and not on the Host's authority scope: either of
+// those changes freely (another username, a renewed consent, an app upgrade) and
+// would reset it.
 export const FORM_RETRY=Object.freeze({tries_per_session:3,failures_per_window:5,window_ms:3600000});
 const rejected=new Set(PROBE_REJECTIONS),retryable=code=>{throw Object.assign(new Error(code),{code,retry:true});};
 const custodyKey=(scope,id)=>'email.imap.custody.'+digest([scope.org_id,scope.owner_user_id,id]);
@@ -43,9 +45,12 @@ export function createConnectionFormRuntime({registrations,registrationBook,stor
   if(row.state==='awaiting_input'&&!row.input_consumed&&Date.parse(row.input_expires_at)>now())return result(request,'awaiting_input',{runtime_session_ref:row.runtime_session_ref,input_consumed:false,receipt:null,setup_expires_at:row.input_expires_at});
   return result(request,row.state==='not_connected'?'not_connected':'indeterminate',{runtime_session_ref:row.runtime_session_ref,input_consumed:row.input_consumed,account:null,receipt:null});
  }
- const failureKey=principal=>'email.imap.form.failures.'+principal;
- const recentFailures=async principal=>((await store.withLock({key:failureKey(principal)},tx=>tx.read()))?.value.failures??[]).filter(at=>at>now()-FORM_RETRY.window_ms);
- const noteFailure=principal=>store.withLock({key:failureKey(principal)},async tx=>{const held=await tx.read(),failures=[...(held?.value.failures??[]).filter(at=>at>now()-FORM_RETRY.window_ms),now()].slice(-FORM_RETRY.failures_per_window);await tx.compareAndSwap({expected_revision:held?.revision??null,value:{...(held?.value??{}),failures}});});
+ // One budget per owner and connection target, for IMAP and SMTP checks alike. A
+ // check is charged before the server is contacted, so concurrent pages cannot
+ // overshoot it, and refunded once the login check succeeded.
+ const failureKey=scope=>'email.imap.form.failures.'+digest([scope.org_id,scope.owner_user_id,scope.target_key]);
+ const chargeAttempt=key=>store.withLock({key},async tx=>{const held=await tx.read(),recent=(held?.value.failures??[]).filter(at=>at>now()-FORM_RETRY.window_ms);if(recent.length>=FORM_RETRY.failures_per_window)fail('EMAIL_FORM_ATTEMPTS_EXCEEDED');const at=now();if(!await tx.compareAndSwap({expected_revision:held?.revision??null,value:{...(held?.value??{}),failures:[...recent,at]}}))fail('EMAIL_FORM_CONFLICT');return at;});
+ const refundAttempt=(key,at)=>store.withLock({key},async tx=>{const held=await tx.read(),failures=[...(held?.value.failures??[])],index=failures.indexOf(at);if(index<0)return;failures.splice(index,1);await tx.compareAndSwap({expected_revision:held.revision,value:{...held.value,failures}});});
  /** A replacement attempt reserves the stored account (pending_transition) from
   * begin until it commits. If the attempt can no longer commit and the account's
   * generation is still the one it started from, nothing was replaced: release the
@@ -84,17 +89,18 @@ export function createConnectionFormRuntime({registrations,registrationBook,stor
   const check=()=>current(request,'submit',signal,deadline);await check();const hasSend=session.request.action_consents.some(consent=>consent.action_key==='send_message');if(profile.smtp&&!hasSend)retryable('EMAIL_FORM_SMTP_NOT_GRANTED');
   if(!endpointPolicy(profile))retryable('EMAIL_IMAP_ENDPOINT_DENIED');const principal=credentialPrincipal(request.scope,profile);
   const before=await store.withLock({key:custodyKey(request.scope,session.account_id)},t=>t.read());if(request.source&&(!before||before.value.pending_transition!==session_id||before.value.principal_digest!==principal||before.value.pending_effect))fail('EMAIL_FORM_SOURCE_DENIED');
-  if((await recentFailures(principal)).length>=FORM_RETRY.failures_per_window)fail('EMAIL_FORM_ATTEMPTS_EXCEEDED');
-  if(!await tx.compareAndSwap({expected_revision:row.revision,value:{...session,input_consumed:true,state:'submit_started'}}))fail('EMAIL_FORM_CONFLICT');await onPhase('submit_started');
+  const budget=failureKey(request.scope),charged=await chargeAttempt(budget);
+  if(!await tx.compareAndSwap({expected_revision:row.revision,value:{...session,input_consumed:true,state:'submit_started'}})){await refundAttempt(budget,charged);fail('EMAIL_FORM_CONFLICT');}await onPhase('submit_started');
   try{await connector.probe(profile,{signal,expires_at:deadline,check});await check();}catch(error){
    // Nothing has been written to custody yet. An attempt whose login the server
    // refused reopens this same page; every other failure keeps the unknown mark
    // until status() can prove that nothing was stored. While a replacement is
    // open the stored account stays reserved for it.
-   const currentRow=await tx.read(),tries=(currentRow.value.failed_tries??0)+1,known=rejected.has(error?.code);await noteFailure(principal);
+   const currentRow=await tx.read(),tries=(currentRow.value.failed_tries??0)+1,known=rejected.has(error?.code);
    const reopen=known&&tries<FORM_RETRY.tries_per_session&&Date.parse(session.input_expires_at)>now();
    await tx.compareAndSwap({expected_revision:currentRow.revision,value:{...currentRow.value,failed_tries:tries,...(reopen?{state:'awaiting_input',input_consumed:false}:{state:'indeterminate'})}});
    throw known?Object.assign(new Error(error.code),{code:error.code,retry:reopen}):error;}
+  await refundAttempt(budget,charged);
   const generation=(before?.value.custody_generation??0)+1;if(generation>2147483646)fail('EMAIL_FORM_CONFLICT');const capabilities=['read','search','thread',...(hasSend&&profile.smtp?['send']:[]),...(request.action_consents.some(consent=>consent.action_key==='organize_messages')?['modify']:[])];
   // Do not publish a password-derived digest (offline dictionary oracle). A
   // random credential-instance nonce binds the encrypted custody commit.
