@@ -33,6 +33,29 @@ export function createImapConnector({ImapFlow,createTransport,lookup=systemLooku
  if(!client.authenticated||client.secureConnection!==true||client.tls?.authorized!==true||client.authenticated===true&&client.authCapabilities?.has('PREAUTH'))fail('EMAIL_IMAP_TLS_REQUIRED');
  const result=await bounded(work(client),signal,expires_at-now(),close);await check();return result;
  }finally{signal?.removeEventListener('abort',close);if(client){try{if(client.authenticated)await bounded(client.logout(),undefined,1000,close);}catch{}close();if(client.options?.auth)client.options.auth.pass=undefined;}}}
- async function smtp(profile,{signal,expires_at,check},work){if(typeof createTransport!=='function')fail('EMAIL_SMTP_CONFIG_INVALID');let transport;const close=()=>{try{transport?.close();}catch{}};try{const setup=await options(profile,signal,check);const {doSTARTTLS,connection_address,...rest}=setup;transport=createTransport({...rest,host:connection_address,pool:false,requireTLS:profile.transport==='starttls_required',ignoreTLS:false,logger:false,debug:false,connectionTimeout:20000,greetingTimeout:10000,socketTimeout:30000});signal?.addEventListener('abort',close,{once:true});await check();const value=await bounded(work(transport),signal,expires_at-now(),close);await check();return value;}finally{signal?.removeEventListener('abort',close);close();if(transport?.options?.auth)transport.options.auth.pass=undefined;}}
- return Object.freeze({imap,smtp,async probe(profile,context){await imap(profile.imap,context,async()=>{});if(profile.smtp)await smtp(profile.smtp,context,transport=>transport.verify());}});
+ async function smtp(profile,{signal,expires_at,check},work){if(typeof createTransport!=='function')fail('EMAIL_SMTP_CONFIG_INVALID');let transport;const close=()=>{try{transport?.close();}catch{}};try{const setup=await options(profile,signal,check);const {doSTARTTLS,connection_address,...rest}=setup;transport=createTransport({...rest,host:connection_address,pool:false,requireTLS:profile.transport==='starttls_required',ignoreTLS:false,forceAuth:true,logger:false,debug:false,connectionTimeout:20000,greetingTimeout:10000,socketTimeout:30000});signal?.addEventListener('abort',close,{once:true});await check();const value=await bounded(work(transport),signal,expires_at-now(),close);await check();return value;}finally{signal?.removeEventListener('abort',close);close();if(transport?.options?.auth)transport.options.auth.pass=undefined;}}
+ return Object.freeze({imap,smtp,async probe(profile,context){
+  try{await imap(profile.imap,context,async()=>{});}catch(error){throw probeFailure(error,'IMAP',context);}
+  if(profile.smtp)try{await smtp(profile.smtp,context,transport=>transport.verify());}catch(error){throw probeFailure(error,'SMTP',context);}
+ }});
+}
+// Failures a login check can be certain about. Anything else stays unclassified
+// and the caller keeps treating it as an unknown outcome.
+const UNREACHABLE=new Set(['ENOTFOUND','EAI_AGAIN','ECONNREFUSED','ECONNRESET','EHOSTUNREACH','ENETUNREACH','ETIMEDOUT','ETIMEOUT','GREETING_TIMEOUT','UPGRADE_TIMEOUT','EDNS','CONNECT_TIMEOUT','ESOCKET','ECONNECTION','ETLS','CERT_HAS_EXPIRED','DEPTH_ZERO_SELF_SIGNED_CERT','SELF_SIGNED_CERT_IN_CHAIN','UNABLE_TO_VERIFY_LEAF_SIGNATURE','UNABLE_TO_GET_ISSUER_CERT_LOCALLY','ERR_TLS_CERT_ALTNAME_INVALID']);
+export const PROBE_REJECTIONS=Object.freeze(['EMAIL_IMAP_LOGIN_REJECTED','EMAIL_SMTP_LOGIN_REJECTED','EMAIL_IMAP_SERVER_UNREACHABLE','EMAIL_SMTP_SERVER_UNREACHABLE','EMAIL_IMAP_ENDPOINT_DENIED','EMAIL_IMAP_TLS_REQUIRED','EMAIL_IMAP_PRINCIPAL_UNPROVEN']);
+/** The server's own refusal of the login, or a server that could not be reached
+ * or verified, is a known outcome: no credential was accepted. Existing coded
+ * errors (authority, deadline, endpoint) pass through unchanged. The original
+ * error is dropped so provider text can never carry a credential outward.
+ * A probe does no work beyond connecting and logging in, so with the probe's own
+ * context a deadline that was not an abort of the setup (not cancelled by the
+ * caller) is the server (or its name lookup) not answering in time, for IMAP and
+ * SMTP alike. The library reports a required STARTTLS that the server does not
+ * offer as `tlsFailed`, with no code. */
+export function probeFailure(error,server,context){
+ if(error?.code==='EMAIL_IMAP_DEADLINE'&&context&&context.signal?.aborted!==true)return Object.assign(new Error('EMAIL_'+server+'_SERVER_UNREACHABLE'),{code:'EMAIL_'+server+'_SERVER_UNREACHABLE'});
+ if(server==='IMAP'&&error?.tlsFailed===true)return Object.assign(new Error('EMAIL_IMAP_TLS_REQUIRED'),{code:'EMAIL_IMAP_TLS_REQUIRED'});
+ if(typeof error?.code==='string'&&error.code.startsWith('EMAIL_'))return error;
+ const code=error?.authenticationFailed===true||error?.code==='EAUTH'?'EMAIL_'+server+'_LOGIN_REJECTED':UNREACHABLE.has(error?.code)?'EMAIL_'+server+'_SERVER_UNREACHABLE':null;
+ return code?Object.assign(new Error(code),{code}):error;
 }
