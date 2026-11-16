@@ -7,8 +7,10 @@ import {PROBE_REJECTIONS} from './imap-connector.mjs';
 const sessionKey=id=>'email.imap.form.session.'+id;
 const reservationKey=scope=>'email.imap.form.reservation.'+digest(scope);
 // A refused or unreachable login check stores nothing, so the owner may correct
-// the details. Retries are bounded per setup page and per connection per hour so
-// the form cannot be used to guess a mailbox password.
+// the details. Retries are bounded per setup page and per owner and mailbox per
+// hour so the form cannot be used to guess a mailbox password. The hourly budget
+// is keyed on credentialPrincipal, not on the Host's authority scope, which
+// changes with every consent renewal and app upgrade and would reset it.
 export const FORM_RETRY=Object.freeze({tries_per_session:3,failures_per_window:5,window_ms:3600000});
 const rejected=new Set(PROBE_REJECTIONS),retryable=code=>{throw Object.assign(new Error(code),{code,retry:true});};
 const custodyKey=(scope,id)=>'email.imap.custody.'+digest([scope.org_id,scope.owner_user_id,id]);
@@ -41,8 +43,9 @@ export function createConnectionFormRuntime({registrations,registrationBook,stor
   if(row.state==='awaiting_input'&&!row.input_consumed&&Date.parse(row.input_expires_at)>now())return result(request,'awaiting_input',{runtime_session_ref:row.runtime_session_ref,input_consumed:false,receipt:null,setup_expires_at:row.input_expires_at});
   return result(request,row.state==='not_connected'?'not_connected':'indeterminate',{runtime_session_ref:row.runtime_session_ref,input_consumed:row.input_consumed,account:null,receipt:null});
  }
- const recentFailures=async scope=>((await store.withLock({key:reservationKey(scope)},tx=>tx.read()))?.value.failures??[]).filter(at=>at>now()-FORM_RETRY.window_ms);
- const noteFailure=scope=>store.withLock({key:reservationKey(scope)},async tx=>{const held=await tx.read(),failures=[...(held?.value.failures??[]).filter(at=>at>now()-FORM_RETRY.window_ms),now()].slice(-FORM_RETRY.failures_per_window);await tx.compareAndSwap({expected_revision:held?.revision??null,value:{...(held?.value??{}),failures}});});
+ const failureKey=principal=>'email.imap.form.failures.'+principal;
+ const recentFailures=async principal=>((await store.withLock({key:failureKey(principal)},tx=>tx.read()))?.value.failures??[]).filter(at=>at>now()-FORM_RETRY.window_ms);
+ const noteFailure=principal=>store.withLock({key:failureKey(principal)},async tx=>{const held=await tx.read(),failures=[...(held?.value.failures??[]).filter(at=>at>now()-FORM_RETRY.window_ms),now()].slice(-FORM_RETRY.failures_per_window);await tx.compareAndSwap({expected_revision:held?.revision??null,value:{...(held?.value??{}),failures}});});
  /** A replacement attempt reserves the stored account (pending_transition) from
   * begin until it commits. If the attempt can no longer commit and the account's
   * generation is still the one it started from, nothing was replaced: release the
@@ -81,14 +84,14 @@ export function createConnectionFormRuntime({registrations,registrationBook,stor
   const check=()=>current(request,'submit',signal,deadline);await check();const hasSend=session.request.action_consents.some(consent=>consent.action_key==='send_message');if(profile.smtp&&!hasSend)retryable('EMAIL_FORM_SMTP_NOT_GRANTED');
   if(!endpointPolicy(profile))retryable('EMAIL_IMAP_ENDPOINT_DENIED');const principal=credentialPrincipal(request.scope,profile);
   const before=await store.withLock({key:custodyKey(request.scope,session.account_id)},t=>t.read());if(request.source&&(!before||before.value.pending_transition!==session_id||before.value.principal_digest!==principal||before.value.pending_effect))fail('EMAIL_FORM_SOURCE_DENIED');
-  if((await recentFailures(request.scope)).length>=FORM_RETRY.failures_per_window)fail('EMAIL_FORM_ATTEMPTS_EXCEEDED');
+  if((await recentFailures(principal)).length>=FORM_RETRY.failures_per_window)fail('EMAIL_FORM_ATTEMPTS_EXCEEDED');
   if(!await tx.compareAndSwap({expected_revision:row.revision,value:{...session,input_consumed:true,state:'submit_started'}}))fail('EMAIL_FORM_CONFLICT');await onPhase('submit_started');
   try{await connector.probe(profile,{signal,expires_at:deadline,check});await check();}catch(error){
    // Nothing has been written to custody yet. An attempt whose login the server
    // refused reopens this same page; every other failure keeps the unknown mark
    // until status() can prove that nothing was stored. While a replacement is
    // open the stored account stays reserved for it.
-   const currentRow=await tx.read(),tries=(currentRow.value.failed_tries??0)+1,known=rejected.has(error?.code);await noteFailure(request.scope);
+   const currentRow=await tx.read(),tries=(currentRow.value.failed_tries??0)+1,known=rejected.has(error?.code);await noteFailure(principal);
    const reopen=known&&tries<FORM_RETRY.tries_per_session&&Date.parse(session.input_expires_at)>now();
    await tx.compareAndSwap({expected_revision:currentRow.revision,value:{...currentRow.value,failed_tries:tries,...(reopen?{state:'awaiting_input',input_consumed:false}:{state:'indeterminate'})}});
    throw known?Object.assign(new Error(error.code),{code:error.code,retry:reopen}):error;}
@@ -126,7 +129,10 @@ export function createConnectionFormRuntime({registrations,registrationBook,stor
   if(lapsed(row.value)||unknown(row.value))row=await store.withLock({key:sessionKey(request.session_id)},async tx=>{const found=await tx.read(),value=found.value;if(!lapsed(value)&&!unknown(value))return found;
    if(value.request.source){if(!await releaseReplacement(value.request.scope,value.account_id,value.request.session_id,value.source_custody_generation))return found;}
    else if(unknown(value)&&await store.withLock({key:custodyKey(value.request.scope,value.account_id)},t=>t.read()))return found;
-   await tx.compareAndSwap({expected_revision:found.revision,value:{...value,state:'not_connected'}});return tx.read();});
+   // A replacement released above provably stored nothing, so its input was never
+   // accepted. The Host frees its predecessor only for a not-connected attempt
+   // whose input is not consumed; the stored account is working again, so say so.
+   await tx.compareAndSwap({expected_revision:found.revision,value:{...value,state:'not_connected',...(value.request.source?{input_consumed:false}:{})}});return tx.read();});
   await current(request,'status',signal);return view(request,row.value);}
  async function disconnect(request,signal){await checkedSession(request,signal);return store.withLock({key:sessionKey(request.session_id)},async tx=>{const row=await tx.read();if(row.value.state!=='connected')return view(request,row.value);await store.withLock({key:custodyKey(request.scope,row.value.account_id)},async accountTx=>{const account=await accountTx.read();if(!account||account.value.pending_transition||account.value.pending_effect)fail('EMAIL_FORM_SOURCE_BUSY');await current(request,'disconnect',signal);await accountTx.compareAndSwap({expected_revision:account.revision,value:{...account.value,state:'revoked',custody_generation:account.value.custody_generation+1}});});const next={...row.value,state:'disconnected'};if(!await tx.compareAndSwap({expected_revision:row.revision,value:next}))fail('EMAIL_FORM_CONFLICT');return view(request,next);});}
  async function checkedAccount(session,scope,check,operation_id=null){await check();if(!session||session.policy_digest!==policy_digest||session.state!=='connected'||canonical(session.request.scope)!==canonical(scope))fail('EMAIL_IMAP_ACCESS_DENIED');const row=await store.withLock({key:custodyKey(scope,session.account_id)},tx=>tx.read());if(!row||row.value.state!=='connected'||row.value.pending_transition||row.value.pending_effect&&row.value.pending_effect.operation_id!==operation_id||canonical(row.value.scope)!==canonical(scope)||row.value.receipt.digest!==session.receipt.digest)fail('EMAIL_IMAP_ACCESS_DENIED');await check();return structuredClone(row.value);}

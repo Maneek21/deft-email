@@ -88,7 +88,10 @@ test('a replacement that fails for good releases the account: the old connection
  for(let attempt=1;attempt<=FORM_RETRY.tries_per_session;attempt++)await assert.rejects(f.forms.submit({...browser,value:wrong()}),error=>error.retry===(attempt<FORM_RETRY.tries_per_session));
  // Until the Host asks, the outcome is held and the account stays reserved.
  await assert.rejects(usable(),{code:'EMAIL_IMAP_ACCESS_DENIED'});await assert.rejects(f.forms.request({...another(f),source}),{code:'EMAIL_FORM_DOMAIN_RESERVED'});
- assert.equal((await f.forms.request(status(f,begun,input))).state,'not_connected');
+ // The Host frees its predecessor only for a not-connected attempt whose input is
+ // not consumed (app-connection-form-fence.ts, app-connection-form-store.ts), so
+ // that is exactly the answer a settled replacement must give.
+ const settled=await f.forms.request(status(f,begun,input));assert.equal(settled.state,'not_connected');assert.equal(settled.input_consumed,false);assert.equal(settled.account,null);assert.equal(settled.receipt,null);
  assert.equal((await usable()).custody_generation,1);assert.equal((await usable()).profile.imap.password,profile().imap.password);
  const again={...another(f),source},second=await open(f,again),connected=await f.forms.submit({...second.browser,value:renewed()});assert.equal(connected.receipt.custody_generation,2);
  }finally{await f.close();}});
@@ -203,4 +206,32 @@ test('every answer on the retry paths is one the published Host contract accepts
   const connected=accepted(await f.forms.submit({...page,value:profile()}));assert.equal(connected.state,'connected');
   assert.deepEqual(accepted(await f.forms.request(status(f,connected,again))),connected);
  }finally{await f.close();}
+});
+
+test('the hourly failure budget follows the owner and the mailbox, not the Host scope that a renewed consent changes',async()=>{const f=await fixture({probe:strict,scope:longConsent});try{
+ let current={...await open(f),input:f.request},failures=0;
+ while(failures<FORM_RETRY.failures_per_window){
+  await assert.rejects(f.forms.submit({...current.browser,value:wrong()}),{code:'EMAIL_IMAP_LOGIN_REJECTED'});failures++;
+  if(failures%FORM_RETRY.tries_per_session===0&&failures<FORM_RETRY.failures_per_window){assert.equal((await f.forms.request(status(f,current.begun,current.input))).state,'not_connected');const input=another(f);current={...await open(f,input),input};}
+ }
+ // The same owner renews consent: a new authority scope, a fresh setup page, the same mailbox.
+ const renewedScope={...f.scope,consent_expires_at:new Date(Date.parse(f.scope.consent_expires_at)+60000).toISOString()};
+ const input={...another(f),scope:renewedScope},later=await open(f,input);
+ await assert.rejects(f.forms.submit({...later.browser,value:wrong()}),{code:'EMAIL_FORM_ATTEMPTS_EXCEEDED'});assert.equal(f.probes,FORM_RETRY.failures_per_window);
+ // Another mailbox of the same owner is not held back by it.
+ const other=wrong();other.imap.username='someone-else';await assert.rejects(f.forms.submit({...later.browser,value:other}),{code:'EMAIL_IMAP_LOGIN_REJECTED'});
+ }finally{await f.close();}});
+
+test('the real library\'s connect timeout, absent STARTTLS and the connector\'s own connect deadline reopen the page; a cancelled setup does not',async()=>{
+ const {ConnectionDeadline}=await import('./node_modules/imapflow/dist/esm/connection-deadline.js');
+ const timeout=new ConnectionDeadline(20000).error();assert.equal(timeout.code,'CONNECT_TIMEOUT');
+ assert.equal(probeFailure(timeout,'IMAP').code,'EMAIL_IMAP_SERVER_UNREACHABLE');
+ const noStarttls=Object.assign(new Error('Server does not support STARTTLS'),{tlsFailed:true});
+ assert.equal(probeFailure(noStarttls,'IMAP').code,'EMAIL_IMAP_TLS_REQUIRED');
+ const lookup=async()=>[{address:'93.184.216.34',family:4}],context=()=>({signal:new AbortController().signal,expires_at:Date.now()+1500,check:async()=>{}});
+ class Silent{constructor(options){this.options=options;}connect(){return new Promise(()=>{});}close(){}}
+ await assert.rejects(createImapConnector({ImapFlow:Silent,lookup}).probe(profile(),context()),{code:'EMAIL_IMAP_SERVER_UNREACHABLE'});
+ const cancelled=new AbortController(),running=createImapConnector({ImapFlow:Silent,lookup}).probe(profile(),{signal:cancelled.signal,expires_at:Date.now()+20000,check:async()=>{}});
+ setTimeout(()=>cancelled.abort(),50);await assert.rejects(running,{code:'EMAIL_IMAP_DEADLINE'});
+ assert(PROBE_REJECTIONS.includes('EMAIL_IMAP_TLS_REQUIRED'));
 });

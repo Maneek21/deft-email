@@ -1,8 +1,10 @@
 import {exact,fail} from './contract.mjs';
 
 const host=value=>typeof value==='string'&&value.length<=253&&/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$/u.test(value);
-// Names that can only ever mean a private network. Refusing them before any
-// lookup also keeps the form from revealing which internal names exist.
+// Names that can only ever mean a private network. They are refused before any
+// lookup. Other names are looked up, so the form can still tell a name that
+// resolves privately from one that does not exist; the hourly failure budget
+// bounds that.
 const PRIVATE_SUFFIXES=Object.freeze(['.localhost','.local','.internal','.lan','.home.arpa']);
 const nameIsPublic=value=>host(value)&&!PRIVATE_SUFFIXES.some(suffix=>value.endsWith(suffix));
 
