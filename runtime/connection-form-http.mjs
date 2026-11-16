@@ -22,7 +22,9 @@ export function createConnectionFormHttpHandler({forms,setup_origin,runtime_auth
    if(request.url==='/setup/exchange'){exact(input,['ticket']);const answer=await forms.exchange(input.ticket,signal);const {browser,...view}=answer;send(view,200,{'set-cookie':'__Host-deft-mail-setup='+browser+'; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=300'});return;}
    exact(input,['session_id','csrf','value']);const match=/(?:^|;\s*)__Host-deft-mail-setup=([A-Za-z0-9_-]{43})(?:;|$)/u.exec(request.headers.cookie??'');if(!match)fail('EMAIL_FORM_SUBMIT_DENIED');
    const answer=await forms.submit({...input,browser:match[1]},signal);send({schema_version:answer.schema_version,session_id:answer.session_id,state:answer.state},200,{'set-cookie':'__Host-deft-mail-setup=; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=0'});
-  }catch(error){const code=error?.code==='EMAIL_RUNTIME_INPUT_INVALID'?'EMAIL_FORM_INPUT_INVALID':typeof error?.code==='string'&&/^EMAIL_(?:FORM|IMAP|SMTP)_[A-Z_]+$/u.test(error.code)?error.code:'EMAIL_FORM_UNAVAILABLE';
+  }catch(error){const named=error?.code==='EMAIL_RUNTIME_INPUT_INVALID'?'EMAIL_FORM_INPUT_INVALID':typeof error?.code==='string'&&/^EMAIL_(?:FORM|IMAP|SMTP)_[A-Z_]+$/u.test(error.code)?error.code:'EMAIL_FORM_UNAVAILABLE';
+   // An input-validation error after the password was used (retry false) is not "invalid details, nothing saved": the page must say the outcome is uncertain.
+   const code=named==='EMAIL_FORM_INPUT_INVALID'&&error?.retry===false?'EMAIL_FORM_UNAVAILABLE':named;
    // retry tells the setup page only that this same page may be used again:
    // the runtime reopened the attempt, or nothing was consumed (invalid input).
    const retry=request.url==='/setup/submit'&&(error?.retry===true||code==='EMAIL_FORM_INPUT_INVALID'&&error?.retry!==false);

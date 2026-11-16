@@ -138,7 +138,11 @@ export function createConnectionFormRuntime({registrations,registrationBook,stor
   // - A replacement, lapsed or unknown: not connected only when the stored
   //   account is provably untouched, and its reservation is released first.
   const lapsed=value=>value.state==='awaiting_input'&&!value.input_consumed&&Date.parse(value.input_expires_at)<=now(),unknown=value=>['indeterminate','submit_started'].includes(value.state);
-  if(lapsed(row.value)||unknown(row.value))row=await store.withLock({key:sessionKey(request.session_id)},async tx=>{const found=await tx.read(),value=found.value;if(!lapsed(value)&&!unknown(value))return found;
+  // Settling a replacement hands the per-target hold back, so it takes the same
+  // domain lock begin() holds while it reads that hold and the session it names
+  // (domain, then session, then custody, then hold: the order begin() uses);
+  // otherwise a begin() that read the old hold could admit a second account.
+  const settle=()=>store.withLock({key:sessionKey(request.session_id)},async tx=>{const found=await tx.read(),value=found.value;if(!lapsed(value)&&!unknown(value))return found;
    if(value.request.source){if(!await releaseReplacement(value.request.scope,value.account_id,value.request.session_id,value.source_custody_generation))return found;
     // The per-target hold named this attempt. The account it was replacing is the
     // live one again, so the hold goes back to it; otherwise a fresh first-time
@@ -149,6 +153,7 @@ export function createConnectionFormRuntime({registrations,registrationBook,stor
    // accepted. The Host frees its predecessor only for a not-connected attempt
    // whose input is not consumed; the stored account is working again, so say so.
    await tx.compareAndSwap({expected_revision:found.revision,value:{...value,state:'not_connected',...(value.request.source?{input_consumed:false}:{})}});return tx.read();});
+  if(lapsed(row.value)||unknown(row.value))row=row.value.request.source?await store.withLock({key:'email.imap.form.domain.'+scopeDomain(row.value.request.scope)},settle):await settle();
   await current(request,'status',signal);return view(request,row.value);}
  async function disconnect(request,signal){await checkedSession(request,signal);return store.withLock({key:sessionKey(request.session_id)},async tx=>{const row=await tx.read();if(row.value.state!=='connected')return view(request,row.value);await store.withLock({key:custodyKey(request.scope,row.value.account_id)},async accountTx=>{const account=await accountTx.read();if(!account||account.value.pending_transition||account.value.pending_effect)fail('EMAIL_FORM_SOURCE_BUSY');await current(request,'disconnect',signal);await accountTx.compareAndSwap({expected_revision:account.revision,value:{...account.value,state:'revoked',custody_generation:account.value.custody_generation+1}});});const next={...row.value,state:'disconnected'};if(!await tx.compareAndSwap({expected_revision:row.revision,value:next}))fail('EMAIL_FORM_CONFLICT');return view(request,next);});}
  async function checkedAccount(session,scope,check,operation_id=null){await check();if(!session||session.policy_digest!==policy_digest||session.state!=='connected'||canonical(session.request.scope)!==canonical(scope))fail('EMAIL_IMAP_ACCESS_DENIED');const row=await store.withLock({key:custodyKey(scope,session.account_id)},tx=>tx.read());if(!row||row.value.state!=='connected'||row.value.pending_transition||row.value.pending_effect&&row.value.pending_effect.operation_id!==operation_id||canonical(row.value.scope)!==canonical(scope)||row.value.receipt.digest!==session.receipt.digest)fail('EMAIL_IMAP_ACCESS_DENIED');await check();return structuredClone(row.value);}

@@ -299,7 +299,7 @@ test('a failure after the password was used never offers the same page again; in
  try{const headers={origin:f.config.setup_origin,'sec-fetch-site':'same-origin','content-type':'application/json'};
   const exchange=await fetch(base+'/setup/exchange',{method:'POST',headers,body:JSON.stringify({ticket:'A'.repeat(43)})}),page=await exchange.json(),cookie=exchange.headers.get('set-cookie').split(';')[0];
   const sent=await fetch(base+'/setup/submit',{method:'POST',headers:{...headers,cookie},body:JSON.stringify({session_id:page.session_id,csrf:page.csrf,value:profile()})});
-  assert.equal(sent.status,400);assert.deepEqual(await sent.json(),{code:'EMAIL_FORM_INPUT_INVALID'});
+  assert.equal(sent.status,503);assert.deepEqual(await sent.json(),{code:'EMAIL_FORM_UNAVAILABLE'});
  }finally{await new Promise(done=>server.close(done));}
  }finally{await f.close();}});
 
@@ -328,3 +328,21 @@ test('an SMTP server that offers no AUTH is refused, not trusted; a stalled SMTP
  const stalled=async host=>host==='smtp.example.test'?new Promise(()=>{}):lookup();
  await assert.rejects(createImapConnector({ImapFlow:Accepting,createTransport:()=>({verify:async()=>{},close(){}}),lookup:stalled}).probe(value,{signal:new AbortController().signal,expires_at:Date.now()+20000,check:async()=>{}}),{code:'EMAIL_SMTP_SERVER_UNREACHABLE'});
 });
+
+test('settling a replacement cannot interleave with a first-time begin that already read the hold',async()=>{const {f,source,usable}=await connectedAccount({scope:longConsent});try{
+ const input={...another(f),source},{begun,browser}=await open(f,input);
+ for(let attempt=1;attempt<=FORM_RETRY.tries_per_session;attempt++)await assert.rejects(f.forms.submit({...browser,value:wrong()}));
+ // A begin() that has read the hold (still naming the replacement) is held up for a moment, as a slow disk would.
+ const holdKey='email.imap.form.reservation.'+digest(f.scope);let armed=false,reached;const read=new Promise(done=>{reached=done;});
+ const slow={...Object.fromEntries(Object.entries(f.store).map(([name,value])=>[name,typeof value==='function'?value.bind(f.store):value])),
+  withLock:async(options,work)=>{const result=await f.store.withLock(options,work);if(armed&&options.key===holdKey){armed=false;reached();await new Promise(done=>setTimeout(done,400));}return result;}};
+ const forms=createConnectionFormRuntime({...f.config,store:slow});armed=true;
+ const first=forms.request(another(f));await read;
+ // Meanwhile the replacement is settled and the live account gets the hold back.
+ const settled=f.forms.request(status(f,begun,input));
+ const [attempt,settle]=await Promise.allSettled([first,settled]);
+ assert.equal(attempt.status,'rejected');assert.equal(attempt.reason.code,'EMAIL_FORM_DOMAIN_RESERVED');
+ assert.equal(settle.status,'fulfilled');assert.equal(settle.value.state,'not_connected');
+ assert.equal((await usable()).custody_generation,1);
+ const again=await open(f,{...another(f),source});assert.equal((await f.forms.submit({...again.browser,value:renewed()})).receipt.custody_generation,2);
+ }finally{await f.close();}});
