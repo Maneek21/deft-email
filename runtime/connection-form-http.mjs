@@ -25,7 +25,7 @@ export function createConnectionFormHttpHandler({forms,setup_origin,runtime_auth
   }catch(error){const code=error?.code==='EMAIL_RUNTIME_INPUT_INVALID'?'EMAIL_FORM_INPUT_INVALID':typeof error?.code==='string'&&/^EMAIL_(?:FORM|IMAP|SMTP)_[A-Z_]+$/u.test(error.code)?error.code:'EMAIL_FORM_UNAVAILABLE';
    // retry tells the setup page only that this same page may be used again:
    // the runtime reopened the attempt, or nothing was consumed (invalid input).
-   const retry=request.url==='/setup/submit'&&(error?.retry===true||code==='EMAIL_FORM_INPUT_INVALID');
+   const retry=request.url==='/setup/submit'&&(error?.retry===true||code==='EMAIL_FORM_INPUT_INVALID'&&error?.retry!==false);
    if(!response.destroyed&&!response.writableEnded)send({code,...(retry?{retry:true}:{})},code.includes('INPUT')?400:code==='EMAIL_FORM_UNAVAILABLE'?503:403);}
   finally{request.off('aborted',abort);}
  };

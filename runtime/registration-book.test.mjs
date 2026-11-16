@@ -14,13 +14,15 @@ import {startFormRuntime} from './imap-server.mjs';
 import {makeScope,registrationFor} from './test-support.mjs';
 import {fixture,profile} from './connection-form-test-support.mjs';
 
-const begin=(scope,at=Date.now())=>({schema_version:'deft.app_connection_form_runtime.v1',session_id:randomUUID(),scope,operation:'begin',setup_expires_at:new Date(at+290000).toISOString(),expires_at:new Date(at+25000).toISOString(),action_consents:[],source:null});
+// The fixture's runtime reads a frozen clock, so a request built from the real clock drifts out of its deadline window on a slow machine; build it from the clock the runtime reads.
+let clock=Date.now;const clocked=async()=>{const f=await fixture();clock=f.config.now;return f;};
+const begin=(scope,at=clock())=>({schema_version:'deft.app_connection_form_runtime.v1',session_id:randomUUID(),scope,operation:'begin',setup_expires_at:new Date(at+290000).toISOString(),expires_at:new Date(at+25000).toISOString(),action_consents:[],source:null});
 const reopen=f=>createDurableStore({root:f.root,encryption_key:f.encryption_key,key_id:'fixture',allow_windows_fixture:true});
 // A runtime over the fixture's store that was configured with no registrations.
 async function unconfigured(f,options={}){const book=await createRegistrationBook({configured:[],store:f.store,...options});return {book,forms:createConnectionFormRuntime({...f.config,registrations:[],registrationBook:book})};}
 const connect=async(forms,request)=>{const begun=await forms.request(request),browser=await forms.exchange(new URL(begun.setup_url).hash.slice(1));return forms.submit({...browser,value:profile()});};
 
-test('without the setting an unlisted registration is refused and the Host is never asked',async()=>{const f=await fixture();try{
+test('without the setting an unlisted registration is refused and the Host is never asked',async()=>{const f=await clocked();try{
  const {book,forms}=await unconfigured(f);assert.equal(book.decide(f.scope),'denied');
  await assert.rejects(forms.request(f.request),{code:'EMAIL_FORM_REGISTRATION_DENIED'});assert.equal(f.calls.length,0);assert.deepEqual(book.all(),[]);
  await assert.rejects(book.confirm(f.scope),{code:'EMAIL_FORM_REGISTRATION_DENIED'});
@@ -28,7 +30,7 @@ test('without the setting an unlisted registration is refused and the Host is ne
  await assert.rejects(createRegistrationBook({configured:[],store:f.store,admission:'anyone'}),{code:'EMAIL_FORM_CONFIG_INVALID'});
  }finally{await f.close();}});
 
-test('with the setting the Host confirms an unlisted registration once; it connects and survives a restart with no configuration',async()=>{const f=await fixture();try{
+test('with the setting the Host confirms an unlisted registration once; it connects and survives a restart with no configuration',async()=>{const f=await clocked();try{
  const {book,forms}=await unconfigured(f,{admission:'host_authority'});assert.equal(book.decide(f.scope),'ask_host');
  assert.equal((await connect(forms,f.request)).state,'connected');assert.equal(f.calls[0].operation,'begin');assert.equal(book.decide(f.scope),'known');
  assert.deepEqual(book.all(),[{...registrationFor(f.scope),connection_protocol:'credential_form.v1'}]);
@@ -39,13 +41,13 @@ test('with the setting the Host confirms an unlisted registration once; it conne
  }finally{await store.close();}
  }finally{if(f.calls.length===0)await f.close();}});
 
-test('a registration the Host refuses is not saved',async()=>{const f=await fixture();try{
+test('a registration the Host refuses is not saved',async()=>{const f=await clocked();try{
  const {book,forms}=await unconfigured(f,{admission:'host_authority'});f.revoke();
  await assert.rejects(forms.request(f.request),{code:'EMAIL_FORM_AUTHORITY_DENIED'});assert.equal(f.calls.length,1);assert.deepEqual(book.all(),[]);assert.equal(book.decide(f.scope),'ask_host');
  await f.close();const store=await reopen(f);try{assert.deepEqual((await createRegistrationBook({configured:[],store,admission:'host_authority'})).all(),[]);}finally{await store.close();}
  }finally{if(f.calls.length===0)await f.close();}});
 
-test('only the first organisation, a bounded count and a non-decreasing epoch are ever accepted',async()=>{const f=await fixture();try{
+test('only the first organisation, a bounded count and a non-decreasing epoch are ever accepted',async()=>{const f=await clocked();try{
  const {book,forms}=await unconfigured(f,{admission:'host_authority',limit:2});await forms.request(f.request);const asked=f.calls.length;
  // Another organisation is refused before the Host is asked, even though this fixture Host would agree.
  const foreign={...makeScope(),consent_expires_at:f.scope.consent_expires_at};assert.equal(book.decide(foreign),'denied');
@@ -61,7 +63,7 @@ test('only the first organisation, a bounded count and a non-decreasing epoch ar
  assert.equal(book.decide({...f.scope,runtime_epoch:'2'}),'denied');assert.equal(book.decide(null),'denied');
  }finally{await f.close();}});
 
-test('a configured registration stays an exact pin; the Host cannot move it',async()=>{const f=await fixture();try{
+test('a configured registration stays an exact pin; the Host cannot move it',async()=>{const f=await clocked();try{
  const book=await createRegistrationBook({configured:[{...registrationFor(f.scope),connection_protocol:'credential_form.v1'}],store:f.store,admission:'host_authority'});
  const forms=createConnectionFormRuntime({...f.config,registrationBook:book});assert.equal(book.decide(f.scope),'known');
  assert.equal(book.decide({...f.scope,runtime_epoch:2}),'denied');await assert.rejects(forms.request(begin({...f.scope,runtime_epoch:2})),{code:'EMAIL_FORM_REGISTRATION_DENIED'});assert.equal(f.calls.length,0);
@@ -69,7 +71,7 @@ test('a configured registration stays an exact pin; the Host cannot move it',asy
  assert.equal(book.decide({...f.scope,runtime_registration_id:randomUUID()}),'ask_host');assert.equal(book.decide({...makeScope(),consent_expires_at:f.scope.consent_expires_at}),'denied');
  }finally{await f.close();}});
 
-test('data requests are served for a confirmed registration and refused for an unconfirmed one',async()=>{const f=await fixture();try{
+test('data requests are served for a confirmed registration and refused for an unconfirmed one',async()=>{const f=await fixture();clock=Date.now;try{
  const {book,forms}=await unconfigured(f,{admission:'host_authority'}),connected=await connect(forms,f.request);
  const runtime=createDataRuntime({registrations:[],getRegistrations:book.all,provider:'imap_smtp',forms,imapConnector:{imap:async()=>{throw Error('no mail server in this test');}},store:f.store,encryption_key:f.encryption_key,key_id:'fixture',assertCurrent:async value=>({...value,allowed:true})});
  const request=scope=>({schema_version:'deft.app_data_runtime.v1',request_id:randomUUID(),scope,connection:{session_id:f.request.session_id,session_revision:5,runtime_session_ref:connected.runtime_session_ref,account_ref:connected.account.account_ref},authority:{consent_id:randomUUID(),consent_digest:'sha256:'+'d'.repeat(64),data_policy_digest:'sha256:'+'e'.repeat(64)},operation:'connection_metadata',expires_at:new Date(Date.now()+29000).toISOString(),input:{store_key:'drafts'}});

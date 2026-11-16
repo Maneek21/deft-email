@@ -5,7 +5,7 @@ import {readdir,readFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {createServer} from 'node:http';
 import {createConnectionFormHttpHandler} from './connection-form-http.mjs';
-import {FORM_RETRY} from './connection-form-runtime.mjs';
+import {FORM_RETRY,createConnectionFormRuntime} from './connection-form-runtime.mjs';
 import {createImapConnector,probeFailure,PROBE_REJECTIONS} from './imap-connector.mjs';
 import {digest} from './contract.mjs';
 import {fixture,profile} from './connection-form-test-support.mjs';
@@ -38,7 +38,7 @@ test('the last allowed try closes the page; status proves nothing was stored and
  }finally{await f.close();}});
 
 test('an unclassified login-check failure stays unknown until status; afterwards the slot is free again',async()=>{let fail=true;const f=await fixture({probe:async()=>{if(fail)throw Error('fixture socket fault');}});try{
- const {begun,browser}=await open(f);await assert.rejects(f.forms.submit({...browser,value:profile()}),error=>error.retry===undefined);
+ const {begun,browser}=await open(f);await assert.rejects(f.forms.submit({...browser,value:profile()}),error=>error.retry===false);
  // Before any status check the unknown mark still reserves the connection.
  await assert.rejects(f.forms.request(another(f)),{code:'EMAIL_FORM_DOMAIN_RESERVED'});
  assert.equal((await f.forms.request(status(f,begun))).state,'not_connected');fail=false;
@@ -58,10 +58,11 @@ test('failed checks are capped per connection per hour; a capped try contacts no
   if(failures%FORM_RETRY.tries_per_session===0&&failures<FORM_RETRY.failures_per_window){assert.equal((await f.forms.request(status(f,current.begun,current.input))).state,'not_connected');const input=another(f);current={...await open(f,input),input};}
  }
  assert.equal(f.probes,FORM_RETRY.failures_per_window);
- // Even the right password is refused while the cap holds, and the page stays open.
+ // Even the right password is refused while the cap holds. The refused page can never succeed, so its lease is closed: the next status settles it.
  await assert.rejects(f.forms.submit({...current.browser,value:profile()}),{code:'EMAIL_FORM_ATTEMPTS_EXCEEDED'});assert.equal(f.probes,FORM_RETRY.failures_per_window);
- assert.equal((await f.forms.request(status(f,current.begun,current.input))).state,'awaiting_input');
- f.advance(FORM_RETRY.window_ms+1);assert.equal((await f.forms.request(status(f,current.begun,current.input))).state,'not_connected');
+ await assert.rejects(f.forms.submit({...current.browser,value:profile()}),{code:'EMAIL_FORM_SUBMIT_DENIED'});
+ assert.equal((await f.forms.request(status(f,current.begun,current.input))).state,'not_connected');
+ f.advance(FORM_RETRY.window_ms+1);
  const later=await open(f,another(f));assert.equal((await f.forms.submit({...later.browser,value:profile()})).state,'connected');
  }finally{await f.close();}});
 
@@ -219,7 +220,12 @@ test('the hourly failure budget follows the owner and connection target, not the
  const input={...another(f),scope:renewedScope},later=await open(f,input);
  await assert.rejects(f.forms.submit({...later.browser,value:wrong()}),{code:'EMAIL_FORM_ATTEMPTS_EXCEEDED'});assert.equal(f.probes,FORM_RETRY.failures_per_window);
  // Typing another username, or another spelling of it, does not buy a fresh budget.
- for(const username of ['someone-else','OWNER']){const other=wrong();other.imap.username=username;await assert.rejects(f.forms.submit({...later.browser,value:other}),{code:'EMAIL_FORM_ATTEMPTS_EXCEEDED'});}
+ let page=later,pageInput=input;
+ for(const username of ['someone-else','OWNER']){
+  // The refused page is closed; settle it, then open a new one under the renewed scope.
+  assert.equal((await f.forms.request(status(f,page.begun,pageInput))).state,'not_connected');
+  pageInput={...another(f),scope:renewedScope};page=await open(f,pageInput);
+  const other=wrong();other.imap.username=username;await assert.rejects(f.forms.submit({...page.browser,value:other}),{code:'EMAIL_FORM_ATTEMPTS_EXCEEDED'});}
  assert.equal(f.probes,FORM_RETRY.failures_per_window);
  }finally{await f.close();}});
 
@@ -256,4 +262,69 @@ test('the real library\'s connect timeout, absent STARTTLS and the connector\'s 
  const cancelled=new AbortController(),running=createImapConnector({ImapFlow:Silent,lookup}).probe(profile(),{signal:cancelled.signal,expires_at:Date.now()+20000,check:async()=>{}});
  setTimeout(()=>cancelled.abort(),50);await assert.rejects(running,{code:'EMAIL_IMAP_DEADLINE'});
  assert(PROBE_REJECTIONS.includes('EMAIL_IMAP_TLS_REQUIRED'));
+});
+
+test('a released replacement hands the per-target hold back: a first-time attempt is still refused beside the live account, a new reconnect is not',async()=>{const {f,source,usable}=await connectedAccount({scope:longConsent});try{
+ for(const how of ['rejected','abandoned']){
+  const input={...another(f),source},{begun,browser}=await open(f,input);
+  if(how==='rejected')for(let attempt=1;attempt<=FORM_RETRY.tries_per_session;attempt++)await assert.rejects(f.forms.submit({...browser,value:wrong()}));else f.advance(300001);
+  assert.equal((await f.forms.request(status(f,begun,input))).state,'not_connected');assert.equal((await usable()).custody_generation,1);
+  // The settled attempt must not leave the target open to a second, unrelated account.
+  await assert.rejects(f.forms.request(another(f)),{code:'EMAIL_FORM_DOMAIN_RESERVED'});
+ }
+ const again=await open(f,{...another(f),source});assert.equal((await f.forms.submit({...again.browser,value:renewed()})).receipt.custody_generation,2);
+ }finally{await f.close();}});
+
+test('a replacement page refused by the hourly cap is settled by the next status and frees the account at once',async()=>{const {f,source,usable}=await connectedAccount({scope:longConsent});try{
+ const first={...another(f),source},one=await open(f,first);
+ for(let attempt=1;attempt<=FORM_RETRY.tries_per_session;attempt++)await assert.rejects(f.forms.submit({...one.browser,value:wrong()}));
+ assert.equal((await f.forms.request(status(f,one.begun,first))).state,'not_connected');
+ const second={...another(f),source},two=await open(f,second);
+ for(let attempt=1;attempt<=FORM_RETRY.failures_per_window-FORM_RETRY.tries_per_session;attempt++)await assert.rejects(f.forms.submit({...two.browser,value:wrong()}),{code:'EMAIL_IMAP_LOGIN_REJECTED'});
+ await assert.rejects(f.forms.submit({...two.browser,value:renewed()}),{code:'EMAIL_FORM_ATTEMPTS_EXCEEDED'});
+ await assert.rejects(usable(),{code:'EMAIL_IMAP_ACCESS_DENIED'});
+ const settled=await f.forms.request(status(f,two.begun,second));assert.equal(settled.state,'not_connected');assert.equal(settled.input_consumed,false);
+ assert.equal((await usable()).custody_generation,1);assert.equal(f.probes,1+FORM_RETRY.failures_per_window);
+ }finally{await f.close();}});
+
+test('a failure after the password was used never offers the same page again; invalid input before it still does',async()=>{
+ const f=await fixture({probe:strict});let malformed=false;try{
+ const forms=createConnectionFormRuntime({...f.config,assertCurrent:async value=>malformed?{...value,allowed:true,unexpected:1}:{...value,allowed:true},onPhase:async phase=>{if(phase==='custody_committed')malformed=true;}});
+ const begun=await forms.request(f.request),browser=await forms.exchange(new URL(begun.setup_url).hash.slice(1));
+ const shouting=profile();shouting.imap.host='MAIL.EXAMPLE.TEST';await assert.rejects(forms.submit({...browser,value:shouting}),error=>error.retry===undefined&&/INPUT_INVALID/u.test(error.code));
+ // The Host's answer is malformed only once the account is already stored.
+ await assert.rejects(forms.submit({...browser,value:profile()}),error=>/INPUT_INVALID/u.test(error.code)&&error.retry===false);
+ const handler=createConnectionFormHttpHandler({forms:{exchange:async()=>({browser:'b'.repeat(43),csrf:'c'.repeat(43),session_id:randomUUID(),expires_at:new Date(Date.now()+60000).toISOString()}),submit:async()=>{throw Object.assign(new Error('EMAIL_RUNTIME_INPUT_INVALID'),{code:'EMAIL_RUNTIME_INPUT_INVALID',retry:false});},request:async()=>{}},setup_origin:f.config.setup_origin,runtime_auth_token:randomBytes(32).toString('base64url')});
+ const server=createServer(handler);await new Promise(done=>server.listen(0,'127.0.0.1',done));const base='http://127.0.0.1:'+server.address().port;
+ try{const headers={origin:f.config.setup_origin,'sec-fetch-site':'same-origin','content-type':'application/json'};
+  const exchange=await fetch(base+'/setup/exchange',{method:'POST',headers,body:JSON.stringify({ticket:'A'.repeat(43)})}),page=await exchange.json(),cookie=exchange.headers.get('set-cookie').split(';')[0];
+  const sent=await fetch(base+'/setup/submit',{method:'POST',headers:{...headers,cookie},body:JSON.stringify({session_id:page.session_id,csrf:page.csrf,value:profile()})});
+  assert.equal(sent.status,400);assert.deepEqual(await sent.json(),{code:'EMAIL_FORM_INPUT_INVALID'});
+ }finally{await new Promise(done=>server.close(done));}
+ }finally{await f.close();}});
+
+test('a label or address the published Host schema refuses is refused before anything is probed',async()=>{const f=await fixture({probe:strict});try{
+ const {browser}=await open(f);
+ for(const [field,text] of [['display_label','Work <personal>'],['display_label','a>b'],['primary_address','a<b@example.test']]){const value=profile();value[field]=text;await assert.rejects(f.forms.submit({...browser,value}),error=>error.code==='EMAIL_FORM_INPUT_INVALID'&&error.retry===undefined);}
+ assert.equal(f.probes,0);
+ assert.equal((await f.forms.submit({...browser,value:profile()})).state,'connected');
+ }finally{await f.close();}});
+
+test('an SMTP server that offers no AUTH is refused, not trusted; a stalled SMTP step is retryable',async()=>{
+ const {ImapFlow}=await import('imapflow'),nodemailer=(await import('nodemailer')).default,{protocolServer,ca}=await import('./imap-tls-fixture.mjs');
+ const local=(_host,options,done)=>options.all?done(null,[{address:'127.0.0.1',family:4}]):done(null,'127.0.0.1',4),context=()=>({signal:AbortSignal.timeout(10000),expires_at:Date.now()+10000,check:async()=>{}});
+ const connector=(imap,smtp)=>{class LocalImap extends ImapFlow{constructor(options){super({...options,port:imap.port,tls:{...options.tls,ca,lookup:local}});}}
+  return createImapConnector({ImapFlow:LocalImap,lookup:async()=>[{address:'93.184.216.34',family:4}],createTransport:options=>nodemailer.createTransport({...options,host:'127.0.0.1',port:smtp.port,tls:{...options.tls,ca,lookup:local}})});};
+ const value=profile();value.smtp={...value.imap,host:'smtp.example.test',port:465};
+ const imap=await protocolServer({}),noAuth=await protocolServer({protocol:'smtp',omitAuth:true}),withAuth=await protocolServer({protocol:'smtp'});
+ try{
+  await assert.rejects(connector(imap,noAuth).probe(value,context()),{code:'EMAIL_SMTP_LOGIN_REJECTED'});assert.equal(noAuth.counters.auth,1);
+  await connector(imap,withAuth).probe(value,context());assert.equal(withAuth.counters.auth,1);
+ }finally{await imap.close();await noAuth.close();await withAuth.close();}
+ class Accepting{constructor(options){this.options=options;this.authenticated=true;this.secureConnection=true;this.tls={authorized:true};}async connect(){}async logout(){}close(){}}
+ const lookup=async()=>[{address:'93.184.216.34',family:4}];
+ await assert.rejects(createImapConnector({ImapFlow:Accepting,createTransport:()=>({verify:()=>new Promise(()=>{}),close(){}}),lookup}).probe(value,{signal:new AbortController().signal,expires_at:Date.now()+1500,check:async()=>{}}),{code:'EMAIL_SMTP_SERVER_UNREACHABLE'});
+ // A stalled name lookup for the SMTP host is the same outcome.
+ const stalled=async host=>host==='smtp.example.test'?new Promise(()=>{}):lookup();
+ await assert.rejects(createImapConnector({ImapFlow:Accepting,createTransport:()=>({verify:async()=>{},close(){}}),lookup:stalled}).probe(value,{signal:new AbortController().signal,expires_at:Date.now()+20000,check:async()=>{}}),{code:'EMAIL_SMTP_SERVER_UNREACHABLE'});
 });

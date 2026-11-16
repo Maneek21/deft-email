@@ -6,7 +6,7 @@ import {readFile} from 'node:fs/promises';
 const root=new URL('./test-fixtures/',import.meta.url);
 export const ca=await readFile(new URL('ca.pem',root));
 const options={key:await readFile(new URL('server-key.pem',root)),cert:await readFile(new URL('server.pem',root)),minVersion:'TLSv1.2'};
-export async function protocolServer({protocol='imap',starttls=false,preauth=false,rejectLogin=false,omitStarttls=false,dropDataAck=false}={}){
+export async function protocolServer({protocol='imap',starttls=false,preauth=false,rejectLogin=false,omitStarttls=false,dropDataAck=false,omitAuth=false}={}){
  const counters={auth:0,plaintext_auth:0,mail:0,rcpt:0,data:0,connections:0},sockets=new Set(),commands=[];
  const messages=[];
  function attach(socket,secure,greet=true){sockets.add(socket);socket.on('error',()=>{});socket.once('close',()=>sockets.delete(socket));let buffer='',dataBytes=null;
@@ -24,7 +24,8 @@ export async function protocolServer({protocol='imap',starttls=false,preauth=fal
     else if(op==='LOGOUT'){socket.write('* BYE fixture\r\n');reply('OK logout');socket.end();}
     else reply('OK fixture');
    }else{
-    if(op==='EHLO')socket.write('250-smtp.example.test\r\n'+(!secure&&starttls&&!omitStarttls?'250-STARTTLS\r\n':'')+'250 AUTH PLAIN\r\n');
+    if(op==='EHLO')socket.write('250-smtp.example.test\r\n'+(!secure&&starttls&&!omitStarttls?'250-STARTTLS\r\n':'')+(omitAuth?'250 8BITMIME':'250 AUTH PLAIN')+'\r\n');
+    else if(op==='AUTH'&&omitAuth){counters.auth++;reply('504 5.5.4 authentication not supported');}
     else if(op==='AUTH'){counters.auth++;if(!secure)counters.plaintext_auth++;reply(rejectLogin?'535 Authentication rejected':'235 Authenticated');}
     else if(op==='QUIT'){reply('221 Bye');socket.end();}
     else{if(op==='MAIL')counters.mail++;if(op==='RCPT')counters.rcpt++;if(op==='DATA'){counters.data++;dataBytes=Buffer.from(buffer);buffer='';reply('354 send exact synthetic bytes');return;}reply('250 fixture');}

@@ -20,7 +20,8 @@ const text=(value,max)=>typeof value==='string'&&value.length>0&&value.length<=m
 export function validateCredentialInput(raw){
  exact(raw,['imap','smtp','primary_address','display_label']);const server=(value,kind)=>{exact(value,['host','port','transport','username','password']);
  if(!text(value.host,253)||value.host!==value.host.toLowerCase()||!/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$/u.test(value.host)||!text(value.username,512)||!text(value.password,8192)||!['implicit_tls','starttls_required'].includes(value.transport)||value.port!==(kind==='imap'?(value.transport==='implicit_tls'?993:143):(value.transport==='implicit_tls'?465:587)))fail('EMAIL_FORM_INPUT_INVALID');return structuredClone(value);};
- if(!text(raw.primary_address,320)||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(raw.primary_address)||!text(raw.display_label,200)||Buffer.byteLength(JSON.stringify(raw))>FORM_LIMITS.json_bytes)fail('EMAIL_FORM_INPUT_INVALID');
+ // The published Host account schema refuses "<" and ">" in both, so refuse them here, before anything is probed or stored.
+ if(!text(raw.primary_address,320)||!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/u.test(raw.primary_address)||!text(raw.display_label,200)||/[<>]/u.test(raw.display_label)||Buffer.byteLength(JSON.stringify(raw))>FORM_LIMITS.json_bytes)fail('EMAIL_FORM_INPUT_INVALID');
  return {imap:server(raw.imap,'imap'),smtp:raw.smtp===null?null:server(raw.smtp,'smtp'),primary_address:raw.primary_address,display_label:raw.display_label};
 }
 export const credentialPrincipal=(scope,profile)=>digest({schema_version:'email.imap_principal.v1',org_id:scope.org_id,owner_user_id:scope.owner_user_id,host:profile.imap.host,port:profile.imap.port,transport:profile.imap.transport,username:profile.imap.username});
