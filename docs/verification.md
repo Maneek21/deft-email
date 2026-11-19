@@ -1,6 +1,10 @@
 # Verification and acceptance
 
-Use [the authoritative compatibility record](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.33/compatibility.json) for the exact release source, artifacts, checksums and publication state. A prepared candidate is not published merely because its files build. The final public prerelease must link its acceptance results and disclose unverified behavior.
+Use [the authoritative compatibility record](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.34/compatibility.json) for the exact release source, artifacts, checksums and publication state. A prepared candidate is not published merely because its files build. The final public prerelease must link its acceptance results and disclose unverified behavior.
+
+## Runtime31 form-mode start repair: local evidence
+
+Email34 changes only the Runtime: `readOperatorJson` moves from `runtime/server.mjs` into `runtime/operator-json.mjs` so that `node server.mjs`, the operator image's command, starts in hosted form mode instead of exiting 13 on an import cycle. `scripts/runtime-artifact.test.mjs` now starts `node server.mjs` from the extracted Runtime archive in form mode and OAuth mode with synthetic configuration, and fails unless each listens, form mode answers `/setup`, `/v1` refuses a request without a bearer, and SIGTERM stops it with exit 0; CI runs it on Linux. App12 is unchanged. No real mailbox, browser or Host has been connected through the form; these are local and CI results, not a live deployment claim.
 
 ## Runtime30 credential form: local evidence
 
