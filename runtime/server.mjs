@@ -10,9 +10,6 @@ import {createRegistrationContinuity} from './registration-continuity.mjs';
 import {createBackgroundAccessReconciler} from './background-access-reconciler.mjs';
 import {createServer} from 'node:http';
 import {runPollingWorker} from './polling-worker.mjs';
-import {open} from 'node:fs/promises';
-import {constants as C} from 'node:fs';
-import {isAbsolute} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createDurableStore} from './durable-store.mjs';
 import {createRegistrationDispatcher, validateRegistrations} from './registration-dispatch.mjs';
@@ -24,16 +21,8 @@ import {createAppRuntimeClient,createDeftResourceSyncClientV3,createResourceObse
 import {createAuthorityClient, createHttpHandler,trustedUrl} from './http.mjs';
 import {exact, fail,canonical,validateRegistration} from './contract.mjs';
 import {resolveProviderConfig} from './provider-config.mjs';
-
-export async function readOperatorJson(path, allow_windows_fixture = false) {
-  if (typeof path !== 'string' || !isAbsolute(path) || process.platform === 'win32' && !allow_windows_fixture) fail('EMAIL_RUNTIME_SECRET_FILE_INVALID');
-  const handle = await open(path, C.O_RDONLY | (C.O_NOFOLLOW ?? 0));
-  try {
-    const stat = await handle.stat();
-    if (!stat.isFile() || stat.nlink !== 1 || stat.size > 16384 || process.platform !== 'win32' && (stat.uid !== process.getuid() || (stat.mode & 0o077) !== 0)) fail('EMAIL_RUNTIME_SECRET_FILE_INVALID');
-    return JSON.parse(await handle.readFile('utf8'));
-  } finally { await handle.close(); }
-}
+import {readOperatorJson} from './operator-json.mjs';
+export {readOperatorJson};
 
 export async function startRuntime(config, options = {}) {
   if(config?.provider_config?.provider==='imap_smtp')return (await import('./imap-server.mjs')).startFormRuntime(config,options);
