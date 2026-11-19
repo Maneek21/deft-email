@@ -139,6 +139,7 @@
     "imap-resource-triage.mjs",
     "imap-runtime-ports.mjs",
     "imap-server.mjs",
+    "operator-json.mjs",
     "imap-tls-fixture.mjs",
     "imap-tls.test.mjs",
     "integration-calendar-parser.mjs",

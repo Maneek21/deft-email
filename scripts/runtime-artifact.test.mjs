@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {fork, spawnSync} from 'node:child_process';
+import {fork, spawn, spawnSync} from 'node:child_process';
 import {mkdtemp, mkdir, readFile, writeFile, rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {dirname, join, relative, resolve, sep} from 'node:path';
@@ -95,4 +95,72 @@ test('exported Runtime archive has a closed module graph and starts without an A
       }
     }
   });
+  // The operator image runs `node server.mjs` from the extracted Runtime with only EMAIL_RUNTIME_CONFIG_FILE set
+  // (runtime/Dockerfile.operator CMD). Start exactly that, once per provider mode, so a module graph that cannot
+  // evaluate as the entry (an import cycle under top-level await exits 13) fails here rather than on a Host.
+  // The real entry refuses operator files on Windows by design, so this runs where the image runs: Linux CI.
+  const synthetic = () => ({listen_port: 0, key_id: 'entry-startup-fixture',
+    encryption_key_hex: randomBytes(32).toString('hex'), runtime_auth_token: randomBytes(32).toString('base64url'),
+    authority_token: randomBytes(32).toString('base64url')});
+  const entryModes = {
+    // The hosted workspace's form-mode settings (Host vouches for registrations; any public mail server).
+    imap_smtp_form: async () => ({...synthetic(), store_root: join(parent, 'form-state'),
+      form_authority_url: 'https://cell.invalid/api/app-connection-forms/runtime/authority',
+      data_authority_url: 'https://cell.invalid/api/app-data/runtime/authority',
+      registrations: [], registration_admission: 'host_authority',
+      provider_config: {provider: 'imap_smtp', setup_origin: 'https://cell-mail.invalid', profile_digests: [],
+        endpoint_policy: {mode: 'public_addresses'}}}),
+    gmail_oauth: async () => {
+      const {client, makeScope, registrationFor} = await import(pathToFileURL(join(runtime, 'test-support.mjs')));
+      const clientFile = join(parent, 'entry-client.json');
+      await writeFile(clientFile, JSON.stringify(client), {mode: 0o600});
+      return {...synthetic(), store_root: join(parent, 'gmail-state'),
+        authority_url: 'https://cell.invalid/api/app-connection-sessions/runtime/authority',
+        registration: registrationFor(makeScope()), gmail_client_file: clientFile};
+    },
+  };
+  for (const [mode, makeConfig] of Object.entries(entryModes)) {
+    await t.test('image CMD `node server.mjs` starts as the entry point in ' + mode + ' mode',
+      {skip: process.platform === 'win32' && 'server.mjs refuses operator files on Windows; runs in Linux CI'}, async () => {
+        const configFile = join(parent, mode + '.json');
+        await writeFile(configFile, JSON.stringify(await makeConfig()), {mode: 0o600});
+        let output = '', stdout = '', child;
+        try {
+          child = spawn(process.execPath, ['server.mjs'], {cwd: runtime, windowsHide: true,
+            env: {...process.env, EMAIL_RUNTIME_CONFIG_FILE: configFile}, stdio: ['ignore', 'pipe', 'pipe']});
+          const port = await new Promise((done, reject) => {
+            const timer = setTimeout(() => reject(Error('`node server.mjs` did not listen within 20 s\n' + output)), 20000);
+            child.stdout.on('data', value => {
+              output += value; stdout += value;
+              // Only newline-terminated stdout records: a chunk may end mid-line.
+              const line = stdout.split('\n').slice(0, -1).find(row => row.includes('"email_runtime_listening"'));
+              if (line) {clearTimeout(timer); done(JSON.parse(line).port);}
+            });
+            child.stderr.on('data', value => {output += value;});
+            child.once('error', error => {clearTimeout(timer); reject(error);});
+            child.once('exit', code => {clearTimeout(timer); reject(Error('`node server.mjs` exited ' + code + '\n' + output));});
+          });
+          if (mode === 'imap_smtp_form') {
+            const setup = await fetch('http://127.0.0.1:' + port + '/setup');
+            assert.equal(setup.status, 200, output);
+            assert.match(await setup.text(), /<title>Authenticate mail servers<\/title>/u);
+          }
+          const denied = await fetch('http://127.0.0.1:' + port + '/v1/connections', {method: 'POST'});
+          assert.equal(denied.status, 401);
+          const exited = new Promise((done, reject) => {
+            const timer = setTimeout(() => reject(Error('`node server.mjs` shutdown timed out\n' + output)), 10000);
+            child.once('exit', code => {clearTimeout(timer); done(code);});
+          });
+          child.kill('SIGTERM');
+          assert.equal(await exited, 0, output);
+          child = undefined;
+        } finally {
+          if (child && child.exitCode === null) {
+            const exited = new Promise(done => child.once('exit', done));
+            child.kill('SIGKILL');
+            await exited;
+          }
+        }
+      });
+  }
 });
