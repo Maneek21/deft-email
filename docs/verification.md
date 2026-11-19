@@ -1,6 +1,10 @@
 # Verification and acceptance
 
-Use [the authoritative compatibility record](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.32/compatibility.json) for the exact release source, artifacts, checksums and publication state. A prepared candidate is not published merely because its files build. The final public prerelease must link its acceptance results and disclose unverified behavior.
+Use [the authoritative compatibility record](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.33/compatibility.json) for the exact release source, artifacts, checksums and publication state. A prepared candidate is not published merely because its files build. The final public prerelease must link its acceptance results and disclose unverified behavior.
+
+## Runtime30 credential form: local evidence
+
+Email33 changes only the Runtime: the credential form, endpoint policy, registration book and IMAP/SMTP connector in `runtime/`, their tests (`connection-form`, `connection-form-page`, `connection-form-retry`, `endpoint-policy`, `registration-book`) and one CI step that runs them. App12 is unchanged. No real mailbox, browser or Host has been connected through the form; the tests use stand-ins. These are local and CI results, not a live deployment claim.
 
 ## Runtime29 repair: local evidence
 
