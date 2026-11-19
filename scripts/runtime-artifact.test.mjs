@@ -124,15 +124,16 @@ test('exported Runtime archive has a closed module graph and starts without an A
       {skip: process.platform === 'win32' && 'server.mjs refuses operator files on Windows; runs in Linux CI'}, async () => {
         const configFile = join(parent, mode + '.json');
         await writeFile(configFile, JSON.stringify(await makeConfig()), {mode: 0o600});
-        let output = '', child;
+        let output = '', stdout = '', child;
         try {
           child = spawn(process.execPath, ['server.mjs'], {cwd: runtime, windowsHide: true,
             env: {...process.env, EMAIL_RUNTIME_CONFIG_FILE: configFile}, stdio: ['ignore', 'pipe', 'pipe']});
           const port = await new Promise((done, reject) => {
             const timer = setTimeout(() => reject(Error('`node server.mjs` did not listen within 20 s\n' + output)), 20000);
             child.stdout.on('data', value => {
-              output += value;
-              const line = output.split('\n').find(row => row.includes('email_runtime_listening'));
+              output += value; stdout += value;
+              // Only newline-terminated stdout records: a chunk may end mid-line.
+              const line = stdout.split('\n').slice(0, -1).find(row => row.includes('"email_runtime_listening"'));
               if (line) {clearTimeout(timer); done(JSON.parse(line).port);}
             });
             child.stderr.on('data', value => {output += value;});
