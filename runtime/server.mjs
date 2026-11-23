@@ -21,6 +21,7 @@ import {createAppRuntimeClient,createDeftResourceSyncClientV3,createResourceObse
 import {createAuthorityClient, createHttpHandler,trustedUrl} from './http.mjs';
 import {exact, fail,canonical,validateRegistration} from './contract.mjs';
 import {resolveProviderConfig} from './provider-config.mjs';
+import {resolveSendLimits} from './send-cap.mjs';
 import {readOperatorJson} from './operator-json.mjs';
 export {readOperatorJson};
 
@@ -45,6 +46,8 @@ export async function startRuntime(config, options = {}) {
   if(observationFields.length&&(!Array.isArray(config.resource_sync_channel_files)||config.resource_sync_channel_files.length<1||config.resource_sync_channel_files.length>32||new Set(config.resource_sync_channel_files).size!==config.resource_sync_channel_files.length))fail('EMAIL_RUNTIME_CONFIG_INVALID');
   if (!Number.isInteger(config.listen_port) || config.listen_port < 0 || config.listen_port > 65535 || !/^[a-f0-9]{64}$/iu.test(config.encryption_key_hex ?? '')) fail('EMAIL_RUNTIME_CONFIG_INVALID');
   const registrations = validateRegistrations(registrationField === 'registration' ? [config.registration] : config.registrations);
+  // OAuth mode is never the hosted form helper: no send cap unless the operator sets one.
+  const sendLimits = options.sendLimits ?? resolveSendLimits({env: options.env ?? process.env, hosted: false});
   const {provider,client}=await resolveProviderConfig(config,registrations,path=>readOperatorJson(path,options.allow_windows_fixture??false));
   const encryption_key = Buffer.from(config.encryption_key_hex, 'hex');
   const store = await createDurableStore({root: config.store_root, encryption_key, key_id: config.key_id, allow_windows_fixture: options.allow_windows_fixture ?? false});
@@ -87,7 +90,7 @@ export async function startRuntime(config, options = {}) {
       const {observation_authority_url,...renewalChannel}=channel,resourceClient=createDeftResourceSyncClientV3({channel_url,credential:channel.credential,fetch:options.channelFetch});
       return {registration,authority_url,renewal:createRuntimeChannelRenewal({channel:renewalChannel,runtime_client:{...resourceClient,renew:(input,signal)=>resourceClient.renew(input,{signal})}})};};
     const track=(channel,renewal,kind)=>{const id=channel.credential.session_id;if(channel_sessions.has(id)&&(kind==='observation'||renewal.renewable||channel_sessions.get(id)))fail('EMAIL_RUNTIME_RENEWAL_CONFIG_INVALID');channel_sessions.set(id,renewal.renewable);const entry=renewal.renewable?{session_id:id,renewal,kind}:null;if(entry)channel_renewals.push(entry);return entry;};
-    const addAction=(channel,{renewal})=>{const entry=track(channel,renewal,'action'),runner=createAppActionRunner({runtime_client:renewal.client,registration:channel.registration,client,provider,store,encryption_key,key_id:config.key_id,fetch:options.fetch});replaceChannel(channel,renewal,'action',runner);send_runners.push(runner);return {entry,runner};};
+    const addAction=(channel,{renewal})=>{const entry=track(channel,renewal,'action'),runner=createAppActionRunner({runtime_client:renewal.client,registration:channel.registration,client,provider,store,encryption_key,key_id:config.key_id,fetch:options.fetch,sendLimits});replaceChannel(channel,renewal,'action',runner);send_runners.push(runner);return {entry,runner};};
     const addObservation=(channel,{registration,authority_url,renewal})=>{const entry=track(channel,renewal,'observation'),observation_client=createResourceObservationClient({channel_url:authority_url,credential:channel.credential,fetch:options.channelFetch});
       const runner=createResourceObservationRunner({repairContinuity:createCredentialRepairPorts({store,registration}).repairContinuity,runtime_client:renewal.client,observation_client,registration:channel.registration,client,provider,store,encryption_key,key_id:config.key_id,fetch:options.fetch});replaceChannel(channel,renewal,'observation',runner);observation_runners.push(runner);return {entry,runner};};
     // Sessions the Host installed replace operator-file channels for the same registration.

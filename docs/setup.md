@@ -207,6 +207,23 @@ Expose `POST /v1/connections` and `POST /v1/data` through reviewed HTTPS routing
 
 Start with `EMAIL_RUNTIME_CONFIG_FILE=/etc/deft-email/runtime.json node runtime/server.mjs`. Then connect each account through Email's ordinary UI, inspect account/From labels, and perform [the smoke journey](smoke.md). Record session/consent/renewal deadlines. Re-enroll through supported public flows when authority expires; do not silently edit credential files to simulate continuity.
 
+## Workspace send cap
+
+The helper caps how many emails one workspace can send. It reads two settings from its own environment when it starts:
+
+| Setting | Meaning | Unset, hosted | Unset, self-hosted |
+|---|---|---|---|
+| `EMAIL_RUNTIME_SEND_LIMIT_HOURLY` | Sends allowed in any rolling hour | 200 | no cap |
+| `EMAIL_RUNTIME_SEND_LIMIT_DAILY` | Sends allowed in any rolling 24 hours | 2,000 | no cap |
+
+Each value is a whole number from 1 to 10000. Any other value, an empty one included, stops the helper from starting. The helper counts as hosted when it runs in form mode with `registration_admission: "host_authority"`, which only the hosted control plane writes; OAuth mode and an operator's own registration list are self-hosted. A self-hosted operator who wants a cap sets either setting.
+
+- A Send takes its slot, keyed by its Run id (the provider idempotency key), in the same locked step that checks the limit, just before the provider is called. The slot is given back only when the Send is known not to have reached the provider: it failed before the provider call, or the SMTP server refused the transaction. So an accepted, partly accepted or uncertain Send always counts, a crash or restart can never lose a count, a retry of the same message never counts twice, and Sends on several mailboxes at once cannot go over the limit. Counts live in the helper's own encrypted store for the longest window set (24 hours, or one hour when only the hourly limit is set).
+- A refused Run is remembered for 24 hours and replays its refusal: it never sends later, even after the limit lifts. Sending the kept draft again starts a new reviewed Run.
+- Past either limit the helper refuses the Send before any provider call. The Run ends as failed with `primary_outcome: "send_limit_reached"`, and the draft is kept with the reason (`EMAIL_SEND_LIMIT_REACHED`) and the time sending starts again, which Email shows on the draft, for example: "Not sent. This workspace has sent 200 emails in the last hour, its limit. Sending starts again at about 2:20 PM. This message is kept, and receiving email is not affected."
+- Receiving, reading and organizing mail are not capped.
+- The first refusal in a window writes one `email_send_limit_reached` log line with the window, limit and lift time. The helper has no channel to message workspace admins.
+
 ## Account selection and human access
 
 The inbox account pills filter the messages being read. They do not change the Host's current account for trusted compose, saved drafts and From identity. To compose from another connected account, use **Email settings → Accounts → Use account**, then reopen Email in that account context. A disabled Compose while another read filter is selected is not evidence that Send consent is missing. Check the current account before requesting more access.

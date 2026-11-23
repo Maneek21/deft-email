@@ -3,10 +3,18 @@ const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-
 export function sentReceiptNotice(result,runId){
  if(!uuid(runId)||result?.id!==runId)throw Error('Send status could not be verified');
  if(!['succeeded','failed','cancelled'].includes(result.state))return 'The outcome is not yet confirmed. Check status again; do not send another copy.';
+ if(result.state==='failed'&&result.output?.operation_id===runId&&result.output.primary_outcome==='send_limit_reached')return 'Not sent: this workspace reached its sending limit. Nothing went to the mail provider.';
  if(result.state==='cancelled')return 'This request was cancelled. Check Activity for its recorded outcome.';
  const output=result.output;
  if(!output||output.operation_id!==runId||!['accepted','rejected'].includes(output.primary_outcome)||(output.primary_outcome==='accepted')!==(result.state==='succeeded'))return 'The current delivery receipt is unavailable. Check Activity; do not infer delivery from the saved draft.';
  if(output.primary_outcome==='rejected')return 'The mail provider rejected this Send. No recipient delivery is confirmed.';
  const copy={provider_managed:'The mail server manages the Sent copy; a copy is not confirmed.',completed:'An exact Sent copy was confirmed.',unknown:'The Sent-copy outcome is unknown. No copy will be retried automatically.',not_attempted:'The Sent copy was not saved. Do not resend the email to create a copy.',not_applicable:'The mail provider manages its Sent folder.'}[output.effect_outcome];
  return 'The mail provider accepted this email. '+(copy??'Sent-copy status is unavailable.')+' Recipient delivery is not confirmed.';
+}
+/** The workspace send cap refused this draft's Send (helper EMAIL_SEND_LIMIT_REACHED).
+ * Shown on the kept draft until sending starts again; nothing reached the provider. */
+export function sendLimitNotice(s,now=Date.now()){
+ const at=new Date(s?.send_limit_lifts_at);if(s?.send_limit_code!=='EMAIL_SEND_LIMIT_REACHED'||!(at>now)||!(s.send_limit_max>0))return '';
+ const time=new Intl.DateTimeFormat('en',{...(at-now>432e5||new Date(now).getDate()!==at.getDate()?{weekday:'short'}:{}),hour:'numeric',minute:'2-digit'}).format(at);
+ return `Not sent. This workspace has sent ${s.send_limit_max.toLocaleString('en')} emails in the last ${s.send_limit_window==='day'?'24 hours':'hour'}, its limit. Sending starts again at about ${time}. This message is kept, and receiving email is not affected.`;
 }

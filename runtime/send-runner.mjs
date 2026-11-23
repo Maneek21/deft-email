@@ -14,15 +14,21 @@ import {canonical,digest,exact,fail,opaque,hostUuid,consentDeadline} from './con
 
 import {createGraphSendJournal} from './graph-send-journal.mjs';
 import {purposeFor} from './purpose-set.mjs';
+import {createSendCap,sendLimitResult} from './send-cap.mjs';
 const noDisclosure={status:'indeterminate'};
 const accountFromRecord=(binding,record)=>{if(!record?.secret?.identity||record.health!=='connected')return null;const identity=record.secret.identity;return validateEmailAccount({account_id:binding.account_id,provider:binding.provider,display_label:identity.display_label,primary_address:identity.primary_address,verified_sender_identities:[...identity.verified_sender_identities],capabilities:grantedOAuthCapabilities(binding,record.secret.scopes),connection_target:binding.connection_target,resource_binding_id:binding.resource_binding_id,action_binding_id:binding.action_binding_id,authority_epoch:binding.authority_epoch,health:'connected'});};
 /** Executes only claims received from the public reviewed Runtime channel.
  * Snapshot and provider-start reservations are durable before dispatch. No HTTP
  * data method, author nomination, retry or process restart can resend a packet. */
-export function createSendRunner({runtime_client,registration,client,provider='gmail',store,encryption_key,key_id,fetch:fetchImpl=globalThis.fetch,now=Date.now}){
+export function createSendRunner({runtime_client,registration,client,provider='gmail',store,encryption_key,key_id,fetch:fetchImpl=globalThis.fetch,now=Date.now,sendLimits=null,onSendLimit}){
   exact(registration,['org_id','runtime_registration_id','runtime_epoch']);
   if(!uuid(registration.org_id)||!uuid(registration.runtime_registration_id)||!Number.isInteger(registration.runtime_epoch)||registration.runtime_epoch<0||['claim','start','authorize','result'].some(method=>typeof runtime_client?.[method]!=='function'))fail('EMAIL_SEND_CHANNEL_CONFIG_INVALID');
   client=validateOAuthClient(provider,client);const fingerprint=oauthClientFingerprint(provider,client),custody=createEncryptedEmailCustody({encryption_key,key_id,store,now}),drafts=createDraftStore({store,now}),prepared=createPreparedActions({store,now});
+  const cap=createSendCap({store,limits:sendLimits,now,...(onSendLimit?{onLimit:onSendLimit}:{})});
+  // Gives back a slot only for a Send that failed before any provider effect started.
+  // Release only while the snapshot is still unreserved, under its lock: an overlapping execution of the same Run that reserved it
+  // (and may have sent) keeps the slot.
+  const releaseUnreserved=async(scope,snapshot_id,run_id)=>{try{await prepared.withSnapshot(scope,snapshot_id,async()=>{},async current=>{if(current.state==='prepared')await cap.release(scope.org_id,run_id);});}catch(error){try{console.error(JSON.stringify({event:'email_send_limit_release_failed',code:error?.code??'EMAIL_SEND_LIMIT_UNAVAILABLE'}));}catch{}}};
   async function executeClaim(claim,started,signal){
     if(!uuid(claim?.run_id)||!uuid(claim.attempt_id)||claim.operation_name!=='send_message'||started.run_id!==claim.run_id||started.attempt_id!==claim.attempt_id)fail('EMAIL_SEND_CLAIM_DENIED');
     exact(started.input,RELEASE_INPUT_KEYS);const input=structuredClone(started.input),input_digest='sha256:'+digest(input);
@@ -36,7 +42,7 @@ export function createSendRunner({runtime_client,registration,client,provider='g
     // every provider/token HTTP call, and final disclosure; no decision is cached
     // across provider I/O. Microsoft compound preparation keeps its old checker.
     const localCheck=provider==='gmail'?async()=>{if(repairScope)await assertNoCredentialRepair({store,scope:repairScope});combined.throwIfAborted();if(deadline<=now())fail('EMAIL_SEND_AUTHORITY_DENIED');return deadline;}:check;
-    let value,scope,providerStarted=false,preparationStarted=false;
+    let value,scope,providerStarted=false,preparationStarted=false,slotTaken=false;
     try{
       await check();scope={org_id:authority.org_id,owner_user_id:authority.owner_id,account_id:input.account_ref};value=await prepared.read(scope,input.snapshot_id,localCheck);
       if(Date.parse(value.prepared.expires_at)<=now()||canonical(value.prepared.input)!==canonical(Object.fromEntries(SEND_INPUT_KEYS.map(field=>[field,input[field]])))||value.prepared.action_key!=='send_message'||value.prepared.record_id!==input.draft_id||value.prepared.revision!==input.draft_revision||value.prepared.snapshot_digest!==input.prepared_digest||value.connection.session_id!==input.connection_session_id||value.connection.session_revision!==input.connection_revision||value.authority.consent_id!==input.data_consent_id||value.authority.consent_digest!==input.data_consent_digest)fail('EMAIL_SEND_SNAPSHOT_DENIED');
@@ -56,6 +62,10 @@ export function createSendRunner({runtime_client,registration,client,provider='g
       const queuedEffect=future?{run_id:claim.run_id,release_id:release.release_id,snapshot_digest:input.prepared_digest}:null;
       const reserve=()=>future?drafts.reserveQueuedSend(scope,input.draft_id,input.draft_revision+1,input.content_digest.slice(7),queuedEffect,localCheck):drafts.reserveSend(scope,input.draft_id,input.draft_revision,input.content_digest.slice(7),claim.run_id,localCheck);
       const record=await drafts.read(scope,input.draft_id,localCheck);if(record.status!==(future?'submitted':'draft')||record.revision!==input.draft_revision+(future?1:0)||future&&canonical(record.send_effect)!==canonical({...queuedEffect,state:'queued'})||record.content_revision!==input.content_revision||'sha256:'+record.content_digest!==input.content_digest||'sha256:'+digest(record.content.attachments)!==input.file_manifest_digest)fail('EMAIL_SEND_DRAFT_CHANGED');
+      // Workspace send cap: take this Run's slot, or refuse, before any reservation or provider call.
+      const limited=await cap.take(scope.org_id,claim.run_id);
+      if(limited){try{await drafts.recordSendLimit(scope,input.draft_id,{run_id:claim.run_id,revision:input.draft_revision+(future?1:0),content_digest:input.content_digest.slice(7),queued_effect:queuedEffect},limited);}catch(error){try{console.error(JSON.stringify({event:'email_send_limit_note_failed',code:error?.code??'EMAIL_DRAFT_UNAVAILABLE'}));}catch{}}await check();return sendLimitResult(claim.run_id);}
+      slotTaken=true;
       const bridge=createNativeEmailBridge({store,selected:session.binding,clients:{[provider]:client},custody:fencedCustody,accountFromRecord,now,fetch:async(url,options={})=>{await check();await assertNoCredentialRepair({store,scope:session.scope});return fetchImpl(url,{...options,signal:AbortSignal.any([combined,options.signal].filter(Boolean))});}});
       const packet=await prepared.bind(value,claim.run_id,localCheck,async identity=>prepared.withSnapshot(scope,input.snapshot_id,localCheck,async(current,persist)=>{
         if(current.state!=='prepared')return current.effect?.run_id===claim.run_id?'replay':'unknown';
@@ -82,7 +92,7 @@ export function createSendRunner({runtime_client,registration,client,provider='g
       // Cleanup custody is separate from Send acceptance. Missing or fenced mirror state grants no delete.
       try{await createMirrorStore({store,now}).accepted(scope,input.draft_id,{run_id:claim.run_id,snapshot_id:input.snapshot_id,snapshot_digest:input.prepared_digest.slice(7),record_revision:input.draft_revision,content_digest:input.content_digest.slice(7)},async()=>{});}catch{}
       await check();return publicResult;
-    }catch(error){if(providerStarted||preparationStarted){try{await prepared.withSnapshot(scope,input.snapshot_id,async()=>{},async(current,persist)=>{if(current.state!=='accepted')await persist({...current,state:'unknown'});});}catch{}return noDisclosure;}throw error;}
+    }catch(error){if(providerStarted||preparationStarted){try{await prepared.withSnapshot(scope,input.snapshot_id,async()=>{},async(current,persist)=>{if(current.state!=='accepted')await persist({...current,state:'unknown'});});}catch{}return noDisclosure;}if(slotTaken)await releaseUnreserved(scope,input.snapshot_id,claim.run_id);throw error;}
     finally{clearTimeout(timer);}
   }
   return Object.freeze({executeClaim,async runOnce(signal){const claim=await runtime_client.claim();if(!claim)return null;let result;try{const started=await runtime_client.start(claim);result=await executeClaim(claim,started,signal);}catch{result={status:'not_attempted',error_code:'APP_RUN_PROVIDER_UNAVAILABLE'};}await runtime_client.result(claim,result);return result;}});

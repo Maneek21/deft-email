@@ -5,6 +5,7 @@ import {readFile} from 'node:fs/promises';
 import {webcrypto} from 'node:crypto';
 import {DeftExperienceRecordFormV3NodeSchema,parseDeftExperienceMenuNode} from '@deft/app-kit/core';
 import {senderDisplay} from './mail-presentation.mjs';
+import {sendLimitNotice,sentReceiptNotice} from './sent-status.mjs';
 
 const id='11111111-1111-4111-8111-111111111111',digest='sha256:'+'a'.repeat(64);
 const mail={record_id:id,content_digest:digest,label:'Preview message',data:{provider:'gmail',subject:'Preview message',sender:'Sender <sender@example.test>',date:'2026-10-13T10:00:00Z',preview:'A controlled preview message.'}};
@@ -370,4 +371,15 @@ test('empty mailbox and search states say what is missing and whether older mail
  const synced=await start({messages:[]});
  assert.equal(node(synced,'mail_empty').text,'No messages in Inbox.');
  assert.match(node(synced,'mail_freshness').text,/^Synced · updated /);
+});
+test('a draft refused by the workspace send cap shows the reason and when sending starts again',async()=>{
+ const lifts=new Date(Date.now()+30*60000).toISOString(),limited={...row,summary:{...row.summary,send_limit_code:'EMAIL_SEND_LIMIT_REACHED',send_limit_window:'hour',send_limit_max:200,send_limit_lifts_at:lifts}};
+ const ui=await start({listSaved:store=>({outcome:'completed',items:store==='drafts'?[limited]:[],next_cursor:null})});await ui.click('drafts');await ui.click('draft_'+id.replaceAll('-',''));
+ const notice=node(ui,'send_limit_notice');assert.ok(notice,'notice shown on the kept draft');
+ assert.match(notice.text,/^Not sent\. This workspace has sent 200 emails in the last hour, its limit\. Sending starts again at about .+\. This message is kept, and receiving email is not affected\.$/);
+ assert.ok(ui.nodes().some(item=>item.kind==='record_form'),'the draft stays editable and sendable');
+ assert.match(sendLimitNotice({...limited.summary,send_limit_window:'day',send_limit_max:2000}),/2,000 emails in the last 24 hours/);
+ assert.equal(sendLimitNotice({...limited.summary,send_limit_lifts_at:new Date(Date.now()-1000).toISOString()}),'','an expired note is not shown');
+ assert.equal(sendLimitNotice(row.summary),'');
+ assert.match(sentReceiptNotice({id,state:'failed',output:{operation_id:id,primary_outcome:'send_limit_reached',effect_outcome:'not_attempted',inspection_available:false}},id),/^Not sent: this workspace reached its sending limit\. Nothing went to the mail provider\.$/);
 });
