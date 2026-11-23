@@ -26,7 +26,9 @@ export function createSendRunner({runtime_client,registration,client,provider='g
   client=validateOAuthClient(provider,client);const fingerprint=oauthClientFingerprint(provider,client),custody=createEncryptedEmailCustody({encryption_key,key_id,store,now}),drafts=createDraftStore({store,now}),prepared=createPreparedActions({store,now});
   const cap=createSendCap({store,limits:sendLimits,now,...(onSendLimit?{onLimit:onSendLimit}:{})});
   // Gives back a slot only for a Send that failed before any provider effect started.
-  const releaseSlot=async(org_id,run_id)=>{try{await cap.release(org_id,run_id);}catch{}};
+  // Release only while the snapshot is still unreserved, under its lock: an overlapping execution of the same Run that reserved it
+  // (and may have sent) keeps the slot.
+  const releaseUnreserved=async(scope,snapshot_id,run_id)=>{try{await prepared.withSnapshot(scope,snapshot_id,async()=>{},async current=>{if(current.state==='prepared')await cap.release(scope.org_id,run_id);});}catch(error){try{console.error(JSON.stringify({event:'email_send_limit_release_failed',code:error?.code??'EMAIL_SEND_LIMIT_UNAVAILABLE'}));}catch{}}};
   async function executeClaim(claim,started,signal){
     if(!uuid(claim?.run_id)||!uuid(claim.attempt_id)||claim.operation_name!=='send_message'||started.run_id!==claim.run_id||started.attempt_id!==claim.attempt_id)fail('EMAIL_SEND_CLAIM_DENIED');
     exact(started.input,RELEASE_INPUT_KEYS);const input=structuredClone(started.input),input_digest='sha256:'+digest(input);
@@ -90,7 +92,7 @@ export function createSendRunner({runtime_client,registration,client,provider='g
       // Cleanup custody is separate from Send acceptance. Missing or fenced mirror state grants no delete.
       try{await createMirrorStore({store,now}).accepted(scope,input.draft_id,{run_id:claim.run_id,snapshot_id:input.snapshot_id,snapshot_digest:input.prepared_digest.slice(7),record_revision:input.draft_revision,content_digest:input.content_digest.slice(7)},async()=>{});}catch{}
       await check();return publicResult;
-    }catch(error){if(providerStarted||preparationStarted){try{await prepared.withSnapshot(scope,input.snapshot_id,async()=>{},async(current,persist)=>{if(current.state!=='accepted')await persist({...current,state:'unknown'});});}catch{}return noDisclosure;}if(slotTaken)await releaseSlot(scope.org_id,claim.run_id);throw error;}
+    }catch(error){if(providerStarted||preparationStarted){try{await prepared.withSnapshot(scope,input.snapshot_id,async()=>{},async(current,persist)=>{if(current.state!=='accepted')await persist({...current,state:'unknown'});});}catch{}return noDisclosure;}if(slotTaken)await releaseUnreserved(scope,input.snapshot_id,claim.run_id);throw error;}
     finally{clearTimeout(timer);}
   }
   return Object.freeze({executeClaim,async runOnce(signal){const claim=await runtime_client.claim();if(!claim)return null;let result;try{const started=await runtime_client.start(claim);result=await executeClaim(claim,started,signal);}catch{result={status:'not_attempted',error_code:'APP_RUN_PROVIDER_UNAVAILABLE'};}await runtime_client.result(claim,result);return result;}});

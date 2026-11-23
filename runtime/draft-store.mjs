@@ -146,6 +146,6 @@ export function createDraftStore({store,now=Date.now}) {
       // Only the exact draft this refused Run was reviewed for: a later edit, Send or
       // release supersedes the note, so it is never attached to another Run's message.
       const same=record.revision===expected.revision&&record.content_digest===expected.content_digest&&!record.native_effect_fence&&(expected.queued_effect?record.status==='submitted'&&canonical(record.send_effect)===canonical({...expected.queued_effect,state:'queued'}):record.status==='draft'&&!record.send_effect);
-      if(!same)return false;const next={...record,send_limit:{run_id:expected.run_id,code:limit.code,window:limit.window,limit:limit.limit,lifts_at:limit.lifts_at}};if(!await tx.compareAndSwap({expected_revision:row.revision,value:next}))fail('EMAIL_DRAFT_CONFLICT');return true;});},
+      if(!same)return false;const next={...record,send_limit:{run_id:expected.run_id,revision:record.revision,code:limit.code,window:limit.window,limit:limit.limit,lifts_at:limit.lifts_at}};if(!await tx.compareAndSwap({expected_revision:row.revision,value:next}))fail('EMAIL_DRAFT_CONFLICT');return true;});},
   });
 }

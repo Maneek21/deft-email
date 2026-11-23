@@ -24,7 +24,7 @@ export const SEND_LIMIT_DAILY_SETTING='EMAIL_RUNTIME_SEND_LIMIT_DAILY';
 export const HOSTED_SEND_LIMITS=Object.freeze({hourly:200,daily:2000});
 export const SEND_LIMIT_CODE='EMAIL_SEND_LIMIT_REACHED';
 export const SEND_LIMIT_OUTCOME='send_limit_reached';
-const HOUR=3600000,DAY=24*HOUR,MAXIMUM=10000,REFUSALS_KEPT=1000;
+const HOUR=3600000,DAY=24*HOUR,MAXIMUM=10000,REFUSALS_KEPT=4000;
 const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu.test(value);
 
 export function resolveSendLimits({env=process.env,hosted=false}={}){
@@ -42,17 +42,20 @@ export function createSendCap({store,limits,now=Date.now,onLimit=event=>console.
   if(!validLimits(limits))fail('EMAIL_RUNTIME_CONFIG_INVALID');
   const hourly=limits?.hourly??null,daily=limits?.daily??null,enabled=hourly!==null||daily!==null;
   // Only the longest active window is kept, so the row stays bounded: at most
-  // the larger limit (10000) slots plus REFUSALS_KEPT refused Runs, < 1 MiB.
+  // the larger limit (10000) slots plus REFUSALS_KEPT compact refusals, < 1 MiB.
   const kept=daily!==null?DAY:HOUR;
   const keyFor=org_id=>{if(!uuid(org_id))fail('EMAIL_SEND_LIMIT_INVALID');return 'email.runtime.send_cap.'+org_id.toLowerCase();};
   const current=(value,org,at)=>{
-    if(value&&(value.schema_version!=='email.send_cap.v2'||value.org_id!==org||!Array.isArray(value.sends)||!Array.isArray(value.refused)))fail('EMAIL_RUNTIME_STORE_ROW_INVALID');
+    // v1 (a pre-release build of this change) held only counted sends: they are kept as slots.
+    if(value&&(!['email.send_cap.v1','email.send_cap.v2'].includes(value.schema_version)||value.org_id!==org||!Array.isArray(value.sends)||value.schema_version==='email.send_cap.v2'&&!Array.isArray(value.refused)))fail('EMAIL_RUNTIME_STORE_ROW_INVALID');
     const sends=(value?.sends??[]).filter(([,time])=>Number.isSafeInteger(time)&&time>at-kept).sort((a,b)=>a[1]-b[1]);
     // Refusals are kept 24 hours (at most REFUSALS_KEPT), past any window lifting.
-    const refused=(value?.refused??[]).filter(([,time])=>Number.isSafeInteger(time)&&time>at-DAY).slice(-REFUSALS_KEPT);
+    const refused=(value?.refused??[]).filter(entry=>entry.length===6&&Number.isSafeInteger(entry[1])&&entry[1]>at-DAY).slice(-REFUSALS_KEPT);
     return {sends,refused,notified_until:Number.isSafeInteger(value?.notified_until)?value.notified_until:null};
   };
   const write=async(tx,row,org,state)=>{if(!await tx.compareAndSwap({expected_revision:row?.revision??null,value:{schema_version:'email.send_cap.v2',org_id:org,...state}}))fail('EMAIL_RUNTIME_CONFLICT');};
+  // A refusal is kept compact ([run, at, window, limit, sent, lifts]) so REFUSALS_KEPT of them fit beside 10000 slots.
+  const expand=([,,day,limit,sent,lifts])=>({code:SEND_LIMIT_CODE,window:day===1?'day':'hour',limit,sent,lifts_at:new Date(lifts).toISOString()});
   const reached=(sends,at)=>{
     const windows=[];const hour=sends.filter(([,time])=>time>at-HOUR);
     if(hourly!==null&&hour.length>=hourly)windows.push({window:'hour',limit:hourly,sent:hour.length,lifts:hour[hour.length-hourly][1]+HOUR});
@@ -73,11 +76,11 @@ export function createSendCap({store,limits,now=Date.now,onLimit=event=>console.
       return store.withLock({key},async tx=>{
         const at=now(),row=await tx.read(),state=current(row?.value,org,at);
         if(state.sends.some(([held])=>held===id))return null;
-        const prior=state.refused.find(([refused])=>refused===id);if(prior)return structuredClone(prior[2]);
+        const prior=state.refused.find(([refused])=>refused===id);if(prior)return expand(prior);
         const limit=reached(state.sends,at);
         if(!limit){await write(tx,row,org,{...state,sends:[...state.sends,[id,at]]});return null;}
         const notify=state.notified_until===null||state.notified_until<=at;
-        await write(tx,row,org,{...state,refused:[...state.refused,[id,at,limit]].slice(-REFUSALS_KEPT),notified_until:notify?Date.parse(limit.lifts_at):state.notified_until});
+        await write(tx,row,org,{...state,refused:[...state.refused,[id,at,limit.window==='day'?1:0,limit.limit,limit.sent,Date.parse(limit.lifts_at)]].slice(-REFUSALS_KEPT),notified_until:notify?Date.parse(limit.lifts_at):state.notified_until});
         if(notify){try{onLimit({event:'email_send_limit_reached',org_id:org,window:limit.window,limit:limit.limit,sent:limit.sent,lifts_at:limit.lifts_at});}catch{}}
         return limit;
       });

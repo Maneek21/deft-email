@@ -56,3 +56,8 @@ test('SMTP send cap: a refused SMTP transaction gives its slot back; a partial o
  const partial=await setup(t,{sendLimits:limits,partial:true});await partial.execute();assert.equal(partial.sends,1);assert.deepEqual(await partial.cap(limits).usage(partial.scope.org_id),{hour:1,day:1},'one recipient accepted: it counts');
  const unknown=await setup(t,{sendLimits:limits,unknown:true});assert.deepEqual(await unknown.execute(),{status:'indeterminate'});await unknown.restart();assert.deepEqual(await unknown.execute(),{status:'indeterminate'});assert.equal(unknown.sends,1);assert.deepEqual(await unknown.cap(limits).usage(unknown.scope.org_id),{hour:1,day:1});
 });
+test('SMTP send cap: overlapping executions of one Run send once and keep exactly one slot',async t=>{
+ const limits={hourly:5,daily:10},f=await setup(t,{sendLimits:limits});
+ const results=await Promise.allSettled([f.execute(),f.execute()]);assert.equal(f.sends,1);assert.ok(results.some(r=>r.status==='fulfilled'&&r.value.provider_succeeded===true));
+ assert.deepEqual(await f.cap(limits).usage(f.scope.org_id),{hour:1,day:1});
+});

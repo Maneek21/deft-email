@@ -16,7 +16,10 @@ export function createSmtpSendRunner({runtime_client,registration,forms,connecto
  const prepared=createPreparedActions({store,now}),drafts=createDraftStore({store,now}),compound=createSmtpCompoundSend({forms,store,connector,now,onPhase});
  const cap=createSendCap({store,limits:sendLimits,now,...(onSendLimit?{onLimit:onSendLimit}:{})});
  // Gives back a slot only for a Send known not to have reached SMTP DATA acceptance.
- const releaseSlot=async(org_id,run_id)=>{try{await cap.release(org_id,run_id);}catch{}};
+ const releaseSlot=async(org_id,run_id)=>{try{await cap.release(org_id,run_id);}catch(error){try{console.error(JSON.stringify({event:'email_send_limit_release_failed',code:error?.code??'EMAIL_SEND_LIMIT_UNAVAILABLE'}));}catch{}}};
+ // Before this execution reserved the snapshot: release only while it is still unreserved, under its lock, so an overlapping
+ // execution of the same Run that did reserve it (and may have sent) keeps the slot.
+ const releaseUnreserved=async(scope,snapshot_id,run_id)=>{try{await prepared.withSnapshot(scope,snapshot_id,async()=>{},async current=>{if(current.state==='prepared')await cap.release(scope.org_id,run_id);});}catch(error){try{console.error(JSON.stringify({event:'email_send_limit_release_failed',code:error?.code??'EMAIL_SEND_LIMIT_UNAVAILABLE'}));}catch{}}};
  async function executeClaim(claim,started,signal){
   if(!uuid(claim?.run_id)||!uuid(claim.attempt_id)||claim.operation_name!=='send_message'||started.run_id!==claim.run_id||started.attempt_id!==claim.attempt_id)fail('EMAIL_SMTP_CLAIM_DENIED');
   exact(started.input,[...RELEASE_INPUT_KEYS,...EFFECT_INPUT_KEYS]);const input=structuredClone(started.input),input_digest='sha256:'+digest(input);
@@ -53,12 +56,13 @@ export function createSmtpSendRunner({runtime_client,registration,forms,connecto
    const result=receipt.transport_outcome==='unknown'?{status:'indeterminate'}:{status:'returned',provider_succeeded:receipt.transport_outcome==='accepted',output:{operation_id:claim.run_id,primary_outcome:receipt.transport_outcome,effect_outcome:publicEffectReceipt(receipt,value.prepared.supplemental_effect).effect_outcome,inspection_available:receipt.transport_outcome==='accepted'&&receipt.copy_outcome==='unknown'}};
    await prepared.withSnapshot(scope,input.snapshot_id,async()=>{},async(current,persist)=>{if(current.effect?.run_id!==claim.run_id||current.effect.input_digest!==input_digest)fail('EMAIL_SMTP_CONFLICT');await persist({...current,state:receipt.transport_outcome==='unknown'?'unknown':'accepted',effect:{...current.effect,result,compound_receipt:receipt}});});
    await drafts.recordSendOutcome(scope,input.draft_id,claim.run_id,receipt.transport_outcome==='accepted'?'accepted':'unknown',receipt.transport_outcome==='accepted'?acceptedRecipientMetadata({payload:value.snapshot.payload,installation_id:value.connection_scope.installation_id,run_id:claim.run_id,snapshot_id:input.snapshot_id,accepted_at:new Date(now()).toISOString()}):undefined);await check();return result;
-  }catch(error){if(!reserved){if(slotTaken)await releaseSlot(scope.org_id,claim.run_id);throw error;}try{
+  }catch(error){if(!reserved){if(slotTaken)await releaseUnreserved(scope,input.snapshot_id,claim.run_id);throw error;}try{
    // The narrow app-owned journal may already prove SMTP acceptance even when
    // later copy authority/disclosure was revoked. Preserve that fact without
    // provider I/O or disclosing it under revoked authority.
    const receipt=await compound.status(scope,claim.run_id,async()=>{}),accepted=receipt?.transport_outcome==='accepted';
-   if(receipt?.transport_outcome==='rejected')await releaseSlot(scope.org_id,claim.run_id);
+   // No compound journal: SMTP never started (it is written before any connection), so nothing reached the server.
+   if(!receipt||receipt.transport_outcome==='rejected')await releaseSlot(scope.org_id,claim.run_id);
    const result=accepted?{status:'returned',provider_succeeded:true,output:{operation_id:claim.run_id,primary_outcome:'accepted',effect_outcome:publicEffectReceipt(receipt,value.prepared.supplemental_effect).effect_outcome,inspection_available:receipt.copy_outcome==='unknown'}}:null;
    await prepared.withSnapshot(scope,input.snapshot_id,async()=>{},async(current,persist)=>{if(current.state!=='accepted')await persist({...current,state:accepted?'accepted':'unknown',effect:{...current.effect,...(receipt?{compound_receipt:receipt}:{}),...(result?{result}: {})}});});
    await drafts.recordSendOutcome(scope,input.draft_id,claim.run_id,accepted?'accepted':'unknown',accepted?acceptedRecipientMetadata({payload:value.snapshot.payload,installation_id:value.connection_scope.installation_id,run_id:claim.run_id,snapshot_id:input.snapshot_id,accepted_at:new Date(now()).toISOString()}):undefined);

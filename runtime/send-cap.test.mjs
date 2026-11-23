@@ -76,6 +76,13 @@ test('a restart keeps the count and the refusals',async t=>{
   assert.deepEqual(await cap.take(org,refusedRun),refused,'the refusal survived the restart');
 });
 
+test('a row from the pre-release v1 format keeps its counted sends as slots',async t=>{
+  const s=await opened(t),cap=s.cap({hourly:1,daily:null}),run=randomUUID();
+  await s.store.withLock({key:'email.runtime.send_cap.'+org},async tx=>tx.compareAndSwap({expected_revision:null,value:{schema_version:'email.send_cap.v1',org_id:org,sends:[[run,START]],notified_until:null}}));
+  assert.equal(await cap.take(org,run),null,'its own Run keeps its slot');
+  assert.equal((await cap.take(org,randomUUID()))?.code,'EMAIL_SEND_LIMIT_REACHED');
+});
+
 test('a slot is given back only by release; release of an unknown Run is a no-op',async t=>{
   const s=await opened(t),cap=s.cap({hourly:1,daily:null}),run=randomUUID();
   await cap.take(org,run);assert.ok(await cap.take(org,randomUUID()));
@@ -94,8 +101,8 @@ test('only the longest active window is kept, so the row stays bounded at the la
   await cap.take(org,randomUUID());s.clock+=HOUR+1;await cap.take(org,randomUUID());
   assert.deepEqual(await cap.usage(org),{hour:1,day:1},'an hourly-only cap keeps one hour, not 24');
   // Worst case at the largest accepted values: 10000 slots plus the kept refusals, under the 1 MiB row budget.
-  const slot=JSON.stringify([randomUUID(),START]).length+1,refusal=JSON.stringify([randomUUID(),START,{code:'EMAIL_SEND_LIMIT_REACHED',window:'hour',limit:10000,sent:10000,lifts_at:new Date(START).toISOString()}]).length+1;
-  assert.ok(10000*slot+1000*refusal<1024*1024,`row ${10000*slot+1000*refusal} bytes`);
+  const slot=JSON.stringify([randomUUID(),START]).length+1,refusal=JSON.stringify([randomUUID(),START,1,10000,10000,START+DAY]).length+1,row=10000*slot+4000*refusal+512;
+  assert.ok(row<1024*1024,`row ${row} bytes`);
 });
 
 test('workspaces are counted apart',async t=>{
@@ -134,6 +141,16 @@ test('the draft note: only on the exact reviewed draft, cleared by the next rese
   const reserved=await drafts.reserveSend(scope,record.draft_id,record.revision,record.content_digest,randomUUID(),check);
   assert.equal(reserved.send_limit,undefined,'the next reserved Send clears it');
   assert.equal(await drafts.recordSendLimit(scope,record.draft_id,exact,limit),false,'a late note never lands on a submitted message');
+});
+
+test('the draft note is shown only for its own revision and Run',async t=>{
+  const {recordView}=await import('./data-runtime.mjs');
+  const base={draft_id:randomUUID(),revision:3,content_revision:1,content_digest:'a'.repeat(64),status:'draft',content:{mode:'compose',to:'a@example.test',subject:'S'},file_catalog:[],created_at:new Date(START).toISOString(),updated_at:new Date(START).toISOString()};
+  const run=randomUUID(),note={run_id:run,revision:3,code:'EMAIL_SEND_LIMIT_REACHED',window:'hour',limit:200,lifts_at:new Date(START+HOUR).toISOString()};
+  assert.equal(recordView({...base,send_limit:note}).summary.send_limit_code,'EMAIL_SEND_LIMIT_REACHED');
+  assert.equal(recordView({...base,revision:4,send_limit:note}).summary.send_limit_code,undefined,'edited or released since');
+  assert.equal(recordView({...base,status:'submitted',send_effect:{run_id:randomUUID(),state:'queued'},send_limit:note}).summary.send_limit_code,undefined,'another Run now owns the message');
+  assert.equal(recordView({...base,status:'submitted',send_effect:{run_id:run,state:'queued'},send_limit:note}).summary.send_limit_code,'EMAIL_SEND_LIMIT_REACHED','a refused scheduled Send keeps its note');
 });
 
 test('Send runner: under the cap it sends and counts once; a retry and a restart do not count again',async t=>{
