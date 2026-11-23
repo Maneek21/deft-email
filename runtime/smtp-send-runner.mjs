@@ -15,8 +15,8 @@ export function createSmtpSendRunner({runtime_client,registration,forms,connecto
  const organize=createOrganizeRunner({runtime_client,registration,provider:'imap_smtp',forms,connector,store,now,onPhase});
  const prepared=createPreparedActions({store,now}),drafts=createDraftStore({store,now}),compound=createSmtpCompoundSend({forms,store,connector,now,onPhase});
  const cap=createSendCap({store,limits:sendLimits,now,...(onSendLimit?{onLimit:onSendLimit}:{})});
- // Counting must never turn a provider-accepted Send into a failure.
- const counted=async(org_id,run_id)=>{try{await cap.record(org_id,run_id);}catch(error){try{console.error(JSON.stringify({event:'email_send_count_failed',code:error?.code??'EMAIL_SEND_LIMIT_UNAVAILABLE'}));}catch{}}};
+ // Gives back a slot only for a Send known not to have reached SMTP DATA acceptance.
+ const releaseSlot=async(org_id,run_id)=>{try{await cap.release(org_id,run_id);}catch{}};
  async function executeClaim(claim,started,signal){
   if(!uuid(claim?.run_id)||!uuid(claim.attempt_id)||claim.operation_name!=='send_message'||started.run_id!==claim.run_id||started.attempt_id!==claim.attempt_id)fail('EMAIL_SMTP_CLAIM_DENIED');
   exact(started.input,[...RELEASE_INPUT_KEYS,...EFFECT_INPUT_KEYS]);const input=structuredClone(started.input),input_digest='sha256:'+digest(input);
@@ -29,7 +29,7 @@ export function createSmtpSendRunner({runtime_client,registration,forms,connecto
    if(authority.schema_version!=='deft.app_runtime_authority.v1'||authority.audience!=='app_runtime'||authority.run_id!==claim.run_id||authority.attempt_id!==claim.attempt_id||authority.operation_name!=='send_message'||authority.org_id!==registration.org_id||authority.runtime_registration_id!==registration.runtime_registration_id||authority.runtime_epoch!==registration.runtime_epoch||authority.input_digest!==input_digest||canonical(authority.input)!==canonical(input)||!Number.isFinite(Date.parse(authority.lease_expires_at))||Date.parse(authority.lease_expires_at)<=now()||Date.parse(authority.lease_expires_at)>Math.min(Date.parse(claim.lease_expires_at),Date.parse(started.lease_expires_at)))fail('EMAIL_SMTP_AUTHORITY_DENIED');
    const {lease_expires_at,...pins}=authority;if(previous&&canonical(previous)!==canonical(pins))fail('EMAIL_SMTP_AUTHORITY_DENIED');previous=structuredClone(pins);deadline=Math.min(deadline,Date.parse(lease_expires_at));if(deadline<=now())fail('EMAIL_SMTP_AUTHORITY_DENIED');arm();return authority;};
   const checkLocal=async()=>{combined.throwIfAborted();if(!previous||deadline<=now())fail('EMAIL_SMTP_AUTHORITY_DENIED');};
-  let value,scope,reserved=false;
+  let value,scope,reserved=false,slotTaken=false;
   try{
    const authority=await check();scope={org_id:authority.org_id,owner_user_id:authority.owner_id,account_id:input.account_ref};value=await prepared.read(scope,input.snapshot_id,checkLocal);
    if(!value.prepared.supplemental_effect||canonical(value.prepared.input)!==canonical(Object.fromEntries(preparedInputKeys(value.prepared).map(k=>[k,input[k]])))||value.prepared.snapshot_digest!==input.prepared_digest||value.prepared.record_id!==input.draft_id||value.prepared.revision!==input.draft_revision||value.connection.session_id!==input.connection_session_id||value.connection.session_revision!==input.connection_revision||value.authority.consent_id!==input.data_consent_id||value.authority.consent_digest!==input.data_consent_digest||value.prepared.supplemental_effect.action_binding_id!==authority.runtime_binding_id||Date.parse(value.prepared.expires_at)<=now())fail('EMAIL_SMTP_SNAPSHOT_DENIED');
@@ -41,23 +41,24 @@ export function createSmtpSendRunner({runtime_client,registration,forms,connecto
    if(future&&(!release||release.run_id!==claim.run_id||release.snapshot_digest!==input.prepared_digest))fail('EMAIL_SMTP_FUTURE_RELEASE_DENIED');
    const queuedEffect=future?{run_id:claim.run_id,release_id:release.release_id,snapshot_digest:input.prepared_digest}:null;
    const record=await drafts.read(scope,input.draft_id,checkLocal);if(record.status!==(future?'submitted':'draft')||record.revision!==input.draft_revision+(future?1:0)||future&&canonical(record.send_effect)!==canonical({...queuedEffect,state:'queued'})||record.content_revision!==input.content_revision||'sha256:'+record.content_digest!==input.content_digest||'sha256:'+digest(record.content.attachments)!==input.file_manifest_digest)fail('EMAIL_SMTP_DRAFT_CHANGED');
-   // Workspace send cap: refuse before any reservation or SMTP connection.
-   const limited=await cap.admit(scope.org_id);
-   if(limited){try{await drafts.recordSendLimit(scope,input.draft_id,claim.run_id,limited);}catch{}await check();return sendLimitResult(claim.run_id);}
+   // Workspace send cap: take this Run's slot, or refuse, before any reservation or SMTP connection.
+   const limited=await cap.take(scope.org_id,claim.run_id);
+   if(limited){try{await drafts.recordSendLimit(scope,input.draft_id,{run_id:claim.run_id,revision:input.draft_revision+(future?1:0),content_digest:input.content_digest.slice(7),queued_effect:queuedEffect},limited);}catch(error){try{console.error(JSON.stringify({event:'email_send_limit_note_failed',code:error?.code??'EMAIL_DRAFT_UNAVAILABLE'}));}catch{}}await check();return sendLimitResult(claim.run_id);}
+   slotTaken=true;
    await check();const packet=await prepared.bind(value,claim.run_id,checkLocal,identity=>prepared.withSnapshot(scope,input.snapshot_id,checkLocal,async(current,persist)=>{
     if(current.state!=='prepared')return 'unknown';if(future)await drafts.reserveQueuedSend(scope,input.draft_id,input.draft_revision+1,input.content_digest.slice(7),queuedEffect,checkLocal);else await drafts.reserveSend(scope,input.draft_id,input.draft_revision,input.content_digest.slice(7),claim.run_id,checkLocal);
     await persist({...current,state:'provider_started',effect:{run_id:claim.run_id,attempt_id:claim.attempt_id,input_digest,identity,authority,result:null,compound_receipt:null}});reserved=true;return 'reserved';}));
    const receipt=await compound.execute({operation_id:claim.run_id,attempt_id:claim.attempt_id,connection:value.connection,scope:value.connection_scope,action_binding_id:authority.runtime_binding_id,snapshot_digest:value.prepared.snapshot_digest,copy_plan:value.copy_plan,mime_bytes:packet.mime_bytes,mime_digest:packet.mime_digest,from_address:packet.from_address,envelope:packet.envelope,check,checkLocal,signal:combined,expires_at:deadline});
-   if(receipt.transport_outcome==='accepted')await counted(scope.org_id,claim.run_id);
+   if(receipt.transport_outcome==='rejected')await releaseSlot(scope.org_id,claim.run_id);
    const result=receipt.transport_outcome==='unknown'?{status:'indeterminate'}:{status:'returned',provider_succeeded:receipt.transport_outcome==='accepted',output:{operation_id:claim.run_id,primary_outcome:receipt.transport_outcome,effect_outcome:publicEffectReceipt(receipt,value.prepared.supplemental_effect).effect_outcome,inspection_available:receipt.transport_outcome==='accepted'&&receipt.copy_outcome==='unknown'}};
    await prepared.withSnapshot(scope,input.snapshot_id,async()=>{},async(current,persist)=>{if(current.effect?.run_id!==claim.run_id||current.effect.input_digest!==input_digest)fail('EMAIL_SMTP_CONFLICT');await persist({...current,state:receipt.transport_outcome==='unknown'?'unknown':'accepted',effect:{...current.effect,result,compound_receipt:receipt}});});
    await drafts.recordSendOutcome(scope,input.draft_id,claim.run_id,receipt.transport_outcome==='accepted'?'accepted':'unknown',receipt.transport_outcome==='accepted'?acceptedRecipientMetadata({payload:value.snapshot.payload,installation_id:value.connection_scope.installation_id,run_id:claim.run_id,snapshot_id:input.snapshot_id,accepted_at:new Date(now()).toISOString()}):undefined);await check();return result;
-  }catch(error){if(!reserved)throw error;try{
+  }catch(error){if(!reserved){if(slotTaken)await releaseSlot(scope.org_id,claim.run_id);throw error;}try{
    // The narrow app-owned journal may already prove SMTP acceptance even when
    // later copy authority/disclosure was revoked. Preserve that fact without
    // provider I/O or disclosing it under revoked authority.
    const receipt=await compound.status(scope,claim.run_id,async()=>{}),accepted=receipt?.transport_outcome==='accepted';
-   if(accepted)await counted(scope.org_id,claim.run_id);
+   if(receipt?.transport_outcome==='rejected')await releaseSlot(scope.org_id,claim.run_id);
    const result=accepted?{status:'returned',provider_succeeded:true,output:{operation_id:claim.run_id,primary_outcome:'accepted',effect_outcome:publicEffectReceipt(receipt,value.prepared.supplemental_effect).effect_outcome,inspection_available:receipt.copy_outcome==='unknown'}}:null;
    await prepared.withSnapshot(scope,input.snapshot_id,async()=>{},async(current,persist)=>{if(current.state!=='accepted')await persist({...current,state:accepted?'accepted':'unknown',effect:{...current.effect,...(receipt?{compound_receipt:receipt}:{}),...(result?{result}: {})}});});
    await drafts.recordSendOutcome(scope,input.draft_id,claim.run_id,accepted?'accepted':'unknown',accepted?acceptedRecipientMetadata({payload:value.snapshot.payload,installation_id:value.connection_scope.installation_id,run_id:claim.run_id,snapshot_id:input.snapshot_id,accepted_at:new Date(now()).toISOString()}):undefined);

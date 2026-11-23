@@ -11,13 +11,13 @@ import {createDurableStore} from './durable-store.mjs';
 import {createConnectionFormRuntime} from './connection-form-runtime.mjs';
 import {digest} from './contract.mjs';
 import {createSendCap,sendLimitResult} from './send-cap.mjs';
-async function setup(t,{unknown=false,authorizeCostMs=0,revokeBeforeData=false,sendLimits=null}={}){
+async function setup(t,{unknown=false,authorizeCostMs=0,revokeBeforeData=false,sendLimits=null,reject=false,partial=false}={}){
  let authorizationCount=0,elapsed=0;const now=()=>Date.now()+elapsed;
  const f=await fixture(),binding=randomUUID();let store=f.store,forms=f.forms;
  f.request.action_consents=[{action_binding_id:binding,action_key:'send_message',authority_epoch:1,consent_id:binding,consent_digest:'sha256:'+'1'.repeat(64),expires_at:f.scope.consent_expires_at}];
  const value=profile();value.smtp={...value.imap,host:'smtp.example.test',port:465};const {connected}=await f.connect(value),connection={session_id:f.request.session_id,session_revision:5,runtime_session_ref:connected.runtime_session_ref,account_ref:connected.account.account_ref},scope={org_id:f.scope.org_id,owner_user_id:f.scope.owner_user_id,account_id:connection.account_ref};
  let sends=0,allowed=true;const check=async()=>{if(!allowed)throw Error('synthetic revoked');};
- const connector={smtp:async(_profile,ctx,work)=>{await ctx.check();if(revokeBeforeData)allowed=false;return work({sendMail:async packet=>{sends++;if(unknown)throw Error('synthetic uncertain DATA');return {accepted:packet.envelope.to,rejected:[],pending:[]};}});}};
+ const connector={smtp:async(_profile,ctx,work)=>{await ctx.check();if(revokeBeforeData)allowed=false;return work({sendMail:async packet=>{sends++;if(unknown)throw Error('synthetic uncertain DATA');if(reject)throw Object.assign(Error('synthetic refused'),{responseCode:550,command:'RCPT TO'});if(partial)return {accepted:packet.envelope.to.slice(0,1),rejected:packet.envelope.to.slice(1),pending:[]};return {accepted:packet.envelope.to,rejected:[],pending:[]};}});}};
  const drafts=createDraftStore({store}),draft={mode:'compose',to:'recipient@example.test',cc:'',bcc:'bcc@example.test',subject:'Reviewed SMTP',body:'Exact rich plain',body_html:'<p>Exact rich plain</p>',reply_record_id:'',attachments:[]},record=await drafts.create(scope,randomUUID(),draft,{request_id:randomUUID(),user_id:f.scope.owner_user_id,check});
  const request={request_id:randomUUID(),scope:f.scope,connection,authority:{consent_id:randomUUID(),consent_digest:'sha256:'+'d'.repeat(64),data_policy_digest:'sha256:'+'e'.repeat(64)},expires_at:new Date(Date.now()+29000).toISOString()};
  const nativeContext={org_id:f.scope.org_id,owner_user_id:f.scope.owner_user_id,installation_id:f.scope.installation_id,resource_binding_id:f.scope.resource_binding_id,account_id:scope.account_id,authority_version:'fixture',expires_at:Date.now()+29000,recheck:check,owner_capabilities:['read']};
@@ -45,8 +45,14 @@ test('revocation after connection admission still prevents SMTP DATA',async t=>{
 test('SMTP send cap: an accepted Send counts once across retry and restart; at the cap nothing reaches SMTP',async t=>{
  const limits={hourly:1,daily:5},f=await setup(t,{sendLimits:limits});const result=await f.execute();assert.equal(result.provider_succeeded,true);assert.equal(f.sends,1);
  assert.deepEqual(await f.cap(limits).usage(f.scope.org_id),{hour:1,day:1});await f.restart();assert.deepEqual(await f.execute(),result);assert.deepEqual(await f.cap(limits).usage(f.scope.org_id),{hour:1,day:1});
- const capped=await setup(t,{sendLimits:limits});await capped.cap(limits).record(capped.scope.org_id,randomUUID());
+ const capped=await setup(t,{sendLimits:limits});await capped.cap(limits).take(capped.scope.org_id,randomUUID());
  assert.deepEqual(await capped.execute(),sendLimitResult(capped.claim.run_id));assert.equal(capped.sends,0);
  const draft=await capped.drafts().read(capped.scope,capped.input.draft_id,async()=>{});assert.equal(draft.status,'draft');assert.equal(draft.send_limit.code,'EMAIL_SEND_LIMIT_REACHED');assert.equal(draft.send_limit.window,'hour');
 });
-test('SMTP send cap: unset on a self-hosted helper means no cap',async t=>{const f=await setup(t);await f.cap({hourly:1,daily:1}).record(f.scope.org_id,randomUUID());const result=await f.execute();assert.equal(result.provider_succeeded,true);assert.equal(f.sends,1);});
+test('SMTP send cap: unset on a self-hosted helper means no cap',async t=>{const f=await setup(t);await f.cap({hourly:1,daily:1}).take(f.scope.org_id,randomUUID());const result=await f.execute();assert.equal(result.provider_succeeded,true);assert.equal(f.sends,1);});
+test('SMTP send cap: a refused SMTP transaction gives its slot back; a partial or uncertain one keeps it, across a restart',async t=>{
+ const limits={hourly:5,daily:10};
+ const rejected=await setup(t,{sendLimits:limits,reject:true});await rejected.execute();assert.equal(rejected.sends,1);assert.deepEqual(await rejected.cap(limits).usage(rejected.scope.org_id),{hour:0,day:0});
+ const partial=await setup(t,{sendLimits:limits,partial:true});await partial.execute();assert.equal(partial.sends,1);assert.deepEqual(await partial.cap(limits).usage(partial.scope.org_id),{hour:1,day:1},'one recipient accepted: it counts');
+ const unknown=await setup(t,{sendLimits:limits,unknown:true});assert.deepEqual(await unknown.execute(),{status:'indeterminate'});await unknown.restart();assert.deepEqual(await unknown.execute(),{status:'indeterminate'});assert.equal(unknown.sends,1);assert.deepEqual(await unknown.cap(limits).usage(unknown.scope.org_id),{hour:1,day:1});
+});
