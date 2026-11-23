@@ -10,7 +10,8 @@ import {createImapReadPorts} from './imap-runtime-ports.mjs';
 import {createDurableStore} from './durable-store.mjs';
 import {createConnectionFormRuntime} from './connection-form-runtime.mjs';
 import {digest} from './contract.mjs';
-async function setup(t,{unknown=false,authorizeCostMs=0,revokeBeforeData=false}={}){
+import {createSendCap,sendLimitResult} from './send-cap.mjs';
+async function setup(t,{unknown=false,authorizeCostMs=0,revokeBeforeData=false,sendLimits=null}={}){
  let authorizationCount=0,elapsed=0;const now=()=>Date.now()+elapsed;
  const f=await fixture(),binding=randomUUID();let store=f.store,forms=f.forms;
  f.request.action_consents=[{action_binding_id:binding,action_key:'send_message',authority_epoch:1,consent_id:binding,consent_digest:'sha256:'+'1'.repeat(64),expires_at:f.scope.consent_expires_at}];
@@ -24,9 +25,9 @@ async function setup(t,{unknown=false,authorizeCostMs=0,revokeBeforeData=false}=
  assert.equal(sends,0);assert.equal(prepared.supplemental_effect.content_digest,prepared.input.mime_digest);assert.equal(prepared.input.effect_plan_digest,prepared.supplemental_effect.plan_digest);
  const input={...prepared.input,record_action_version:'deft.app_prepared_record_action.v1',record_store_key:'drafts',connection_session_id:connection.session_id,connection_revision:connection.session_revision,data_consent_id:request.authority.consent_id,data_consent_digest:request.authority.consent_digest,prepared_digest:prepared.snapshot_digest},registration={org_id:f.scope.org_id,runtime_registration_id:randomUUID(),runtime_epoch:1},lease_expires_at=new Date(Date.now()+28000).toISOString(),claim={run_id:randomUUID(),attempt_id:randomUUID(),operation_name:'send_message',lease_expires_at},started={run_id:claim.run_id,attempt_id:claim.attempt_id,input,lease_expires_at};
  const runtime_client={claim:async()=>claim,start:async()=>started,result:async()=>{},authorize:async()=>{authorizationCount++;elapsed+=authorizeCostMs;await check();return {schema_version:'deft.app_runtime_authority.v1',audience:'app_runtime',run_id:claim.run_id,attempt_id:claim.attempt_id,operation_name:'send_message',input,input_digest:'sha256:'+digest(input),lease_expires_at,org_id:f.scope.org_id,owner_id:f.scope.owner_user_id,app_installation_id:f.scope.installation_id,app_version_id:f.scope.app_version_id,grant_snapshot_id:f.scope.grant_snapshot_id,lifecycle_epoch:f.scope.lifecycle_epoch,grant_epoch:f.scope.grant_epoch,runtime_registration_id:registration.runtime_registration_id,runtime_binding_id:binding,runtime_epoch:1};}};
- const runner=()=>createSmtpSendRunner({runtime_client,registration,forms,connector,store,now});
+ const runner=()=>createSmtpSendRunner({runtime_client,registration,forms,connector,store,now,sendLimits,onSendLimit:()=>{}});
  t.after(async()=>{await store.close();});
- return {f,prepared,input,started,execute:()=>runner().executeClaim(claim,started),get sends(){return sends;},get authorizationCount(){return authorizationCount;},deny(){allowed=false;},async restart(){await store.close();store=await createDurableStore({root:f.root,encryption_key:f.encryption_key,key_id:'fixture',allow_windows_fixture:process.platform==='win32'});forms=createConnectionFormRuntime({...f.config,store});}};
+ return {f,claim,scope,drafts:()=>createDraftStore({store}),cap:limits=>createSendCap({store,limits,now}),prepared,input,started,execute:()=>runner().executeClaim(claim,started),get sends(){return sends;},get authorizationCount(){return authorizationCount;},deny(){allowed=false;},async restart(){await store.close();store=await createDurableStore({root:f.root,encryption_key:f.encryption_key,key_id:'fixture',allow_windows_fixture:process.platform==='win32'});forms=createConnectionFormRuntime({...f.config,store});}};
 }
 test('immutable SMTP copy plan is prepared without effects, released Run sends once, real store close/reopen preserves accepted receipt',async t=>{const f=await setup(t);const result=await f.execute();assert.equal(result.status,'returned');assert.equal(result.output.effect_outcome,'provider_managed');assert.equal(f.sends,1);await f.restart();assert.deepEqual(await f.execute(),result);assert.equal(f.sends,1);});
 test('unknown DATA survives actual store restart without replay; changed copy pins and revoked action fail before transmission',async t=>{const unknown=await setup(t,{unknown:true});assert.deepEqual(await unknown.execute(),{status:'indeterminate'});await unknown.restart();assert.deepEqual(await unknown.execute(),{status:'indeterminate'});assert.equal(unknown.sends,1);const tamper=await setup(t);tamper.started.input={...tamper.input,sent_copy_plan_digest:'sha256:'+'0'.repeat(64)};await assert.rejects(tamper.execute());assert.equal(tamper.sends,0);const revoked=await setup(t);revoked.deny();await assert.rejects(revoked.execute());assert.equal(revoked.sends,0);});
@@ -41,3 +42,11 @@ test('revocation after connection admission still prevents SMTP DATA',async t=>{
  const f=await setup(t,{revokeBeforeData:true});const result=await f.execute();assert.equal(result.status,'indeterminate');assert.equal(f.sends,0);
  await f.restart();await assert.rejects(f.execute(),/synthetic revoked/);assert.equal(f.sends,0);
 });
+test('SMTP send cap: an accepted Send counts once across retry and restart; at the cap nothing reaches SMTP',async t=>{
+ const limits={hourly:1,daily:5},f=await setup(t,{sendLimits:limits});const result=await f.execute();assert.equal(result.provider_succeeded,true);assert.equal(f.sends,1);
+ assert.deepEqual(await f.cap(limits).usage(f.scope.org_id),{hour:1,day:1});await f.restart();assert.deepEqual(await f.execute(),result);assert.deepEqual(await f.cap(limits).usage(f.scope.org_id),{hour:1,day:1});
+ const capped=await setup(t,{sendLimits:limits});await capped.cap(limits).record(capped.scope.org_id,randomUUID());
+ assert.deepEqual(await capped.execute(),sendLimitResult(capped.claim.run_id));assert.equal(capped.sends,0);
+ const draft=await capped.drafts().read(capped.scope,capped.input.draft_id,async()=>{});assert.equal(draft.status,'draft');assert.equal(draft.send_limit.code,'EMAIL_SEND_LIMIT_REACHED');assert.equal(draft.send_limit.window,'hour');
+});
+test('SMTP send cap: unset on a self-hosted helper means no cap',async t=>{const f=await setup(t);await f.cap({hourly:1,daily:1}).record(f.scope.org_id,randomUUID());const result=await f.execute();assert.equal(result.provider_succeeded,true);assert.equal(f.sends,1);});

@@ -5,14 +5,18 @@ import {createDraftStore,uuid} from './draft-store.mjs';
 import {createPreparedActions,RELEASE_INPUT_KEYS,EFFECT_INPUT_KEYS,preparedInputKeys} from './prepared-actions.mjs';
 import {createSmtpCompoundSend} from './smtp-compound.mjs';
 import {canonical,digest,exact,fail,opaque,hostUuid} from './contract.mjs';
+import {createSendCap,sendLimitResult} from './send-cap.mjs';
 
 /** Public reviewed Run execution only. Neither a data nomination nor a prepared
  * plan is effect authority. Every socket/effect uses fresh exact Run authority. */
-export function createSmtpSendRunner({runtime_client,registration,forms,connector,store,now=Date.now,onPhase}){
+export function createSmtpSendRunner({runtime_client,registration,forms,connector,store,now=Date.now,onPhase,sendLimits=null,onSendLimit}){
  exact(registration,['org_id','runtime_registration_id','runtime_epoch']);
  if(!uuid(registration.org_id)||!uuid(registration.runtime_registration_id)||!Number.isSafeInteger(registration.runtime_epoch)||registration.runtime_epoch<0||['claim','start','authorize','result'].some(key=>typeof runtime_client?.[key]!=='function'))fail('EMAIL_SMTP_CHANNEL_INVALID');
  const organize=createOrganizeRunner({runtime_client,registration,provider:'imap_smtp',forms,connector,store,now,onPhase});
  const prepared=createPreparedActions({store,now}),drafts=createDraftStore({store,now}),compound=createSmtpCompoundSend({forms,store,connector,now,onPhase});
+ const cap=createSendCap({store,limits:sendLimits,now,...(onSendLimit?{onLimit:onSendLimit}:{})});
+ // Counting must never turn a provider-accepted Send into a failure.
+ const counted=async(org_id,run_id)=>{try{await cap.record(org_id,run_id);}catch(error){try{console.error(JSON.stringify({event:'email_send_count_failed',code:error?.code??'EMAIL_SEND_LIMIT_UNAVAILABLE'}));}catch{}}};
  async function executeClaim(claim,started,signal){
   if(!uuid(claim?.run_id)||!uuid(claim.attempt_id)||claim.operation_name!=='send_message'||started.run_id!==claim.run_id||started.attempt_id!==claim.attempt_id)fail('EMAIL_SMTP_CLAIM_DENIED');
   exact(started.input,[...RELEASE_INPUT_KEYS,...EFFECT_INPUT_KEYS]);const input=structuredClone(started.input),input_digest='sha256:'+digest(input);
@@ -37,10 +41,14 @@ export function createSmtpSendRunner({runtime_client,registration,forms,connecto
    if(future&&(!release||release.run_id!==claim.run_id||release.snapshot_digest!==input.prepared_digest))fail('EMAIL_SMTP_FUTURE_RELEASE_DENIED');
    const queuedEffect=future?{run_id:claim.run_id,release_id:release.release_id,snapshot_digest:input.prepared_digest}:null;
    const record=await drafts.read(scope,input.draft_id,checkLocal);if(record.status!==(future?'submitted':'draft')||record.revision!==input.draft_revision+(future?1:0)||future&&canonical(record.send_effect)!==canonical({...queuedEffect,state:'queued'})||record.content_revision!==input.content_revision||'sha256:'+record.content_digest!==input.content_digest||'sha256:'+digest(record.content.attachments)!==input.file_manifest_digest)fail('EMAIL_SMTP_DRAFT_CHANGED');
+   // Workspace send cap: refuse before any reservation or SMTP connection.
+   const limited=await cap.admit(scope.org_id);
+   if(limited){try{await drafts.recordSendLimit(scope,input.draft_id,claim.run_id,limited);}catch{}await check();return sendLimitResult(claim.run_id);}
    await check();const packet=await prepared.bind(value,claim.run_id,checkLocal,identity=>prepared.withSnapshot(scope,input.snapshot_id,checkLocal,async(current,persist)=>{
     if(current.state!=='prepared')return 'unknown';if(future)await drafts.reserveQueuedSend(scope,input.draft_id,input.draft_revision+1,input.content_digest.slice(7),queuedEffect,checkLocal);else await drafts.reserveSend(scope,input.draft_id,input.draft_revision,input.content_digest.slice(7),claim.run_id,checkLocal);
     await persist({...current,state:'provider_started',effect:{run_id:claim.run_id,attempt_id:claim.attempt_id,input_digest,identity,authority,result:null,compound_receipt:null}});reserved=true;return 'reserved';}));
    const receipt=await compound.execute({operation_id:claim.run_id,attempt_id:claim.attempt_id,connection:value.connection,scope:value.connection_scope,action_binding_id:authority.runtime_binding_id,snapshot_digest:value.prepared.snapshot_digest,copy_plan:value.copy_plan,mime_bytes:packet.mime_bytes,mime_digest:packet.mime_digest,from_address:packet.from_address,envelope:packet.envelope,check,checkLocal,signal:combined,expires_at:deadline});
+   if(receipt.transport_outcome==='accepted')await counted(scope.org_id,claim.run_id);
    const result=receipt.transport_outcome==='unknown'?{status:'indeterminate'}:{status:'returned',provider_succeeded:receipt.transport_outcome==='accepted',output:{operation_id:claim.run_id,primary_outcome:receipt.transport_outcome,effect_outcome:publicEffectReceipt(receipt,value.prepared.supplemental_effect).effect_outcome,inspection_available:receipt.transport_outcome==='accepted'&&receipt.copy_outcome==='unknown'}};
    await prepared.withSnapshot(scope,input.snapshot_id,async()=>{},async(current,persist)=>{if(current.effect?.run_id!==claim.run_id||current.effect.input_digest!==input_digest)fail('EMAIL_SMTP_CONFLICT');await persist({...current,state:receipt.transport_outcome==='unknown'?'unknown':'accepted',effect:{...current.effect,result,compound_receipt:receipt}});});
    await drafts.recordSendOutcome(scope,input.draft_id,claim.run_id,receipt.transport_outcome==='accepted'?'accepted':'unknown',receipt.transport_outcome==='accepted'?acceptedRecipientMetadata({payload:value.snapshot.payload,installation_id:value.connection_scope.installation_id,run_id:claim.run_id,snapshot_id:input.snapshot_id,accepted_at:new Date(now()).toISOString()}):undefined);await check();return result;
@@ -49,6 +57,7 @@ export function createSmtpSendRunner({runtime_client,registration,forms,connecto
    // later copy authority/disclosure was revoked. Preserve that fact without
    // provider I/O or disclosing it under revoked authority.
    const receipt=await compound.status(scope,claim.run_id,async()=>{}),accepted=receipt?.transport_outcome==='accepted';
+   if(accepted)await counted(scope.org_id,claim.run_id);
    const result=accepted?{status:'returned',provider_succeeded:true,output:{operation_id:claim.run_id,primary_outcome:'accepted',effect_outcome:publicEffectReceipt(receipt,value.prepared.supplemental_effect).effect_outcome,inspection_available:receipt.copy_outcome==='unknown'}}:null;
    await prepared.withSnapshot(scope,input.snapshot_id,async()=>{},async(current,persist)=>{if(current.state!=='accepted')await persist({...current,state:accepted?'accepted':'unknown',effect:{...current.effect,...(receipt?{compound_receipt:receipt}:{}),...(result?{result}: {})}});});
    await drafts.recordSendOutcome(scope,input.draft_id,claim.run_id,accepted?'accepted':'unknown',accepted?acceptedRecipientMetadata({payload:value.snapshot.payload,installation_id:value.connection_scope.installation_id,run_id:claim.run_id,snapshot_id:input.snapshot_id,accepted_at:new Date(now()).toISOString()}):undefined);

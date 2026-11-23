@@ -14,15 +14,19 @@ import {canonical,digest,exact,fail,opaque,hostUuid,consentDeadline} from './con
 
 import {createGraphSendJournal} from './graph-send-journal.mjs';
 import {purposeFor} from './purpose-set.mjs';
+import {createSendCap,sendLimitResult} from './send-cap.mjs';
 const noDisclosure={status:'indeterminate'};
 const accountFromRecord=(binding,record)=>{if(!record?.secret?.identity||record.health!=='connected')return null;const identity=record.secret.identity;return validateEmailAccount({account_id:binding.account_id,provider:binding.provider,display_label:identity.display_label,primary_address:identity.primary_address,verified_sender_identities:[...identity.verified_sender_identities],capabilities:grantedOAuthCapabilities(binding,record.secret.scopes),connection_target:binding.connection_target,resource_binding_id:binding.resource_binding_id,action_binding_id:binding.action_binding_id,authority_epoch:binding.authority_epoch,health:'connected'});};
 /** Executes only claims received from the public reviewed Runtime channel.
  * Snapshot and provider-start reservations are durable before dispatch. No HTTP
  * data method, author nomination, retry or process restart can resend a packet. */
-export function createSendRunner({runtime_client,registration,client,provider='gmail',store,encryption_key,key_id,fetch:fetchImpl=globalThis.fetch,now=Date.now}){
+export function createSendRunner({runtime_client,registration,client,provider='gmail',store,encryption_key,key_id,fetch:fetchImpl=globalThis.fetch,now=Date.now,sendLimits=null,onSendLimit}){
   exact(registration,['org_id','runtime_registration_id','runtime_epoch']);
   if(!uuid(registration.org_id)||!uuid(registration.runtime_registration_id)||!Number.isInteger(registration.runtime_epoch)||registration.runtime_epoch<0||['claim','start','authorize','result'].some(method=>typeof runtime_client?.[method]!=='function'))fail('EMAIL_SEND_CHANNEL_CONFIG_INVALID');
   client=validateOAuthClient(provider,client);const fingerprint=oauthClientFingerprint(provider,client),custody=createEncryptedEmailCustody({encryption_key,key_id,store,now}),drafts=createDraftStore({store,now}),prepared=createPreparedActions({store,now});
+  const cap=createSendCap({store,limits:sendLimits,now,...(onSendLimit?{onLimit:onSendLimit}:{})});
+  // Counting must never turn a provider-accepted Send into a failure.
+  const counted=async(org_id,run_id)=>{try{await cap.record(org_id,run_id);}catch(error){try{console.error(JSON.stringify({event:'email_send_count_failed',code:error?.code??'EMAIL_SEND_LIMIT_UNAVAILABLE'}));}catch{}}};
   async function executeClaim(claim,started,signal){
     if(!uuid(claim?.run_id)||!uuid(claim.attempt_id)||claim.operation_name!=='send_message'||started.run_id!==claim.run_id||started.attempt_id!==claim.attempt_id)fail('EMAIL_SEND_CLAIM_DENIED');
     exact(started.input,RELEASE_INPUT_KEYS);const input=structuredClone(started.input),input_digest='sha256:'+digest(input);
@@ -56,6 +60,9 @@ export function createSendRunner({runtime_client,registration,client,provider='g
       const queuedEffect=future?{run_id:claim.run_id,release_id:release.release_id,snapshot_digest:input.prepared_digest}:null;
       const reserve=()=>future?drafts.reserveQueuedSend(scope,input.draft_id,input.draft_revision+1,input.content_digest.slice(7),queuedEffect,localCheck):drafts.reserveSend(scope,input.draft_id,input.draft_revision,input.content_digest.slice(7),claim.run_id,localCheck);
       const record=await drafts.read(scope,input.draft_id,localCheck);if(record.status!==(future?'submitted':'draft')||record.revision!==input.draft_revision+(future?1:0)||future&&canonical(record.send_effect)!==canonical({...queuedEffect,state:'queued'})||record.content_revision!==input.content_revision||'sha256:'+record.content_digest!==input.content_digest||'sha256:'+digest(record.content.attachments)!==input.file_manifest_digest)fail('EMAIL_SEND_DRAFT_CHANGED');
+      // Workspace send cap: refuse before any reservation or provider call.
+      const limited=await cap.admit(scope.org_id);
+      if(limited){try{await drafts.recordSendLimit(scope,input.draft_id,claim.run_id,limited);}catch{}await check();return sendLimitResult(claim.run_id);}
       const bridge=createNativeEmailBridge({store,selected:session.binding,clients:{[provider]:client},custody:fencedCustody,accountFromRecord,now,fetch:async(url,options={})=>{await check();await assertNoCredentialRepair({store,scope:session.scope});return fetchImpl(url,{...options,signal:AbortSignal.any([combined,options.signal].filter(Boolean))});}});
       const packet=await prepared.bind(value,claim.run_id,localCheck,async identity=>prepared.withSnapshot(scope,input.snapshot_id,localCheck,async(current,persist)=>{
         if(current.state!=='prepared')return current.effect?.run_id===claim.run_id?'replay':'unknown';
@@ -74,6 +81,7 @@ export function createSendRunner({runtime_client,registration,client,provider='g
       result=await bridge.nativeEmailSend({operation_id:claim.run_id,mime_bytes:packet.mime_bytes,mime_digest:packet.mime_digest,from_address:packet.from_address,thread_id:packet.thread_id},context);}catch{
         if(providerStarted||preparationStarted){await prepared.withSnapshot(scope,input.snapshot_id,async()=>{},async(current,persist)=>{if(current.effect?.run_id===claim.run_id&&current.state!=='accepted')await persist({...current,state:'unknown'});});if(providerStarted)await drafts.recordSendOutcome(scope,input.draft_id,claim.run_id,'unknown');}return noDisclosure;
       }
+      await counted(scope.org_id,claim.run_id);
       const publicResult={status:'returned',provider_succeeded:true,output:{operation_id:claim.run_id,primary_outcome:'accepted',effect_outcome:'provider_managed',inspection_available:false}};
       // Custody of a completed effect survives subsequent revocation. Persist
       // validated acceptance first, then recheck before disclosing to the host.
