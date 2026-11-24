@@ -4,7 +4,7 @@ Use [the authoritative compatibility record](https://github.com/Maneek21/deft-em
 
 ## Runtime32 send cap and App13 notice: local evidence
 
-Email35 changes the Runtime (`runtime/send-cap.mjs`, both send runners, `draft-store.mjs`, helper start) and one App notice (`app/sent-status.mjs`, `app/worker.mjs`). `runtime/send-cap.test.mjs` and `runtime/smtp-send-runner.test.mjs` cover the limits, refusal before the provider, restart persistence and concurrent Sends, and `app/preview-ui.test.mjs` covers the notice; CI runs them on Linux (a dedicated step runs `send-cap.test.mjs`). No real mailbox, browser or Host has been run to a real limit; these are local and CI results, not a live deployment claim.
+Email35 changes the Runtime (`runtime/send-cap.mjs`, both send runners, `draft-store.mjs`, helper start) and one App notice (`app/sent-status.mjs`, `app/worker.mjs`). `runtime/send-cap.test.mjs` and `runtime/smtp-send-runner.test.mjs` cover the limits, refusal before the provider, restart persistence and concurrent Sends, and `app/preview-ui.test.mjs` covers the notice; CI runs them on Linux (a separate command in the focused Runtime contracts step runs `send-cap.test.mjs`). No real mailbox, browser or Host has been run to a real limit; these are local and CI results, not a live deployment claim.
 
 ## Runtime31 form-mode start repair: local evidence
 
