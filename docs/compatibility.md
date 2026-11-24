@@ -2,6 +2,18 @@
 
 [`release/compatibility.json`](../release/compatibility.json) is the source template and entry point. Follow its `authoritative_release_manifest` URL for the single authoritative detached cross-component release record. Use that resolved record for exact Host and Email commits, versions, image digests, schema/contracts, Kit artifacts, download locations, checksums and corresponding source. The publication state in that record distinguishes a prepared candidate from a verified public release. Do not replace its pins with a branch tip, a similarly named preview or a demo image.
 
+## Release preview.35 contract
+
+Bundle preview.35 adds the per-workspace send cap (#38). It requires Host138 or newer and pairs App1.9.1-preview.13 with Runtime0.4.0-preview.32; App13 differs from App12 only in the notice below, and the reviewed Send output schema is unchanged. App12 has no text for a refused Send: it shows no limit notice on the kept draft, and checking the status of a submitted record falls back to its generic "current delivery receipt is unavailable" message. Install App13 to see the limit.
+
+- **What it does.** Runtime32 limits how many emails one workspace can send in any rolling hour and any rolling 24 hours. Receiving, reading and organizing mail are not capped. A Send takes its slot, keyed by its Run id, in the same locked step that checks the limit, just before the provider is called, and gives it back only for a failure before the provider call or a definitive SMTP rejection. Accepted, partly accepted and uncertain Sends count; a retry of the same Run never counts twice; a restart keeps the counts (#38, `docs/setup.md#workspace-send-cap`).
+- **Settings.** `EMAIL_RUNTIME_SEND_LIMIT_HOURLY` and `EMAIL_RUNTIME_SEND_LIMIT_DAILY`, read from the helper's environment when it starts. Each is a whole number from 1 to 10000.
+- **Defaults when a setting is absent.** The hosted form helper (form mode with `registration_admission: "host_authority"`) uses 200 an hour and 2,000 a day. A self-hosted helper, including every OAuth-mode helper, has no cap until the operator sets one.
+- **Invalid value.** Any other value, the empty string included (`EMAIL_RUNTIME_SEND_LIMIT_HOURLY=`), makes the helper refuse to start with `EMAIL_RUNTIME_CONFIG_INVALID`, in form mode and OAuth mode alike. Nothing is clamped or ignored.
+- **When it is reached.** The Send is refused before any provider call and the Run ends failed with `primary_outcome: "send_limit_reached"`. An immediate Send leaves the draft editable and without a Run id, and App13 shows on that draft: "Not sent. This workspace has sent 200 emails in the last hour, its limit. Sending starts again at about 2:20 PM. This message is kept, and receiving email is not affected." (the number is the limit that applies, "24 hours" replaces "hour" for the daily limit, and a weekday is added when sending resumes more than twelve hours away or on another day). App13 also shows a shorter "Not sent: this workspace reached its sending limit. Nothing went to the mail provider." when the status of a submitted record with a Run id is checked. The refused Run never sends later; for an immediate Send, sending the editable draft again starts a new reviewed Run, while a refused scheduled Send stays submitted with its queued effect and opens read-only in history. The helper writes one `email_send_limit_reached` log line per window and has no channel to message administrators.
+
+Runtime32 otherwise carries Runtime31 unchanged. Kit pins and every Host contract are unchanged.
+
 ## Release preview.34 contract
 
 Bundle preview.34 is a Runtime-only repair requiring Host138 or newer and pairing the unchanged App1.9.1-preview.12 from preview.33 with Runtime0.4.0-preview.31. Runtime31 starts in hosted form mode from the operator image's own command, `node server.mjs`; Runtime30 exited 13 there on an import cycle under its top-level await, so the credential form never started. `readOperatorJson` moved into `runtime/operator-json.mjs` and `server.mjs` re-exports it unchanged. OAuth mode was unaffected. Runtime31 otherwise carries Runtime30 unchanged, including the credential form and both opt-in settings. App bytes, Kit pins and every Host contract are unchanged.
@@ -20,9 +32,9 @@ Bundle preview.31 is an App-only no-diff upgrade candidate requiring Host138 or 
 
 | Component | Version/contract |
 |---|---|
-| Email App | `1.9.1-preview.12` |
+| Email App | `1.9.1-preview.13` |
 | App Author Kit | `0.1.0-alpha.42` |
-| Email Runtime | `0.4.0-preview.31` |
+| Email Runtime | `0.4.0-preview.32` |
 | Runtime Author Kit | `0.1.0-alpha.42` |
 | Deft Host | Minimum `0.3.0-preview.138`, Apps-enabled developer-preview image; schema `131` plus the listed generic contracts |
 | App protocol | Manifest protocol 7; experience bundle v4; bridge v1; trusted renderer v2 |

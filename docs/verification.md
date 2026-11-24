@@ -1,6 +1,10 @@
 # Verification and acceptance
 
-Use [the authoritative compatibility record](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.34/compatibility.json) for the exact release source, artifacts, checksums and publication state. A prepared candidate is not published merely because its files build. The final public prerelease must link its acceptance results and disclose unverified behavior.
+Use [the authoritative compatibility record](https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.35/compatibility.json) for the exact release source, artifacts, checksums and publication state. A prepared candidate is not published merely because its files build. The final public prerelease must link its acceptance results and disclose unverified behavior.
+
+## Runtime32 send cap and App13 notice: local evidence
+
+Email35 changes the Runtime (`runtime/send-cap.mjs`, both send runners, `draft-store.mjs`, helper start) and one App notice (`app/sent-status.mjs`, `app/worker.mjs`). `runtime/send-cap.test.mjs` and `runtime/smtp-send-runner.test.mjs` cover the limits, refusal before the provider, restart persistence and concurrent Sends, and `app/preview-ui.test.mjs` covers the notice; CI runs them on Linux (a separate command in the focused Runtime contracts step runs `send-cap.test.mjs`). No real mailbox, browser or Host has been run to a real limit; these are local and CI results, not a live deployment claim.
 
 ## Runtime31 form-mode start repair: local evidence
 
