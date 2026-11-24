@@ -1,8 +1,8 @@
 {
   "schema": "deft.email.preview.compatibility.v1",
   "publication_state": "source-template",
-  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.34/compatibility.json",
-  "resolution": "Email34 is a Runtime-only repair from Email33. Runtime31 starts in hosted form mode from the operator image's own command, `node server.mjs`. Runtime30 exited 13 there: server.mjs, running as the entry, awaited imap-server.mjs inside its top-level await while imap-server.mjs imported readOperatorJson back from server.mjs. readOperatorJson now lives in operator-json.mjs, which server.mjs re-exports unchanged, so imap-server.mjs no longer imports server.mjs and the cycle is gone. OAuth mode never took that import and is unaffected. The exported Runtime archive test now starts `node server.mjs` from the extracted archive in form mode and in OAuth mode and requires each to listen, form mode to answer /setup, /v1 to refuse a request without a bearer and SIGTERM to stop it cleanly. Runtime31 otherwise carries Runtime30 unchanged, including the credential form and the opt-in endpoint_policy and registration_admission settings. App12 is unchanged from Email33. No Host contract changes. Both Kit42 consumers retain the exact published Host134 bytes, producer metadata and corresponding source. The detached Email34 manifest must resolve final source and public artifacts; this template does not claim CI, publication or live deployment acceptance.",
+  "authoritative_release_manifest": "https://github.com/Maneek21/deft-email/releases/download/v1.9.0-preview.35/compatibility.json",
+  "resolution": "Email35 adds the per-workspace send cap (#38) to Runtime and shows it in the App. Runtime32 caps the emails one workspace can send: two rolling windows, an hour and 24 hours, set from the helper's environment by EMAIL_RUNTIME_SEND_LIMIT_HOURLY and EMAIL_RUNTIME_SEND_LIMIT_DAILY, each a whole number from 1 to 10000. Any other value, the empty string included, stops the helper from starting. When a setting is absent the hosted form helper (form mode with registration_admission \"host_authority\") uses 200 an hour and 2,000 a day, and a self-hosted helper has no cap. A Send takes its slot, keyed by its Run id, in the same locked step that checks the cap just before the provider is called; the slot is given back only for a Send known not to have reached the provider, so accepted, partly accepted and uncertain Sends count and a retry never counts twice. Past a limit the Send is refused before any provider call: the Run ends failed with primary_outcome send_limit_reached and the kept draft carries EMAIL_SEND_LIMIT_REACHED. App13 shows it on the draft: \"Not sent. This workspace has sent 200 emails in the last hour, its limit. Sending starts again at about 2:20 PM. This message is kept, and receiving email is not affected.\" Receiving, reading and organizing mail are not capped. The reviewed Send output schema is unchanged. No Host contract changes. Both Kit42 consumers retain the exact published Host134 bytes, producer metadata and corresponding source. The detached Email35 manifest must resolve final source and public artifacts; this template does not claim CI, publication or live deployment acceptance.",
   "host": {
     "version": "0.3.0-preview.138",
     "minimum_version": "0.3.0-preview.138",
@@ -19,14 +19,13 @@
     }
   },
   "email": {
-    "tag": "v1.9.0-preview.34",
+    "tag": "v1.9.0-preview.35",
     "repository": "https://github.com/Maneek21/deft-email",
-    "app_version": "1.9.1-preview.12",
-    "runtime_version": "0.4.0-preview.31",
-    "app_unchanged_from": "v1.9.0-preview.33",
+    "app_version": "1.9.1-preview.13",
+    "runtime_version": "0.4.0-preview.32",
     "app_kit_version": "0.1.0-alpha.42",
     "runtime_kit_version": "0.1.0-alpha.42",
-    "kit_compatibility": "Host138 must be deployed before this App. Both consumers retain exact Host134 Kit alpha.42 with app-owned domain modules. Runtime31 preserves all fresh provider, OAuth, external-image, commit and disclosure guards and Send exact-message review; timing diagnostics never supply authority. App12 is unchanged from Email33."
+    "kit_compatibility": "Host138 must be deployed before this App. Both consumers retain exact Host134 Kit alpha.42 with app-owned domain modules. Runtime32 preserves all fresh provider, OAuth, external-image, commit and disclosure guards and Send exact-message review; timing diagnostics never supply authority. App13 adds only the send-cap notice; Send authority is unchanged."
   },
   "kits": [
     {
